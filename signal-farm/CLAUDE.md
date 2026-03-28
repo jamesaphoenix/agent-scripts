@@ -25,4 +25,3 @@ Before labeling novelty or frequency, build an evidence bundle from:
 
 - Use DB-backed cassette replay for evals and golden collection whenever possible.
 - Avoid provider-vs-provider novelty comparisons.
-- Keep the detailed plan in [specs/signal-farm.md](./specs/signal-farm.md).

@@ -1,0 +1,4 @@
+version: 1
+display_name: Auto Research
+short_description: Run signal-farm query planning and retrieval safely.
+default_prompt: Use the signal-farm spec and configs to plan or operate daily research runs with budget-aware provider routing and replay-aware execution.

@@ -1,0 +1,12 @@
+budgets:
+  daily_usd: 40
+  stages:
+    planning_and_expansion: 0.15
+    retrieval: 0.40
+    kb_and_idea_linking: 0.15
+    dedupe: 0.10
+    novelty_and_frequency: 0.10
+    digest_and_review: 0.05
+    evals_and_goldens: 0.05
+  pinned_query_reserve_usd: 6
+  google_usage_policy: premium_adjudication_only

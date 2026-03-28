@@ -1,0 +1,64 @@
+# reverse-ralph.config — Project-specific settings
+# Copy this file to reverse-ralph.config and fill in your values.
+# All variables here can also be set via CLI flags or environment variables.
+
+# ============================================================================
+# Source Codebase
+# ============================================================================
+
+# Path to the codebase you're reverse-engineering
+SOURCE_DIR="./source-app"
+
+# Git URL to clone if SOURCE_DIR doesn't exist (optional)
+SOURCE_REPO_URL="https://github.com/org/repo.git"
+
+# Clone depth (default: 1 for shallow clone)
+SOURCE_CLONE_DEPTH=1
+
+# ============================================================================
+# Plan & Output
+# ============================================================================
+
+# Markdown file with the module table (see PLAN FILE FORMAT in --help)
+PLAN_FILE="$SCRIPT_DIR/plan.md"
+
+# Prompt template with __PLACEHOLDERS__ (optional)
+PROMPT_TEMPLATE="$SCRIPT_DIR/prompt.md"
+
+# Custom instruction template per phase (optional — defaults are sensible)
+# INSTRUCTION_FILE="$SCRIPT_DIR/instructions.md"
+
+# Comma-separated phases to run, in order
+PHASES="overview,prd,design-doc"
+
+# Output directory for generated specs (relative to REPO_ROOT)
+SPECS_DIR="specs"
+
+# ============================================================================
+# Project Context (used in default instruction generation)
+# ============================================================================
+
+# Display name for the source project
+PROJECT_NAME="My Source App"
+
+# Describe your target stack for design-doc phase (optional).
+# If set, this is injected into the design-doc instruction so the agent
+# knows how to translate the source architecture into your stack.
+#
+# Example for an Effect.ts project:
+# OUR_STACK_DESCRIPTION="- Express routes -> Effect HttpApi endpoints
+# - Prisma models -> Drizzle schema
+# - Services -> Effect services (DDD layers)
+# - Bull queues -> Temporal workflows
+# - RBAC -> Our permission system"
+OUR_STACK_DESCRIPTION=""
+
+# ============================================================================
+# Engine Defaults
+# ============================================================================
+
+ENGINE="auto"
+DANGEROUS="true"
+# CODEX_MODEL=""
+# CODEX_PROFILE=""
+# NO_MCP="false"

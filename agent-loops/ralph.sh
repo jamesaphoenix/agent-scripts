@@ -42,7 +42,7 @@ CODEX_MODEL="${CODEX_MODEL:-}"
 CODEX_PROFILE="${CODEX_PROFILE:-}"
 STREAM_UI="${STREAM_UI:-true}"
 NO_MCP="${NO_MCP:-false}"
-DANGEROUS="${DANGEROUS:-false}"
+DANGEROUS="${DANGEROUS:-true}"
 DRY_RUN=false
 LOG_DIR="${LOG_DIR:-/tmp/ralph-loop-logs}"
 

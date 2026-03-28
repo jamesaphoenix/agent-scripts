@@ -43,7 +43,7 @@ LOG_DIR="$SCRIPT_DIR/logs"
 ENGINE="${ENGINE:-auto}"
 CODEX_MODEL="${CODEX_MODEL:-}"
 CODEX_PROFILE="${CODEX_PROFILE:-}"
-DANGEROUS="${DANGEROUS:-false}"
+DANGEROUS="${DANGEROUS:-true}"
 NO_MCP="${NO_MCP:-false}"
 
 # ---- Colours ----------------------------------------------------------------

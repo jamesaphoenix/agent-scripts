@@ -356,6 +356,86 @@ render_event() {
 }
 
 # ============================================================================
+# Codex: JSONL UI Renderer (--json output)
+# ============================================================================
+
+render_codex_event() {
+  local line="$1"
+  local type item_type
+
+  type=$(echo "$line" | jq -r '.type // empty' 2>/dev/null) || return 0
+
+  case "$type" in
+    thread.started)
+      local thread_id
+      thread_id=$(echo "$line" | jq -r '.thread_id // "unknown"')
+      echo -e "${DIM}  thread: ${thread_id}${NC}"
+      ;;
+    turn.started)
+      echo -e "${DIM}  -- turn started --${NC}"
+      ;;
+    item.started)
+      item_type=$(echo "$line" | jq -r '.item.type // empty' 2>/dev/null) || true
+      if [[ "$item_type" == "command_execution" ]]; then
+        local cmd
+        cmd=$(echo "$line" | jq -r '.item.command // ""' 2>/dev/null) || true
+        # Strip the shell wrapper prefix for display
+        cmd="${cmd#/bin/zsh -lc }"
+        cmd="${cmd#/bin/bash -lc }"
+        echo -e "  ${YELLOW}> ${cmd}${NC}"
+      fi
+      ;;
+    item.completed)
+      item_type=$(echo "$line" | jq -r '.item.type // empty' 2>/dev/null) || true
+      case "$item_type" in
+        agent_message)
+          local text
+          text=$(echo "$line" | jq -r '.item.text // ""' 2>/dev/null) || true
+          if [[ -n "$text" ]]; then
+            echo -e "$text"
+          fi
+          ;;
+        command_execution)
+          local cmd exit_code output
+          cmd=$(echo "$line" | jq -r '.item.command // ""' 2>/dev/null) || true
+          cmd="${cmd#/bin/zsh -lc }"
+          cmd="${cmd#/bin/bash -lc }"
+          exit_code=$(echo "$line" | jq -r '.item.exit_code // ""' 2>/dev/null) || true
+          output=$(echo "$line" | jq -r '.item.aggregated_output // ""' 2>/dev/null) || true
+          if [[ "$exit_code" == "0" ]]; then
+            echo -e "  ${GREEN}ok${NC} ${DIM}${cmd}${NC}"
+          else
+            echo -e "  ${RED}err (exit ${exit_code})${NC} ${DIM}${cmd}${NC}"
+          fi
+          if [[ -n "$output" ]]; then
+            echo "$output" | head -5 | sed "s/^/  ${DIM}/" | sed "s/$/${NC}/"
+          fi
+          ;;
+        file_edit|file_create)
+          local path
+          path=$(echo "$line" | jq -r '.item.path // .item.file // ""' 2>/dev/null) || true
+          echo -e "  ${YELLOW}> ${item_type}${NC} ${path}"
+          ;;
+        *)
+          # Catch-all for other item types
+          local summary
+          summary=$(echo "$line" | jq -r '.item | tostring | if length > 150 then .[:150] + "..." else . end' 2>/dev/null) || true
+          [[ -n "$summary" && "$summary" != "{}" ]] && echo -e "  ${DIM}${item_type}: ${summary}${NC}"
+          ;;
+      esac
+      ;;
+    turn.completed)
+      local input_tokens output_tokens cached
+      input_tokens=$(echo "$line" | jq -r '.usage.input_tokens // 0' 2>/dev/null) || true
+      output_tokens=$(echo "$line" | jq -r '.usage.output_tokens // 0' 2>/dev/null) || true
+      cached=$(echo "$line" | jq -r '.usage.cached_input_tokens // 0' 2>/dev/null) || true
+      echo ""
+      echo -e "${DIM}  -- tokens: ${input_tokens} in (${cached} cached) / ${output_tokens} out --${NC}"
+      ;;
+  esac
+}
+
+# ============================================================================
 # Engine Dispatch
 # ============================================================================
 
@@ -433,8 +513,16 @@ ${prompt}
 EOF
 )
 
-  echo "$codex_prompt" | codex "${codex_args[@]}" - 2>&1 | tee "$log_file"
-  return "${PIPESTATUS[1]}"
+  if [[ "$STREAM_UI" == "true" ]]; then
+    codex_args+=(--json)
+    echo "$codex_prompt" | codex "${codex_args[@]}" - 2>&1 \
+      | tee "$log_file" \
+      | while IFS= read -r line; do render_codex_event "$line"; done
+    return "${PIPESTATUS[0]}"
+  else
+    echo "$codex_prompt" | codex "${codex_args[@]}" - 2>&1 | tee "$log_file"
+    return "${PIPESTATUS[1]}"
+  fi
 }
 
 # ============================================================================

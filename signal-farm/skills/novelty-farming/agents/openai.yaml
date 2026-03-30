@@ -1,4 +1,0 @@
-version: 1
-display_name: Novelty Farming
-short_description: Judge novelty, recurrence, and usefulness against the signal-farm KB/KG.
-default_prompt: Use the signal-farm evidence rules to compare candidates against the KB/KG, then label novelty, recurrence, validation state, and review value.

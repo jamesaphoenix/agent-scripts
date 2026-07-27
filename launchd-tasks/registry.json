@@ -1,0 +1,79 @@
+{
+  "version": 1,
+  "tasks": [
+    {
+      "id": "freeagent-invoice-harvest",
+      "name": "Hourly FreeAgent invoice harvester",
+      "enabled": true,
+      "hosts": [
+        "Jamess-Mac-Studio",
+        "JamessMacStudio.fritz.box"
+      ],
+      "users": [
+        "jamesphoenix"
+      ],
+      "launchdLabel": "com.jud.invoice-harvest",
+      "schedule": "hourly plus RunAtLoad",
+      "requiresOpServiceAccount": true,
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/freeagent-invoice-collector",
+        "command": [
+          "bash",
+          "scripts/install-launchd.sh"
+        ]
+      },
+      "notes": "Runs the FreeAgent invoice collector from the Mac Studio runtime copy."
+    },
+    {
+      "id": "octospark-temporal-route-health",
+      "name": "Octospark Temporal route health",
+      "enabled": true,
+      "hosts": [
+        "Jamess-Mac-Studio",
+        "Jamess-Mac-Studio.local",
+        "JamessMacStudio.fritz.box"
+      ],
+      "users": [
+        "jamesphoenix"
+      ],
+      "launchdLabel": "com.octospark.temporal-route-health",
+      "schedule": "every 5 minutes plus RunAtLoad",
+      "requiresOpServiceAccount": false,
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
+        "command": [
+          "bash",
+          "agent-loops/octospark-temporal-route-health/install-launchd.sh"
+        ]
+      },
+      "notes": "Checks host and Docker TCP reachability to the Temporal NAS, repairs stale Tailscale routes, and restarts the staging worker after repair."
+    },
+    {
+      "id": "trace-learn-stack-boot",
+      "name": "Trace Learn compose stack boot recovery",
+      "enabled": true,
+      "hosts": [
+        "Jamess-Mac-Studio",
+        "Jamess-Mac-Studio.local",
+        "JamessMacStudio.fritz.box"
+      ],
+      "users": [
+        "jamesphoenix"
+      ],
+      "launchdLabel": "com.jud.trace-learn-stack-boot",
+      "schedule": "RunAtLoad plus every 5 minutes",
+      "requiresOpServiceAccount": false,
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
+        "command": [
+          "bash",
+          "agent-loops/trace-learn-stack-boot/install-launchd.sh"
+        ]
+      },
+      "notes": "Starts existing Trace Learn prod+staging containers after a reboot. Docker Desktop on macOS starts at user LOGIN not boot, so restart:always alone cannot help - a 2026-07-26 reboot left api.tracelearn.app on 502 for ~20h while tracelearn.app kept returning 200 from Cloudflare Pages. NOT a deploy: no build, pull, secrets or migrations, so it needs no op service account. Idempotent. Maintenance opt-out: touch state/trace-learn-stack-boot/disabled."
+    }
+  ]
+}

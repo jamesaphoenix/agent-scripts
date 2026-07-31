@@ -1,0 +1,450 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.local/agent-scripts/gtm-manifest-v1.json",
+  "title": "Unpublished GTM workspace manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "target",
+    "oauth",
+    "workspace",
+    "managed"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "schemaVersion": {
+      "type": "integer",
+      "const": 1
+    },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["accountName", "containerName"],
+      "properties": {
+        "accountName": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "containerName": {
+          "$ref": "#/$defs/nonEmptyString"
+        }
+      }
+    },
+    "oauth": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["clientId", "clientSecret", "refreshToken"],
+      "properties": {
+        "clientId": {
+          "$ref": "#/$defs/secureReference"
+        },
+        "clientSecret": {
+          "$ref": "#/$defs/secureReference"
+        },
+        "refreshToken": {
+          "$ref": "#/$defs/secureReference"
+        }
+      }
+    },
+    "workspace": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["compareName", "description"],
+      "properties": {
+        "compareName": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "description": {
+          "$ref": "#/$defs/nonEmptyString"
+        }
+      }
+    },
+    "managed": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "resourcePrefix",
+        "managedNote",
+        "deploymentEnvironmentField",
+        "pageLocationField",
+        "surfaceField",
+        "surfaceValues",
+        "bootEvent",
+        "allowedEventPattern",
+        "dataLayerFields",
+        "measurementIdMappings",
+        "eventParameters",
+        "consentTypes",
+        "sendPageView"
+      ],
+      "properties": {
+        "resourcePrefix": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "managedNote": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "deploymentEnvironmentField": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "pageLocationField": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "surfaceField": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "surfaceValues": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/nonEmptyString"
+          }
+        },
+        "bootEvent": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "allowedEventPattern": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^(?:\\^.*\\$|\\$\\{[A-Za-z_][A-Za-z0-9_]*\\})$"
+        },
+        "dataLayerFields": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/nonEmptyString"
+          }
+        },
+        "measurementIdMappings": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["environment", "measurementId"],
+            "properties": {
+              "environment": {
+                "$ref": "#/$defs/nonEmptyString"
+              },
+              "measurementId": {
+                "$ref": "#/$defs/nonEmptyString"
+              }
+            }
+          }
+        },
+        "eventParameters": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name", "field"],
+            "properties": {
+              "name": {
+                "$ref": "#/$defs/nonEmptyString"
+              },
+              "field": {
+                "$ref": "#/$defs/nonEmptyString"
+              }
+            }
+          }
+        },
+        "eventParameterAllowlists": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name", "events", "parameters"],
+            "properties": {
+              "name": {
+                "$ref": "#/$defs/nonEmptyString"
+              },
+              "events": {
+                "type": "array",
+                "minItems": 1,
+                "uniqueItems": true,
+                "items": {
+                  "$ref": "#/$defs/nonEmptyString"
+                }
+              },
+              "parameters": {
+                "type": "array",
+                "minItems": 1,
+                "uniqueItems": true,
+                "items": {
+                  "$ref": "#/$defs/nonEmptyString"
+                }
+              }
+            }
+          }
+        },
+        "exactEventTriggers": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name", "event", "conditions"],
+            "properties": {
+              "name": {
+                "$ref": "#/$defs/nonEmptyString"
+              },
+              "event": {
+                "$ref": "#/$defs/nonEmptyString"
+              },
+              "conditions": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["field", "operator", "value"],
+                  "properties": {
+                    "field": {
+                      "$ref": "#/$defs/nonEmptyString"
+                    },
+                    "operator": {
+                      "enum": [
+                        "contains",
+                        "endsWith",
+                        "equals",
+                        "matchRegex",
+                        "startsWith"
+                      ]
+                    },
+                    "value": {
+                      "$ref": "#/$defs/nonEmptyString"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "consentTypes": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/nonEmptyString"
+          }
+        },
+        "sendPageView": {
+          "type": "boolean"
+        },
+        "googleAds": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["enableConversionLinker", "consentTypes"],
+          "properties": {
+            "enableConversionLinker": {
+              "type": "boolean"
+            },
+            "conversionLinkerTriggerName": {
+              "$ref": "#/$defs/nonEmptyString"
+            },
+            "consentTypes": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": {
+                "$ref": "#/$defs/nonEmptyString"
+              }
+            },
+            "conversionActions": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "name",
+                  "conversionId",
+                  "conversionLabel",
+                  "triggerName",
+                  "consentTypes",
+                  "orderIdField",
+                  "conversionValueField",
+                  "currencyCodeField"
+                ],
+                "properties": {
+                  "name": {
+                    "$ref": "#/$defs/nonEmptyString"
+                  },
+                  "conversionId": {
+                    "$ref": "#/$defs/nonEmptyString"
+                  },
+                  "conversionLabel": {
+                    "$ref": "#/$defs/nonEmptyString"
+                  },
+                  "triggerName": {
+                    "$ref": "#/$defs/nonEmptyString"
+                  },
+                  "consentTypes": {
+                    "$ref": "#/$defs/consentTypes"
+                  },
+                  "orderIdField": {
+                    "$ref": "#/$defs/nonEmptyString"
+                  },
+                  "conversionValueField": {
+                    "$ref": "#/$defs/nonEmptyString"
+                  },
+                  "currencyCodeField": {
+                    "$ref": "#/$defs/nonEmptyString"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "microsoftAds": {
+          "type": "object",
+          "additionalProperties": false,
+          "minProperties": 1,
+          "dependentRequired": {
+            "conversionActions": ["baseTags"]
+          },
+          "properties": {
+            "baseTags": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "name",
+                  "tagId",
+                  "triggerName",
+                  "consentTypes"
+                ],
+                "properties": {
+                  "name": {
+                    "$ref": "#/$defs/nonEmptyString"
+                  },
+                  "tagId": {
+                    "$ref": "#/$defs/nonEmptyString"
+                  },
+                  "triggerName": {
+                    "$ref": "#/$defs/nonEmptyString"
+                  },
+                  "consentTypes": {
+                    "$ref": "#/$defs/consentTypes"
+                  },
+                  "uetqName": {
+                    "$ref": "#/$defs/nonEmptyString",
+                    "default": "uetq"
+                  },
+                  "enableAutoSpaTracking": {
+                    "type": "boolean",
+                    "default": false
+                  }
+                }
+              }
+            },
+            "conversionActions": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "name",
+                  "triggerName",
+                  "consentTypes",
+                  "goalValueField",
+                  "currencyField",
+                  "eventCategoryField",
+                  "transactionIdField",
+                  "eventLabelField"
+                ],
+                "properties": {
+                  "name": {
+                    "$ref": "#/$defs/nonEmptyString"
+                  },
+                  "triggerName": {
+                    "$ref": "#/$defs/nonEmptyString"
+                  },
+                  "consentTypes": {
+                    "$ref": "#/$defs/consentTypes"
+                  },
+                  "uetqName": {
+                    "$ref": "#/$defs/nonEmptyString",
+                    "default": "uetq"
+                  },
+                  "goalValueField": {
+                    "$ref": "#/$defs/nonEmptyString"
+                  },
+                  "currencyField": {
+                    "$ref": "#/$defs/nonEmptyString"
+                  },
+                  "eventCategoryField": {
+                    "$ref": "#/$defs/nonEmptyString"
+                  },
+                  "transactionIdField": {
+                    "$ref": "#/$defs/nonEmptyString"
+                  },
+                  "eventLabelField": {
+                    "$ref": "#/$defs/nonEmptyString"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "ensureBuiltInVariables": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/nonEmptyString"
+          }
+        }
+      }
+    },
+    "superseded": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "pauseTags": {
+          "$ref": "#/$defs/stringList"
+        },
+        "deleteTags": {
+          "$ref": "#/$defs/stringList"
+        },
+        "deleteTriggers": {
+          "$ref": "#/$defs/stringList"
+        },
+        "deleteVariables": {
+          "$ref": "#/$defs/stringList"
+        }
+      }
+    }
+  },
+  "$defs": {
+    "consentTypes": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/nonEmptyString"
+      }
+    },
+    "nonEmptyString": {
+      "type": "string",
+      "minLength": 1
+    },
+    "secureReference": {
+      "type": "string",
+      "pattern": "^(op://|.*\\$\\{[A-Za-z_][A-Za-z0-9_]*\\}).*$"
+    },
+    "stringList": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/nonEmptyString"
+      }
+    }
+  }
+}

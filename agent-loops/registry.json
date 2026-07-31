@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "loops": [
+    {
+      "id": "project-sync-macbook-to-mac-studio",
+      "name": "Manual projects rsync to Mac Studio Desktop",
+      "kind": "host-sync",
+      "sourceHost": "MacBook-Pro-3.local",
+      "targetHost": "Jamess-Mac-Studio.local",
+      "sourcePath": "/Users/jamesaphoenix/Desktop/projects/",
+      "targetPath": "jamesphoenix@Jamess-Mac-Studio.local:/Users/jamesphoenix/Desktop/projects/",
+      "script": "agent-loops/project-sync/macbook-to-mac-studio.sh",
+      "statusCommand": "agent-loops/project-sync/macbook-to-mac-studio.sh --status",
+      "dryRunCommand": "agent-loops/project-sync/macbook-to-mac-studio.sh --dry-run",
+      "liveCommand": "agent-loops/project-sync/macbook-to-mac-studio.sh --live",
+      "logDir": "state/project-sync",
+      "deleteRemoteFiles": false,
+      "safetyPolicy": "Manual one-way MacBook to Studio Desktop sync. The script never passes --delete, so Studio-only files are kept. It fails fast when SSH is unavailable and uses a lock directory to prevent overlap."
+    }
+  ]
+}

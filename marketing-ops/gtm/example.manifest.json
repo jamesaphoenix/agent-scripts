@@ -1,0 +1,245 @@
+{
+  "$schema": "./manifest.schema.json",
+  "schemaVersion": 1,
+  "target": {
+    "accountName": "${GTM_ACCOUNT_NAME}",
+    "containerName": "${GTM_CONTAINER_NAME}"
+  },
+  "oauth": {
+    "clientId": "${GTM_OAUTH_CLIENT_ID}",
+    "clientSecret": "${GTM_OAUTH_CLIENT_SECRET}",
+    "refreshToken": "${GTM_OAUTH_REFRESH_TOKEN}"
+  },
+  "workspace": {
+    "compareName": "${GTM_COMPARE_WORKSPACE_NAME}",
+    "description": "${GTM_WORKSPACE_DESCRIPTION}"
+  },
+  "managed": {
+    "resourcePrefix": "${GTM_RESOURCE_PREFIX}",
+    "managedNote": "${GTM_MANAGED_NOTE}",
+    "deploymentEnvironmentField": "page_environment",
+    "pageLocationField": "page_location",
+    "surfaceField": "route_surface",
+    "surfaceValues": [
+      "${GTM_PUBLIC_SURFACE}",
+      "${GTM_CONVERSION_SURFACE}"
+    ],
+    "bootEvent": "${GTM_BOOT_EVENT}",
+    "allowedEventPattern": "${GTM_ALLOWED_EVENT_PATTERN}",
+    "dataLayerFields": [
+      "app_id",
+      "page_environment",
+      "page_location",
+      "route_surface",
+      "cta_id",
+      "cta_location",
+      "commercial_pathway",
+      "destination_path",
+      "conversion_name",
+      "conversion_value",
+      "currency",
+      "transaction_id",
+      "event_label"
+    ],
+    "measurementIdMappings": [
+      {
+        "environment": "${GTM_PRODUCTION_ENVIRONMENT}",
+        "measurementId": "${GTM_GA4_PRODUCTION_MEASUREMENT_ID}"
+      },
+      {
+        "environment": "${GTM_STAGING_ENVIRONMENT}",
+        "measurementId": "${GTM_GA4_STAGING_MEASUREMENT_ID}"
+      }
+    ],
+    "eventParameters": [
+      {
+        "name": "app_id",
+        "field": "app_id"
+      },
+      {
+        "name": "page_environment",
+        "field": "page_environment"
+      },
+      {
+        "name": "route_surface",
+        "field": "route_surface"
+      },
+      {
+        "name": "page_location",
+        "field": "page_location"
+      },
+      {
+        "name": "cta_id",
+        "field": "cta_id"
+      },
+      {
+        "name": "cta_location",
+        "field": "cta_location"
+      },
+      {
+        "name": "commercial_pathway",
+        "field": "commercial_pathway"
+      },
+      {
+        "name": "destination_path",
+        "field": "destination_path"
+      },
+      {
+        "name": "conversion_name",
+        "field": "conversion_name"
+      },
+      {
+        "name": "value",
+        "field": "conversion_value"
+      },
+      {
+        "name": "currency",
+        "field": "currency"
+      },
+      {
+        "name": "transaction_id",
+        "field": "transaction_id"
+      }
+    ],
+    "eventParameterAllowlists": [
+      {
+        "name": "page-view",
+        "events": [
+          "page_view"
+        ],
+        "parameters": [
+          "app_id",
+          "page_environment",
+          "route_surface",
+          "page_location"
+        ]
+      },
+      {
+        "name": "marketing-interaction",
+        "events": [
+          "marketing_cta_click",
+          "marketing_navigation_click",
+          "marketing_login_click"
+        ],
+        "parameters": [
+          "app_id",
+          "page_environment",
+          "route_surface",
+          "page_location",
+          "cta_id",
+          "cta_location",
+          "commercial_pathway",
+          "destination_path"
+        ]
+      },
+      {
+        "name": "purchase",
+        "events": [
+          "purchase"
+        ],
+        "parameters": [
+          "app_id",
+          "page_environment",
+          "route_surface",
+          "page_location",
+          "commercial_pathway",
+          "conversion_name",
+          "transaction_id",
+          "value",
+          "currency"
+        ]
+      }
+    ],
+    "exactEventTriggers": [
+      {
+        "name": "provider-advertising-boot-production",
+        "event": "${GTM_ADVERTISING_BOOT_EVENT}",
+        "conditions": [
+          {
+            "field": "page_environment",
+            "operator": "equals",
+            "value": "${GTM_PRODUCTION_ENVIRONMENT}"
+          }
+        ]
+      },
+      {
+        "name": "provider-purchase-production",
+        "event": "purchase",
+        "conditions": [
+          {
+            "field": "page_environment",
+            "operator": "equals",
+            "value": "${GTM_PRODUCTION_ENVIRONMENT}"
+          },
+          {
+            "field": "conversion_name",
+            "operator": "equals",
+            "value": "${GTM_PURCHASE_CONVERSION_NAME}"
+          }
+        ]
+      }
+    ],
+    "consentTypes": [
+      "analytics_storage"
+    ],
+    "sendPageView": true,
+    "googleAds": {
+      "enableConversionLinker": true,
+      "conversionLinkerTriggerName": "provider-advertising-boot-production",
+      "consentTypes": [
+        "ad_storage"
+      ],
+      "conversionActions": [
+        {
+          "name": "purchase-production",
+          "conversionId": "${GOOGLE_ADS_PURCHASE_CONVERSION_ID}",
+          "conversionLabel": "${GOOGLE_ADS_PURCHASE_CONVERSION_LABEL}",
+          "triggerName": "provider-purchase-production",
+          "consentTypes": [
+            "ad_storage",
+            "ad_user_data"
+          ],
+          "orderIdField": "transaction_id",
+          "conversionValueField": "conversion_value",
+          "currencyCodeField": "currency"
+        }
+      ]
+    },
+    "microsoftAds": {
+      "baseTags": [
+        {
+          "name": "production",
+          "tagId": "${MICROSOFT_ADS_UET_TAG_ID}",
+          "triggerName": "provider-advertising-boot-production",
+          "enableAutoSpaTracking": false,
+          "consentTypes": [
+            "ad_storage"
+          ]
+        }
+      ],
+      "conversionActions": [
+        {
+          "name": "purchase-production",
+          "triggerName": "provider-purchase-production",
+          "consentTypes": [
+            "ad_storage"
+          ],
+          "goalValueField": "conversion_value",
+          "currencyField": "currency",
+          "eventCategoryField": "conversion_name",
+          "transactionIdField": "transaction_id",
+          "eventLabelField": "event_label"
+        }
+      ]
+    },
+    "ensureBuiltInVariables": [
+      "event"
+    ]
+  },
+  "superseded": {
+    "pauseTags": [],
+    "deleteTags": [],
+    "deleteTriggers": [],
+    "deleteVariables": []
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "version": 1,
+  "profiles": {
+    "jamesaphoenix-googlemail": {
+      "email": "jamesaphoenix@googlemail.com",
+      "provider": "gmail",
+      "scopes": ["https://www.googleapis.com/auth/gmail.readonly"],
+      "oauthConsentStatus": "in_production_personal_unverified",
+      "notes": "Reusable Gmail OAuth profile for host-level scripts. Values stay in 1Password and may be cached into the macOS login keychain for unattended launchd jobs.",
+      "opRefs": {
+        "clientId": "op://api-keys/rljfc73aoqd65fiqyyh2vktl4y/username",
+        "clientSecret": "op://api-keys/rljfc73aoqd65fiqyyh2vktl4y/password",
+        "refreshToken": "op://api-keys/rljfc73aoqd65fiqyyh2vktl4y/Section_6hoext7ytm63f4nulthd4uhn6e/refresh_token"
+      },
+      "env": {
+        "clientId": "GMAIL_CLIENT_ID",
+        "clientSecret": "GMAIL_CLIENT_SECRET",
+        "refreshToken": "GMAIL_REFRESH_TOKEN"
+      },
+      "keychainServices": {
+        "clientId": "agent_mail_jamesaphoenix_googlemail_client_id",
+        "clientSecret": "agent_mail_jamesaphoenix_googlemail_client_secret",
+        "refreshToken": "agent_mail_jamesaphoenix_googlemail_refresh_token"
+      },
+      "legacyKeychainServices": {
+        "clientId": ["jud_gmail_client_id"],
+        "clientSecret": ["jud_gmail_client_secret"],
+        "refreshToken": ["jud_gmail_refresh_token"]
+      }
+    }
+  }
+}

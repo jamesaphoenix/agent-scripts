@@ -1,3 +1,7 @@
 .DS_Store
+.tx/
+__pycache__/
+*.pyc
 signal-farm/
 doc-drift-ci/
+state/

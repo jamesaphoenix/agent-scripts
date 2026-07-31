@@ -98,7 +98,6 @@ tailscale_bin() {
 load_temporal_address() {
   local env_name="${OCTOSPARK_ENV:-staging}"
   local address="${TEMPORAL_ADDRESS:-}"
-  local nas_ip=""
 
   if [ -z "$address" ] && [ -f "$ROOT_DIR/lib/op-service-account-env.sh" ]; then
     # shellcheck source=../../lib/op-service-account-env.sh
@@ -119,15 +118,11 @@ load_temporal_address() {
 
   if [ -z "$address" ] && [ -n "${OP_SERVICE_ACCOUNT_TOKEN:-}" ] && command -v op >/dev/null 2>&1; then
     address="$(run_op read "op://octospark-services/${env_name}/TEMPORAL_ADDRESS" 2>/dev/null || true)"
-    if [ -z "$address" ]; then
-      nas_ip="$(run_op read "op://octospark-services/${env_name}/NAS_TAILSCALE_IP" 2>/dev/null || true)"
-      if [ -n "$nas_ip" ]; then
-        address="${nas_ip}:7233"
-      fi
-    fi
   fi
 
-  printf '%s\n' "${address:-100.123.72.113:7233}"
+  # Last-resort fallback: the Hetzner temporal-server Tailscale IP. The old
+  # Synology NAS instance (100.123.72.113) is retired - never fall back to it.
+  printf '%s\n' "${address:-100.116.99.19:7233}"
 }
 
 route_check() {
@@ -296,6 +291,25 @@ restart_worker_after_repair() {
   docker restart "$worker" >/dev/null
 }
 
+# The auto-fix runners are plain launchd Node processes (not compose services),
+# so a Tailscale route flap can leave them holding a dead gRPC connection that
+# the compose-worker restart above does not touch. Kick both after a repair.
+restart_auto_fix_runners_after_repair() {
+  if [ "${OCTOSPARK_RESTART_AUTO_FIX_ON_REPAIR:-1}" != "1" ]; then
+    return 0
+  fi
+
+  local uid=""
+  uid="$(id -u)"
+  local label=""
+  for label in com.octospark.auto-fix-runner.staging com.octospark.auto-fix-runner.prod; do
+    if launchctl print "gui/${uid}/${label}" >/dev/null 2>&1; then
+      echo "Kickstarting ${label} after Temporal route repair..."
+      launchctl kickstart -k "gui/${uid}/${label}" || true
+    fi
+  done
+}
+
 main() {
   local address=""
   local parsed=""
@@ -324,6 +338,7 @@ main() {
 
   if run_checks "$host" "$port" "$route_target"; then
     restart_worker_after_repair
+    restart_auto_fix_runners_after_repair
     write_status "repaired" "Temporal route and TCP checks passed after Tailscale repair"
     return 0
   fi

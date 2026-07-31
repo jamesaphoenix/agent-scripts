@@ -48,7 +48,7 @@
           "agent-loops/octospark-temporal-route-health/install-launchd.sh"
         ]
       },
-      "notes": "Checks host and Docker TCP reachability to the Temporal NAS, repairs stale Tailscale routes, and restarts the staging worker after repair."
+      "notes": "Checks host and Docker TCP reachability to the Temporal server (Hetzner temporal-server over Tailscale, from op://octospark-services/<env>/TEMPORAL_ADDRESS), repairs stale Tailscale routes, then restarts the staging worker container AND kickstarts both com.octospark.auto-fix-runner.{staging,prod} launchd agents after repair."
     },
     {
       "id": "trace-learn-stack-boot",
@@ -74,6 +74,31 @@
         ]
       },
       "notes": "Starts existing Trace Learn prod+staging containers after a reboot. Docker Desktop on macOS starts at user LOGIN not boot, so restart:always alone cannot help - a 2026-07-26 reboot left api.tracelearn.app on 502 for ~20h while tracelearn.app kept returning 200 from Cloudflare Pages. NOT a deploy: no build, pull, secrets or migrations, so it needs no op service account. Idempotent. Maintenance opt-out: touch state/trace-learn-stack-boot/disabled."
+    },
+    {
+      "id": "octospark-auto-fix-runners",
+      "name": "Octospark Sentry auto-fix Temporal workers (staging + prod)",
+      "enabled": true,
+      "hosts": [
+        "Jamess-Mac-Studio",
+        "Jamess-Mac-Studio.local",
+        "JamessMacStudio.fritz.box"
+      ],
+      "users": [
+        "jamesphoenix"
+      ],
+      "launchdLabel": "com.octospark.auto-fix-runner.staging",
+      "schedule": "KeepAlive daemons (staging + prod labels), ThrottleInterval 60s",
+      "requiresOpServiceAccount": false,
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/octospark-autofix",
+        "command": [
+          "bash",
+          "scripts/launchd/install-auto-fix-runners.sh"
+        ]
+      },
+      "notes": "Two KeepAlive launchd agents (com.octospark.auto-fix-runner.staging and .prod) polling Temporal task queue auto-fix-octospark on the Hetzner temporal-server. Installed from the dedicated ~/octospark-autofix checkout by the octospark repo installer, which fast-forwards to origin/staging, rebuilds, and re-renders env from ~/.local/state/octospark/deploy/{staging,prod}.env. Health: Sentry Cron monitors auto-fix-runner-staging / auto-fix-runner-prod (missed check-in = worker down or not polling). Registered here for fleet visibility; install/update stays with the octospark repo script."
     }
   ]
 }

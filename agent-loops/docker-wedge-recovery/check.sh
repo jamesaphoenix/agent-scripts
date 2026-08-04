@@ -75,7 +75,9 @@ ALLOWED_REBOOT_USERS="${DOCKER_WEDGE_ALLOW_REBOOT_USERS:-jamesphoenix}"
 
 # Containers expected back after a reboot, space-separated substrings matched
 # against running container names during post-boot verification.
-EXPECTED_STACKS="${DOCKER_WEDGE_EXPECTED_STACKS:-octospark-prod-live octospark-staging-live}"
+# trace-learn is included deliberately: it is single-homed on this host with no
+# standby, so it is the stack most in need of confirmation after a reboot.
+EXPECTED_STACKS="${DOCKER_WEDGE_EXPECTED_STACKS:-octospark-prod-live octospark-staging-live trace-learn-prod trace-learn-staging}"
 
 mkdir -p "$STATE_DIR"
 

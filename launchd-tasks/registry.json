@@ -124,6 +124,31 @@
         ]
       },
       "notes": "Host-level, cross-product (CI runners + octospark-prod-live + trace-learn share one Docker daemon here). Protects every image referenced by any container on the host (running or stopped, any compose project), then reclaims old release image tags + BuildKit cache. Moved here from octospark (scripts/deploy/install-mac-docker-cleanup-launchd.sh, removed) so there is one owner and no drift as sibling products land on the same host. The Hetzner standby box (100.81.18.118) shares a daemon with its own prod/staging stacks but has no launchd - it runs the same cleanup-local-docker.sh via install-cron.sh instead; see agent-loops/docker-cleanup/README.md. Maintenance opt-out: touch state/docker-cleanup/disabled."
+    },
+    {
+      "id": "host-docker-wedge-recovery",
+      "name": "Host Docker wedge detector and reboot recovery",
+      "enabled": true,
+      "hosts": [
+        "Jamess-Mac-Studio",
+        "Jamess-Mac-Studio.local",
+        "JamessMacStudio.fritz.box"
+      ],
+      "users": [
+        "jamesphoenix"
+      ],
+      "launchdLabel": "com.jud.docker-wedge-recovery",
+      "schedule": "every 10 minutes, no RunAtLoad",
+      "requiresOpServiceAccount": false,
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
+        "command": [
+          "bash",
+          "agent-loops/docker-wedge-recovery/install-launchd.sh"
+        ]
+      },
+      "notes": "Docker Desktop on this host periodically wedges: docker ps, docker exec and docker pull all answer and the socket still returns 200 on /_ping, but EVERY new container start hangs forever and containers pile up in Created (measured 2026-08-04). Root cause is accumulated HOST-SIDE Docker Desktop state on the macOS side - not the VM, not the hypervisor, not the workload - so the only proven recovery is a host reboot via sudo -n /sbin/shutdown -r now (allowed by /etc/sudoers.d/reboot-nopasswd; FileVault off + auto-login means the box comes back unattended). NEVER PURGE THE VM: purging ~/Library/Containers/com.docker.docker/Data/vms bought ~40 minutes and destroyed 218GB of images/volumes for nothing. Also never pkill/killall Docker - force-kills made the incident worse; commands are bounded by backgrounding plus ps -p polling. docker desktop status/stop/start lie or hang in this state and are unused. Probe is docker run --rm alpine:3.20 true; reboot only when it HANGS while reads still answer, capped at 3 reboots per 24h and 1 per 60 min to prevent a boot loop. Post-boot verification checks the socket and the expected prod/staging stacks on the next healthy run. Maintenance opt-out: touch state/docker-wedge-recovery/disabled."
     }
   ]
 }

@@ -60,6 +60,20 @@
 
 set -uo pipefail
 
+# ── Never fail the job ──────────────────────────────────────────────────────────────────
+#
+# This hook runs as ACTIONS_RUNNER_HOOK_JOB_COMPLETED: a non-zero exit marks the whole
+# job's "Complete runner" step failed, turning green deploys cosmetically red (observed
+# 2026-08-20 on deploy-web: the deploy succeeded, the hook exited 1 in the runner's
+# context, and the run reported failure - not reproducible outside the runner). Cleanup
+# is best-effort by definition, so the entry below re-execs the body as a child process
+# and unconditionally exits 0, logging any inner failure instead of raising it.
+if [[ "${1:-}" != "--inner" ]]; then
+  "${BASH:-/bin/bash}" "$0" --inner "$@" ||     echo "runner-reap: swallowed inner failure rc=$? (cleanup is best-effort; job result unaffected)" >&2
+  exit 0
+fi
+shift
+
 DRY_RUN=0
 [[ "${1:-}" == "--dry-run" ]] && DRY_RUN=1
 

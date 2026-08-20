@@ -5,6 +5,10 @@
 # Reaps processes a finished job left behind. Run with --dry-run to print what it WOULD
 # kill without killing anything.
 #
+# ENFORCING since 2026-08-20 on all four Mac Studio runners (.env points here directly).
+# The dry-run soak found 404 orphans (workerd/wrangler/esbuild, up to 15 days old) whose
+# port squatting on 7651/8651 was blocking staging browser E2E; zero false positives.
+#
 # ── Why this exists ─────────────────────────────────────────────────────────────────────
 #
 # The runner cannot clean up after itself on macOS, for two independent reasons, both

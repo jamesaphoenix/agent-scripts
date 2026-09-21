@@ -2,6 +2,16 @@
   "version": 1,
   "loops": [
     {
+      "id": "playwright-cli-reaper",
+      "name": "Playwright CLI orphan process reaper",
+      "kind": "host-maintenance",
+      "script": "agent-loops/playwright-cli-reaper/reap.sh",
+      "statusCommand": "agent-loops/playwright-cli-reaper/reap.sh --status",
+      "dryRunCommand": "agent-loops/playwright-cli-reaper/reap.sh --dry-run",
+      "liveCommand": "agent-loops/playwright-cli-reaper/reap.sh --force",
+      "safetyPolicy": "Default mode terminates only Playwright-owned browser processes with PPID 1. Force mode closes every Playwright CLI session and cleans remaining marker-matched daemon and browser processes. Normal Chrome processes are never selected."
+    },
+    {
       "id": "project-sync-macbook-to-mac-studio",
       "name": "Manual projects rsync to Mac Studio Desktop",
       "kind": "host-sync",
@@ -16,6 +26,17 @@
       "logDir": "state/project-sync",
       "deleteRemoteFiles": false,
       "safetyPolicy": "Manual one-way MacBook to Studio Desktop sync. The script never passes --delete, so Studio-only files are kept. It fails fast when SSH is unavailable and uses a lock directory to prevent overlap."
+    },
+    {
+      "id": "spotlight-exclusions",
+      "name": "Spotlight exclusions for CI runner, VM disk and model trees",
+      "kind": "host-setup",
+      "script": "agent-loops/spotlight-exclusions/exclude.py",
+      "config": "config/spotlight-exclusions.json",
+      "statusCommand": "agent-loops/spotlight-exclusions/exclude.py --status",
+      "dryRunCommand": "agent-loops/spotlight-exclusions/exclude.py --dry-run",
+      "liveCommand": "agent-loops/spotlight-exclusions/exclude.py --live",
+      "safetyPolicy": "Not a launchd job: editing the root-owned Spotlight Privacy plist needs interactive sudo, so it runs by hand (ssh -t for the prompt). Idempotent and append-only: adds configured paths missing from the exclusion list, never removes one, and restarts mds only when the list changed. Paths absent on disk are skipped."
     }
   ]
 }

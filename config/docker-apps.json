@@ -1,0 +1,75 @@
+{
+  "version": 1,
+  "_comment": "Long-lived Docker Compose apps on the Mac Studio. Read by agent-loops/ensure-dockerised-apps-online and agent-loops/temporal-worker-tailscale-health. To add an app: append an entry, run `python3 lib/docker-apps.py validate`, deploy, done - no script edits needed. Containers are discovered by compose labels (project + service), never by hardcoded names.",
+  "defaults": {
+    "temporalAddress": "100.116.99.19:7233",
+    "temporalAddressEnvVar": "TEMPORAL_ADDRESS"
+  },
+  "apps": [
+    {
+      "id": "octospark-prod",
+      "composeProject": "octospark-prod-live",
+      "enabled": true,
+      "startOrder": ["redis", "otel-collector", "otel-healthcheck", "api", "mcp", "worker"],
+      "startDelaySeconds": { "redis": 3 },
+      "temporal": {
+        "enabled": true,
+        "checkFromService": "api",
+        "restartServicesAfterRepair": ["worker"],
+        "kickstartLaunchdAfterRepair": ["com.octospark.auto-fix-runner.prod"]
+      }
+    },
+    {
+      "id": "octospark-staging",
+      "composeProject": "octospark-staging-live",
+      "enabled": true,
+      "startOrder": ["redis", "otel-collector", "otel-healthcheck", "api", "mcp", "worker"],
+      "startDelaySeconds": { "redis": 3 },
+      "temporal": {
+        "enabled": true,
+        "checkFromService": "api",
+        "restartServicesAfterRepair": ["worker"],
+        "kickstartLaunchdAfterRepair": ["com.octospark.auto-fix-runner.staging"]
+      }
+    },
+    {
+      "id": "trace-learn-prod",
+      "composeProject": "trace-learn-prod",
+      "enabled": true,
+      "startOrder": ["cloudsql-proxy", "otel-collector", "otel-healthcheck", "api", "worker"],
+      "startDelaySeconds": { "cloudsql-proxy": 8 },
+      "temporal": {
+        "enabled": true,
+        "checkFromService": "api",
+        "restartServicesAfterRepair": ["worker"],
+        "kickstartLaunchdAfterRepair": []
+      }
+    },
+    {
+      "id": "trace-learn-staging",
+      "composeProject": "trace-learn-staging",
+      "enabled": true,
+      "startOrder": ["cloudsql-proxy", "otel-collector", "otel-healthcheck", "api", "worker"],
+      "startDelaySeconds": { "cloudsql-proxy": 8 },
+      "temporal": {
+        "enabled": true,
+        "checkFromService": "api",
+        "restartServicesAfterRepair": ["worker"],
+        "kickstartLaunchdAfterRepair": []
+      }
+    },
+    {
+      "id": "tx-agent-kit",
+      "composeProject": "tx-agent-kit",
+      "enabled": true,
+      "_comment": "Observability stack (Langfuse, Grafana, Loki, Jaeger, Prometheus, Spotlight). Restart policy is `no`, so only this loop brings it back after a reboot.",
+      "startOrder": [
+        "postgres", "redis", "langfuse-postgres", "langfuse-redis", "langfuse-clickhouse", "langfuse-minio",
+        "loki", "prometheus", "jaeger", "otel-collector", "promtail", "node-exporter",
+        "langfuse-worker", "langfuse-web", "grafana", "spotlight"
+      ],
+      "startDelaySeconds": { "langfuse-minio": 5 },
+      "temporal": { "enabled": false }
+    }
+  ]
+}

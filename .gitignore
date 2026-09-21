@@ -5,3 +5,6 @@ __pycache__/
 signal-farm/
 doc-drift-ci/
 state/
+
+# Local editor backups are not deployable sources.
+*.bak

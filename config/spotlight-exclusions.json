@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "_comment": "Read by agent-loops/spotlight-exclusions/exclude.py. Directories Spotlight must never index, per machine (keys match launchd-tasks/registry.json `machines`). Paths are expanded with ~ for the machine's user. Applying needs interactive sudo: the list lives in the root-owned /System/Volumes/Data/.Spotlight-V100/VolumeConfiguration.plist, the same list System Settings > Spotlight > Privacy edits.",
+  "machines": {
+    "mac-studio": {
+      "paths": [
+        "~/actions-runner",
+        "~/actions-runner-2",
+        "~/actions-runner-3",
+        "~/actions-runner-4",
+        "~/.colima",
+        "~/Library/Containers/com.docker.docker",
+        "~/models"
+      ]
+    },
+    "macbook-pro": {
+      "paths": []
+    }
+  }
+}

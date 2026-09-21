@@ -23,6 +23,8 @@ narrower downstream secrets instead.
 - All loop status: `agent-loops/status.sh`
 - Runtime state and logs: `state/` (gitignored)
 - Generic job wrapper: `lib/run-job.sh`
+- Mac Studio VM sizing (Docker Desktop + Colima memory, restart consequences): `docs/mac-studio-vm-sizing.md`
+- Spotlight exclusions for the Studio's CI runner / VM disk / model trees (manual, needs sudo): `agent-loops/spotlight-exclusions/README.md`
 
 ## Development And Deployment Model
 
@@ -83,9 +85,18 @@ This avoids per-plist secret caching. The tradeoff is that any job running as th
 able to read this keychain item can use the service account token, so keep the 1Password service
 account scoped to the smallest practical vault and item set.
 
+## Caching secrets on the Studio over SSH
+
+`security add-generic-password` fails from an SSH session on the Studio with "User interaction
+is not allowed": the login keychain is only unlocked inside the GUI login session. Launchd agents
+in `gui/<uid>` run inside that session, so the workaround (used 2026-09-04) is: scp a 0600 file
+of `service<TAB>value` lines to `~/.config/agent-scripts/`, bootstrap a temporary RunAtLoad
+LaunchAgent that loops `security add-generic-password -U` over it and deletes the file, then
+bootout and remove the temporary plist. No Screen Sharing needed.
+
 ## Launchd Task Installer
 
-Use one Mac Studio installer for hourly, daily, and weekly launchd tasks:
+Use one installer, on either Mac, for hourly, daily, and weekly launchd tasks:
 
 ```bash
 scripts/install-launchd-tasks.sh --list
@@ -94,12 +105,42 @@ scripts/install-launchd-tasks.sh
 scripts/install-launchd-tasks.sh --status
 ```
 
-The installer reads `launchd-tasks/registry.json`, filters tasks for the current Mac hostname and
-username, ensures shared prerequisites such as the OP service account token when needed, then
-installs or reloads the matching plists. Register only Mac Studio launchd jobs here. The MacBook
-Pro is the authoring and control machine, not a launchd host for these agent loops.
+The installer reads `launchd-tasks/registry.json`, where every task names the `machine` it runs on
+(`mac-studio` or `macbook-pro`; hostnames and users live once in the registry's `machines` block).
+The same script runs on either Mac and only acts on that machine's tasks. `--audit` reports
+registered-but-missing and installed-but-unregistered agents; `--table` regenerates the per-machine
+tables in `launchd-tasks/README.md`. Studio jobs keep services alive; MacBook jobs only clean up
+after the laptop's own tools.
 
 Current loops:
+
+- `ensure-dockerised-apps-online` (Mac Studio, every 5 min): `docker start`s any stopped container
+  of every app in `config/docker-apps.json` (Octospark, Trace Learn, tx-agent-kit) in dependency
+  order after a reboot or Docker Desktop restart. Not a deploy. Opt out with
+  `state/ensure-dockerised-apps-online/disabled[.<app-id>]`.
+
+- `temporal-worker-tailscale-health` (Mac Studio, every 1 min): checks every Temporal-backed app
+  in `config/docker-apps.json` can reach the Hetzner Temporal server over Tailscale from inside
+  its container, repairs a stale Tailscale route, then restarts the configured workers. Repairs
+  are rate-limited to one per 10 min.
+
+- `dev-docker-cleanup` (MacBook Pro, weekly Monday 09:30): removes dangling images, build cache
+  older than 7 days and anonymous unattached volumes older than 30 days. Never touches tagged
+  images, containers or named volumes.
+
+- `worktree-janitor` (MacBook Pro, daily 08:30): removes worktrees whose branch content is already
+  in main/staging (archiving uncommitted work first), kills api/worker/web dev servers older than
+  24h that run from a worktree, and emails a digest of worktrees idle for 30+ days. Never touches
+  Postgres, Redis, Temporal, Docker or Playwright. Config: `config/worktree-janitor.json`.
+
+- `config/docker-apps.json` is the single list of long-lived compose apps on the Studio. Add an
+  app there (validate with `python3 lib/docker-apps.py validate`) and both loops pick it up on
+  the next deploy; no script edits.
+
+- `playwright-cli-reaper`: manual macOS backstop for orphaned Playwright CLI daemons and headless
+  Chrome process trees. Install it with `agent-loops/playwright-cli-reaper/install.sh`, inspect with
+  `playwright-reap --status`, use the safe orphan-only mode as `playwright-reap`, or use
+  `playwright-reap --force` only when no Playwright session should remain.
 
 - `project-sync-macbook-to-mac-studio`: manual one-way rsync sync from
   `/Users/jamesaphoenix/Desktop/projects/` to
@@ -160,3 +201,24 @@ lib/run-job.sh \
 ```
 
 The runner writes timestamped logs plus `last-run.json` under the state directory.
+
+## JUD FreeAgent VAT preparation
+
+The shared `jud-freeagent-vat` skill is maintained in the sibling dotfiles repo and
+installed for Codex and Claude Code. It combines the existing invoice collector,
+portal/browser evidence collection and the existing 1Password service account.
+
+```bash
+scripts/jud-vat.sh check
+scripts/jud-vat.sh snapshot YYYY-MM-DD YYYY-MM-DD --output state/jud-vat/period-before.json
+scripts/jud-vat.sh login jus001.freeagent.com --username jamesaphoenix@googlemail.com
+```
+
+These commands do not change FreeAgent records. Snapshots require JUD's live
+company identity and exact return dates, are created with private permissions, and
+never overwrite an earlier snapshot. Login discovery returns secret references,
+not resolved passwords. Set `JUD_INVOICE_COLLECTOR` only when the collector is not
+in the usual sibling checkout. Its existing Studio collection schedule remains
+in the central launchd registry; the skill does not install a second schedule.
+
+Run helper checks with `python3 -m unittest discover -s tests -v`.

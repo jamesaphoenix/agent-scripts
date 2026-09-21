@@ -4,7 +4,7 @@ set -euo pipefail
 export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:${PATH:-}"
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-TARGET_SSH="${AGENT_SCRIPTS_DEPLOY_TARGET_SSH:-jamesphoenix@Jamess-Mac-Studio.local}"
+TARGET_SSH="${AGENT_SCRIPTS_DEPLOY_TARGET_SSH:-jamesphoenix@jamess-mac-studio}"
 RUNTIME_TARGET="${AGENT_SCRIPTS_RUNTIME_TARGET:-/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts/}"
 DESKTOP_TARGET="${AGENT_SCRIPTS_DESKTOP_TARGET:-/Users/jamesphoenix/Desktop/projects/just-understanding-data/agent-scripts/}"
 MODE="dry-run"

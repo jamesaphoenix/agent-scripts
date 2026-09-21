@@ -1,19 +1,37 @@
 {
-  "version": 1,
+  "version": 2,
+  "_comment": "Single source of truth for which launchd jobs run on which Mac. Each task names a `machine`; scripts/install-launchd-tasks.sh only acts on tasks for the machine it runs on. Run it with --audit on either Mac to see drift. Regenerate launchd-tasks/README.md tables with --table.",
+  "machines": {
+    "mac-studio": {
+      "name": "Mac Studio",
+      "role": "always-on runtime host: prod/staging compose stacks, CI runners, Temporal workers",
+      "user": "jamesphoenix",
+      "hosts": [
+        "Jamess-Mac-Studio",
+        "Jamess-Mac-Studio.local",
+        "JamessMacStudio.fritz.box"
+      ]
+    },
+    "macbook-pro": {
+      "name": "MacBook Pro",
+      "role": "dev laptop and authoring machine; only laptop-hygiene jobs",
+      "user": "jamesaphoenix",
+      "hosts": [
+        "MacBook-Pro-3",
+        "MacBook-Pro-3.local",
+        "Mac.fritz.box",
+        "macbook-pro"
+      ]
+    }
+  },
   "tasks": [
     {
       "id": "freeagent-invoice-harvest",
-      "name": "Hourly FreeAgent invoice harvester",
+      "name": "Daily FreeAgent invoice harvester",
       "enabled": true,
-      "hosts": [
-        "Jamess-Mac-Studio",
-        "JamessMacStudio.fritz.box"
-      ],
-      "users": [
-        "jamesphoenix"
-      ],
+      "machine": "mac-studio",
       "launchdLabel": "com.jud.invoice-harvest",
-      "schedule": "hourly plus RunAtLoad",
+      "schedule": "daily 06:30 local plus RunAtLoad",
       "requiresOpServiceAccount": true,
       "install": {
         "kind": "command",
@@ -23,46 +41,32 @@
           "scripts/install-launchd.sh"
         ]
       },
-      "notes": "Runs the FreeAgent invoice collector from the Mac Studio runtime copy."
+      "notes": "Runs the FreeAgent invoice collector from the Mac Studio runtime copy. Was hourly until 2026-09-04; daily is enough for a quarterly VAT tool (harvest.py widens its window to cover any gap, cap 35d) and keeps the Gmail refresh token warm. Gmail re-consent: python3 scripts/oauth_listener.py in the collector repo (writes to 1Password api-keys item + refreshes keychain caches). Secrets are read from the login keychain (op token, agent_mail_*, jud_fa_*); see README 'Caching secrets on the Studio over SSH'."
     },
     {
-      "id": "octospark-temporal-route-health",
-      "name": "Octospark Temporal route health",
+      "id": "temporal-worker-tailscale-health",
+      "name": "Temporal worker Tailscale health (all Temporal-backed apps)",
       "enabled": true,
-      "hosts": [
-        "Jamess-Mac-Studio",
-        "Jamess-Mac-Studio.local",
-        "JamessMacStudio.fritz.box"
-      ],
-      "users": [
-        "jamesphoenix"
-      ],
-      "launchdLabel": "com.octospark.temporal-route-health",
-      "schedule": "every 5 minutes plus RunAtLoad",
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.temporal-worker-tailscale-health",
+      "schedule": "every 1 minute plus RunAtLoad",
       "requiresOpServiceAccount": false,
       "install": {
         "kind": "command",
         "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
         "command": [
           "bash",
-          "agent-loops/octospark-temporal-route-health/install-launchd.sh"
+          "agent-loops/temporal-worker-tailscale-health/install-launchd.sh"
         ]
       },
-      "notes": "Checks host and Docker TCP reachability to the Temporal server (Hetzner temporal-server over Tailscale, from op://octospark-services/<env>/TEMPORAL_ADDRESS), repairs stale Tailscale routes, then restarts the staging worker container AND kickstarts both com.octospark.auto-fix-runner.{staging,prod} launchd agents after repair."
+      "notes": "Replaces octospark-temporal-route-health (2026-09-04). For every app in config/docker-apps.json with temporal.enabled (Octospark prod+staging, Trace Learn prod+staging) it reads TEMPORAL_ADDRESS from the running api container, TCP-connects to the Hetzner temporal-server from inside that container, then checks the host utun route and host TCP once per distinct target. On failure: tailscale down/up, re-check, restart each app's configured worker containers and kickstart configured launchd runners (com.octospark.auto-fix-runner.{staging,prod}). Repairs rate-limited to 1 per 10 min; each run killed after 170s. No 1Password dependency. Add an app by editing config/docker-apps.json only."
     },
     {
-      "id": "trace-learn-stack-boot",
-      "name": "Trace Learn compose stack boot recovery",
+      "id": "ensure-dockerised-apps-online",
+      "name": "Ensure dockerised apps online (compose stacks boot recovery)",
       "enabled": true,
-      "hosts": [
-        "Jamess-Mac-Studio",
-        "Jamess-Mac-Studio.local",
-        "JamessMacStudio.fritz.box"
-      ],
-      "users": [
-        "jamesphoenix"
-      ],
-      "launchdLabel": "com.jud.trace-learn-stack-boot",
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.ensure-dockerised-apps-online",
       "schedule": "RunAtLoad plus every 5 minutes",
       "requiresOpServiceAccount": false,
       "install": {
@@ -70,24 +74,20 @@
         "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
         "command": [
           "bash",
-          "agent-loops/trace-learn-stack-boot/install-launchd.sh"
+          "agent-loops/ensure-dockerised-apps-online/install-launchd.sh"
         ]
       },
-      "notes": "Starts existing Trace Learn prod+staging containers after a reboot. Docker Desktop on macOS starts at user LOGIN not boot, so restart:always alone cannot help - a 2026-07-26 reboot left api.tracelearn.app on 502 for ~20h while tracelearn.app kept returning 200 from Cloudflare Pages. NOT a deploy: no build, pull, secrets or migrations, so it needs no op service account. Idempotent. Maintenance opt-out: touch state/trace-learn-stack-boot/disabled."
+      "notes": "Replaces trace-learn-stack-boot (2026-09-04). docker-starts any existing-but-stopped container of every enabled app in config/docker-apps.json (Octospark prod+staging, Trace Learn prod+staging, tx-agent-kit observability stack) in the app's configured dependency order. Containers found by compose labels, never names. Docker Desktop on macOS starts at user LOGIN not boot, so restart:always alone cannot help - a 2026-07-26 reboot left api.tracelearn.app on 502 for ~20h; tx-agent-kit additionally runs with restart:no. NOT a deploy: no build, pull, secrets or migrations. Idempotent. Maintenance opt-out: touch state/ensure-dockerised-apps-online/disabled (all) or disabled.<app-id> (one)."
     },
     {
       "id": "octospark-auto-fix-runners",
       "name": "Octospark Sentry auto-fix Temporal workers (staging + prod)",
       "enabled": true,
-      "hosts": [
-        "Jamess-Mac-Studio",
-        "Jamess-Mac-Studio.local",
-        "JamessMacStudio.fritz.box"
-      ],
-      "users": [
-        "jamesphoenix"
-      ],
+      "machine": "mac-studio",
       "launchdLabel": "com.octospark.auto-fix-runner.staging",
+      "extraLaunchdLabels": [
+        "com.octospark.auto-fix-runner.prod"
+      ],
       "schedule": "KeepAlive daemons (staging + prod labels), ThrottleInterval 60s",
       "requiresOpServiceAccount": false,
       "install": {
@@ -104,14 +104,7 @@
       "id": "host-docker-cleanup",
       "name": "Host Docker janitor (release images + build cache)",
       "enabled": true,
-      "hosts": [
-        "Jamess-Mac-Studio",
-        "Jamess-Mac-Studio.local",
-        "JamessMacStudio.fritz.box"
-      ],
-      "users": [
-        "jamesphoenix"
-      ],
+      "machine": "mac-studio",
       "launchdLabel": "com.jud.host-docker-cleanup",
       "schedule": "daily at 03:30 local",
       "requiresOpServiceAccount": false,
@@ -126,29 +119,145 @@
       "notes": "Host-level, cross-product (CI runners + octospark-prod-live + trace-learn share one Docker daemon here). Protects every image referenced by any container on the host (running or stopped, any compose project), then reclaims old release image tags + BuildKit cache. Moved here from octospark (scripts/deploy/install-mac-docker-cleanup-launchd.sh, removed) so there is one owner and no drift as sibling products land on the same host. The Hetzner standby box (100.81.18.118) shares a daemon with its own prod/staging stacks but has no launchd - it runs the same cleanup-local-docker.sh via install-cron.sh instead; see agent-loops/docker-cleanup/README.md. Maintenance opt-out: touch state/docker-cleanup/disabled."
     },
     {
-      "id": "host-docker-wedge-recovery",
-      "name": "Host Docker wedge detector and reboot recovery",
+      "id": "ci-vm-cleanup",
+      "name": "CI VM janitor (Colima 'ci' prune + fstrim, orphaned CI container reaper)",
       "enabled": true,
-      "hosts": [
-        "Jamess-Mac-Studio",
-        "Jamess-Mac-Studio.local",
-        "JamessMacStudio.fritz.box"
-      ],
-      "users": [
-        "jamesphoenix"
-      ],
-      "launchdLabel": "com.jud.docker-wedge-recovery",
-      "schedule": "every 10 minutes, no RunAtLoad",
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.ci-vm-cleanup",
+      "schedule": "daily at 04:10 local",
       "requiresOpServiceAccount": false,
       "install": {
         "kind": "command",
         "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
         "command": [
           "bash",
-          "agent-loops/docker-wedge-recovery/install-launchd.sh"
+          "agent-loops/ci-vm-cleanup/install-launchd.sh"
         ]
       },
-      "notes": "Docker Desktop on this host periodically wedges: docker ps, docker exec and docker pull all answer and the socket still returns 200 on /_ping, but EVERY new container start hangs forever and containers pile up in Created (measured 2026-08-04). Root cause is accumulated HOST-SIDE Docker Desktop state on the macOS side - not the VM, not the hypervisor, not the workload - so the only proven recovery is a host reboot via sudo -n /sbin/shutdown -r now (allowed by /etc/sudoers.d/reboot-nopasswd; FileVault off + auto-login means the box comes back unattended). NEVER PURGE THE VM: purging ~/Library/Containers/com.docker.docker/Data/vms bought ~40 minutes and destroyed 218GB of images/volumes for nothing. Also never pkill/killall Docker - force-kills made the incident worse; commands are bounded by backgrounding plus ps -p polling. docker desktop status/stop/start lie or hang in this state and are unused. Probe is docker run --rm alpine:3.20 true; reboot only when it HANGS while reads still answer, capped at 3 reboots per 24h and 1 per 60 min to prevent a boot loop. Post-boot verification checks the socket and the expected prod/staging stacks on the next healthy run. Maintenance opt-out: touch state/docker-wedge-recovery/disabled."
+      "notes": "Second Docker daemon on this host. host-docker-cleanup (03:30) only ever talks to Docker Desktop; the self-hosted Actions runners build against the Colima 'ci' VM (DOCKER_HOST=unix://~/.colima/ci/docker.sock) and nothing cleaned it. By 2026-09-08 that VM held 398 orphaned anonymous volumes (36GB) and its sparse datadisk had grown to 108GB on the host, helping push the boot volume to 98% full. Prunes anonymous volumes, dangling images and build cache >168h INSIDE the VM, then runs fstrim so the freed guest blocks are actually returned to the host: the datadisk is a raw sparse image that only ever grows, so without the trim the reclaim is invisible to macOS (2026-09-08: prune freed 34GB in-guest, fstrim took the host file 108GB -> 27GB). Never touches named volumes (CI postgres/clickhouse/minio/langfuse depend on them), running containers, or the base image cache. Also reaps orphaned ephemeral CI containers on the HOST daemon whose creating shell PID is dead and which are older than 3h - trace-learn's mobile-readiness run-environment.sh removes its detached cloud-sql-proxy from an EXIT trap, which never fires when a cancelled workflow SIGKILLs the shell, leaving an authenticated prod Cloud SQL tunnel open (8 leaked over 7 days). Scheduled 04:10 so it never contends with the 03:30 host janitor. Maintenance opt-out: touch state/ci-vm-cleanup/disabled."
+    },
+    {
+      "id": "chrome-clone-pruner",
+      "name": "Chrome code_sign_clone leak pruner",
+      "enabled": true,
+      "machine": "macbook-pro",
+      "launchdLabel": "com.jud.chrome-clone-pruner",
+      "schedule": "hourly plus RunAtLoad",
+      "requiresOpServiceAccount": false,
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesaphoenix/Desktop/projects/just-understanding-data/agent-scripts",
+        "command": [
+          "bash",
+          "agent-loops/chrome-clone-pruner/install-launchd.sh"
+        ]
+      },
+      "notes": "MacBook Pro only. Chrome APFS-clones its .app bundle at launch and removes the clone on clean exit; force-killed/orphaned browsers (playwright-cli daemons) leak ~1.4GB per clone. Hit 409GB (2026-08-10) and 63GB (2026-08-27). Deletes only clone dirs no running process holds open."
+    },
+    {
+      "id": "kit-fuzz-pruner",
+      "name": "kit-fuzz render output pruner",
+      "enabled": true,
+      "machine": "macbook-pro",
+      "launchdLabel": "com.jud.kit-fuzz-pruner",
+      "schedule": "hourly plus RunAtLoad",
+      "requiresOpServiceAccount": false,
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesaphoenix/Desktop/projects/just-understanding-data/agent-scripts",
+        "command": [
+          "bash",
+          "agent-loops/kit-fuzz-pruner/install-launchd.sh"
+        ]
+      },
+      "notes": "MacBook Pro only. The continuous kit hardening agent in just-understanding-data writes about 3GB a day of gitignored PNG frames under front_end/reports/kit-fuzz/<timestamp>-*/ (8.3GB across 352 run dirs on 2026-09-18, data volume at 93%). Scans the main checkout and every worktree. Run dirs older than 24h lose everything except *.json and *.mp4, older than 72h are removed whole; below 40GB free the tiers drop to 6h and 24h, and below 20GB free a notification is posted. Never touches tracked top-level reports, named proof dirs, run dirs cited in tools/kit-fuzz, reports/kit-hardening or vision-calibration.md, or any run dir written to in the last 6h. Maintenance opt-out: touch state/kit-fuzz-pruner/disabled."
+    },
+    {
+      "id": "dev-docker-cleanup",
+      "name": "Dev laptop Docker janitor (dangling images, stale build cache, old anonymous volumes)",
+      "enabled": true,
+      "machine": "macbook-pro",
+      "launchdLabel": "com.jud.dev-docker-cleanup",
+      "schedule": "weekly, Monday 09:30 local (missed slot fires on next wake)",
+      "requiresOpServiceAccount": false,
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesaphoenix/Desktop/projects/just-understanding-data/agent-scripts",
+        "command": [
+          "bash",
+          "agent-loops/dev-docker-cleanup/install-launchd.sh"
+        ]
+      },
+      "notes": "MacBook Pro only. Removes dangling images, BuildKit cache older than 7d, and ANONYMOUS unattached volumes older than 30d. Never touches tagged images, any container, or NAMED volumes (those are listed in the log for manual review). Exits 0 quietly when Docker Desktop is not running. Do not install the Studio's docker-cleanup here: that one is tuned for a shared prod daemon."
+    },
+    {
+      "id": "cloudflared-tunnels",
+      "name": "Cloudflare Tunnel ingress for octospark + trace-learn (prod + staging)",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jamesphoenix.cloudflared.octospark-prod",
+      "extraLaunchdLabels": [
+        "com.jamesphoenix.cloudflared.octospark-staging",
+        "com.jamesphoenix.cloudflared.tracelearn-prod",
+        "com.jamesphoenix.cloudflared.tracelearn-staging"
+      ],
+      "schedule": "KeepAlive daemons (4 labels)",
+      "requiresOpServiceAccount": false,
+      "install": {
+        "kind": "external",
+        "managedBy": "octospark and trace-learn deploy scripts (cloudflared tunnel --config ~/.cloudflared/<app>-<env>.yml run)"
+      },
+      "notes": "Public ingress: api.octospark.* and api.tracelearn.app reach the compose stacks through these tunnels. Registered for fleet visibility and --audit only; install/update stays with each product repo's deploy script."
+    },
+    {
+      "id": "colima-ci",
+      "name": "Colima 'ci' profile keepalive for the GitHub Actions runners",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.colima-ci",
+      "schedule": "every 5 minutes: colima status --profile ci || colima start --profile ci",
+      "requiresOpServiceAccount": false,
+      "install": {
+        "kind": "external",
+        "managedBy": "hand-installed plist (no repo installer found)"
+      },
+      "notes": "Keeps the Colima VM the self-hosted CI runners build in alive across reboots. Not in any repo installer as of 2026-09-04; if it needs changing, move it into agent-loops/ and switch this entry to install.kind=command."
+    },
+    {
+      "id": "worktree-janitor",
+      "name": "Worktree janitor (remove merged worktrees, kill stale dev servers, email idle digest)",
+      "enabled": true,
+      "machine": "macbook-pro",
+      "launchdLabel": "com.jud.worktree-janitor",
+      "schedule": "daily 08:30 local (missed slot fires on next wake)",
+      "requiresOpServiceAccount": false,
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesaphoenix/Desktop/projects/just-understanding-data/agent-scripts",
+        "command": [
+          "bash",
+          "agent-loops/worktree-janitor/install-launchd.sh"
+        ]
+      },
+      "notes": "Config: config/worktree-janitor.json (trace-learn, octospark, ai-rank-tracker-services, just-understanding-data). Merged = ancestry OR no-op git merge-tree OR merged GitHub PR, against main/staging; dirty work archived to state/worktree-janitor/archive before removal; repo's manage.sh remove used where present (drops Postgres schema). Dev servers (api/worker/web/helpers, node family, cwd inside a worktree) older than 24h are killed; postgres/redis/temporal/docker/playwright never. Idle unmerged worktrees (30d) emailed via Resend from worktree-janitor@provenagents.dev to jamesaphoenix@googlemail.com, at most daily, weekly reminder. Needs gh auth + agent_resend_api_key in keychain."
+    },
+    {
+      "id": "llama-server",
+      "name": "Local inference server (llama.cpp, coding agents)",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.llama-server",
+      "schedule": "KeepAlive daemon, RunAtLoad, ThrottleInterval 30s",
+      "requiresOpServiceAccount": false,
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
+        "command": [
+          "bash",
+          "agent-loops/llama-server/install-launchd.sh"
+        ]
+      },
+      "notes": "Local inference server for coding agents, OpenAI-compatible at http://100.77.197.1:8080/v1 over the tailnet. One resident model, multiplexed over --parallel slots with continuous batching, so another worker costs its KV cache rather than another copy of the weights. DEFAULT MODEL: Qwen3.8-27B-UD-Q4_K_M.gguf (15.3GB, dense 27B, vision-capable, reasoning). Chosen 2026-09-09 over Ornith-1.5-35B (also in ~/models, 20.2GB) after a turns-to-green bake-off compiling real Bevy 0.19 output with cargo: with a 12-turn budget BOTH reached 4/4, and total wall time was a dead heat (Qwen 195.5s vs Ornith 200.7s). They differ in shape, not speed: Qwen takes fewer, slower turns (median 2) and is very consistent (46-51s every episode), while Ornith takes more, cheaper turns (median 3 at ~10s) with a better median (28.6s) but a bad tail (one episode burned 11 turns / 120s). Qwen picked for predictability under unattended runs. NOTE an earlier 5-turn cap made both look like 75% failures and made Ornith look 3.2x faster; both were artifacts of the cap. Neither model one-shots Bevy 0.19 - always >=2 turns. REASONING: Qwen3.8-27B is a reasoning model and WILL spend its whole token budget thinking and return nothing if left unbounded (measured: 142.9s, 11419 chars of reasoning, 0 chars of answer). LLAMA_SERVE_REASONING_BUDGET=512 + LLAMA_SERVE_REASONING_EFFORT=low fixes it (16.1s, finish_reason=stop). reasoning_effort=minimal returns HTTP 500 in this build; the /no_think prompt prefix does NOT work, only chat_template_kwargs or these flags. SLOTS: 2 x 131072 ctx - one chat session occupies exactly ONE slot (verified via /slots), so 4 slots just left 3 idle. PREFILL is the real constraint on this dense model: 29.9s at 8k, 89.0s at 24k, 112.8s at 48k, so keep agent auto-compaction ON with a threshold well below 131k. Prompt-cache reuse is worth ~26x on a stable prefix (22.4s cold vs 0.8s cached), and compaction destroys that prefix, so compact rarely rather than never. This box is an M4 Max (40 GPU cores, 546GB/s), not an Ultra. iogpu.wired_limit_mb stays at the system default. Maintenance opt-out: touch state/llama-server/disabled then launchctl kill TERM."
     }
   ]
 }

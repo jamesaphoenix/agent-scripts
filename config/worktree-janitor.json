@@ -1,0 +1,89 @@
+{
+  "version": 1,
+  "_comment": "Read by agent-loops/worktree-janitor/janitor.py (MacBook Pro, daily 08:30). Three rules: (1) a worktree whose branch content is already in any target branch is removed, with its servers reaped and any uncommitted work archived first; (2) dev servers (api / worker / web, node family only) running from a worktree for longer than servers.maxAgeHours are killed - pnpm dev brings them back; (3) worktrees idle for idleAlert.idleDays that are NOT merged are emailed as a digest for a human decision. Infra (postgres, redis, temporal, docker, playwright, editors) is never touched.",
+  "repos": [
+    {
+      "id": "trace-learn",
+      "path": "~/Desktop/projects/just-understanding-data/trace-learn",
+      "targets": [
+        "main",
+        "staging"
+      ],
+      "removeCommand": [
+        "scripts/worktree/manage.sh",
+        "remove",
+        "{name}",
+        "--yes"
+      ]
+    },
+    {
+      "id": "octospark",
+      "path": "~/Desktop/projects/just-understanding-data/octospark",
+      "targets": [
+        "main",
+        "staging"
+      ],
+      "removeCommand": [
+        "scripts/worktree/manage.sh",
+        "remove",
+        "{name}",
+        "--yes"
+      ]
+    },
+    {
+      "id": "ai-rank-tracker-services",
+      "path": "~/Desktop/projects/just-understanding-data-clients/ai-rank-tracker-services",
+      "targets": [
+        "main",
+        "staging"
+      ]
+    },
+    {
+      "id": "just-understanding-data",
+      "path": "~/Desktop/projects/just-understanding-data/just-understanding-data",
+      "targets": [
+        "main"
+      ]
+    }
+  ],
+  "servers": {
+    "maxAgeHours": 24,
+    "killClasses": [
+      "api",
+      "worker",
+      "web",
+      "helper"
+    ],
+    "_classes": "api = apps/api or src/server.ts; worker = apps/worker; web = vite / wrangler / workerd / next; helper = esbuild service / tsx watch spawned by those. Only node-family processes whose cwd is inside a worktree are ever candidates.",
+    "neverKillPatterns": [
+      "temporal",
+      "postgres",
+      "redis",
+      "docker",
+      "colima",
+      "playwright",
+      "cliDaemon",
+      "tsserver",
+      "typingsInstaller",
+      "eslint",
+      "language-server",
+      "Code Helper",
+      "Cursor",
+      "claude"
+    ]
+  },
+  "idleAlert": {
+    "idleDays": 30,
+    "to": "jamesaphoenix@googlemail.com",
+    "from": "worktree-janitor@provenagents.dev",
+    "subject": "[worktree-janitor] idle worktrees on MacBook Pro",
+    "resendKeychainService": "agent_resend_api_key",
+    "minHoursBetweenDigests": 24,
+    "remindEveryDays": 7
+  },
+  "removal": {
+    "dirtyGraceDays": 3,
+    "minAgeHours": 24,
+    "_comment": "A merged worktree is kept while it has uncommitted changes touched within dirtyGraceDays, or was created less than minAgeHours ago: a fresh worktree with only uncommitted work is 'merged' by ancestry and must not be swept mid-task. Worktrees checked out on a target branch (main/staging) are never removed."
+  }
+}

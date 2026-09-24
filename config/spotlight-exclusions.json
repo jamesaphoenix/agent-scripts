@@ -14,7 +14,10 @@
       ]
     },
     "macbook-pro": {
-      "paths": []
+      "paths": [
+        "~/Desktop/projects",
+        "~/Library/Containers/com.docker.docker"
+      ]
     }
   }
 }

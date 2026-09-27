@@ -11,11 +11,14 @@ mkdir -p "$STALE_PROFILE"
 touch -t 202001010000 "$STALE_PROFILE"
 
 cat >"$FIXTURE" <<EOF
-101 1 /opt/homebrew/bin/node /pkg/playwright-core/lib/entry/cliDaemon.js --daemon-session=/Users/test/Library/Caches/ms-playwright/daemon/key/live.session
-102 101 /Applications/Google Chrome.app/Contents/MacOS/Google Chrome --user-data-dir=$TEST_DIR/playwright_chromiumdev_profile-live
-103 1 /Applications/Google Chrome.app/Contents/MacOS/Google Chrome --user-data-dir=$TEST_DIR/playwright_chromiumdev_profile-orphan
-104 103 /Applications/Google Chrome.app/Contents/Frameworks/Google Chrome Helper.app/Contents/MacOS/Google Chrome Helper --user-data-dir=$TEST_DIR/playwright_chromiumdev_profile-orphan
-105 1 /Applications/Google Chrome.app/Contents/MacOS/Google Chrome --profile-directory=Default
+101 1 12:00 /opt/homebrew/bin/node /pkg/playwright-core/lib/entry/cliDaemon.js --daemon-session=/Users/test/Library/Caches/ms-playwright/daemon/key/live.session
+102 101 11:58 /Applications/Google Chrome.app/Contents/MacOS/Google Chrome --user-data-dir=$TEST_DIR/playwright_chromiumdev_profile-live
+103 1 1-02:00:00 /Applications/Google Chrome.app/Contents/MacOS/Google Chrome --user-data-dir=$TEST_DIR/playwright_chromiumdev_profile-orphan
+104 103 1-02:00:00 /Applications/Google Chrome.app/Contents/Frameworks/Google Chrome Helper.app/Contents/MacOS/Google Chrome Helper --user-data-dir=$TEST_DIR/playwright_chromiumdev_profile-orphan
+105 1 3-00:00:00 /Applications/Google Chrome.app/Contents/MacOS/Google Chrome --profile-directory=Default
+201 1 09:12:08 /opt/homebrew/bin/node /pkg/playwright-core/lib/entry/cliDaemon.js --daemon-session=/Users/test/Library/Caches/ms-playwright/daemon/key/stale.session
+202 201 09:12:07 /Applications/Google Chrome.app/Contents/MacOS/Google Chrome --user-data-dir=$TEST_DIR/playwright_chromiumdev_profile-aged
+203 202 09:12:07 /Applications/Google Chrome.app/Contents/Frameworks/Google Chrome Helper (GPU).app/Contents/MacOS/Google Chrome Helper (GPU) --type=gpu-process
 EOF
 
 default_output="$(
@@ -47,7 +50,7 @@ force_output="$(
     "$SCRIPT_DIR/reap.sh" --force --dry-run
 )"
 
-for pid in 101 102 103 104; do
+for pid in 101 102 103 104 201 202; do
   grep -F "pid=${pid} " <<<"$force_output" >/dev/null
 done
 if grep -F "pid=105" <<<"$force_output" >/dev/null; then
@@ -55,9 +58,28 @@ if grep -F "pid=105" <<<"$force_output" >/dev/null; then
   exit 1
 fi
 
+aged_output="$(
+  PLAYWRIGHT_REAPER_PS_FILE="$FIXTURE" \
+  PLAYWRIGHT_REAPER_TMP_ROOT="$TEST_DIR" \
+    "$SCRIPT_DIR/reap.sh" --max-age-hours 3 --dry-run
+)"
+
+for pid in 103 201 202 203; do
+  grep -F "would terminate: pid=${pid} " <<<"$aged_output" >/dev/null || {
+    echo "Max-age mode missed pid ${pid}." >&2
+    exit 1
+  }
+done
+for pid in 101 102 105; do
+  if grep -F "pid=${pid} " <<<"$aged_output" >/dev/null; then
+    echo "Max-age mode selected pid ${pid}, which is young or not Playwright." >&2
+    exit 1
+  fi
+done
+
 status_output="$(PLAYWRIGHT_REAPER_PS_FILE="$FIXTURE" "$SCRIPT_DIR/reap.sh" --status)"
-grep -F "playwright_cli_daemons=1" <<<"$status_output" >/dev/null
-grep -F "playwright_browser_processes=3" <<<"$status_output" >/dev/null
+grep -F "playwright_cli_daemons=2" <<<"$status_output" >/dev/null
+grep -F "playwright_browser_processes=4" <<<"$status_output" >/dev/null
 grep -F "orphan_browser_processes=1" <<<"$status_output" >/dev/null
 
 echo "playwright-cli-reaper tests passed"

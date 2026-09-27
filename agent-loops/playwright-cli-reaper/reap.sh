@@ -8,6 +8,7 @@ DRY_RUN=0
 STATUS_ONLY=0
 GRACE_SECONDS="${PLAYWRIGHT_REAPER_GRACE_SECONDS:-5}"
 MIN_AGE_MINUTES="${PLAYWRIGHT_REAPER_MIN_AGE_MINUTES:-5}"
+MAX_AGE_HOURS="${PLAYWRIGHT_REAPER_MAX_AGE_HOURS:-0}"
 PS_FILE="${PLAYWRIGHT_REAPER_PS_FILE:-}"
 TMP_ROOT="${PLAYWRIGHT_REAPER_TMP_ROOT:-${TMPDIR:-/tmp}}"
 
@@ -16,12 +17,18 @@ usage() {
 Usage:
   playwright-reap
   playwright-reap --dry-run
+  playwright-reap --max-age-hours N [--dry-run]
   playwright-reap --force [--dry-run]
   playwright-reap --status
 
 Default mode terminates only Playwright-owned browser processes whose PPID is
 1. This is the safe recurring/manual backstop and does not stop a browser that
 still has a live Playwright CLI daemon parent.
+
+--max-age-hours N also terminates Playwright CLI daemons that have been
+running for more than N hours, together with every process descended from them
+(their headless Chrome trees). This is what the hourly LaunchAgent runs: a
+detached daemon that is still alive hours later has been abandoned by its agent.
 
 --force first runs `playwright-cli kill-all`, then terminates every remaining
 Playwright CLI daemon and browser process identified by Playwright-specific
@@ -38,6 +45,10 @@ while [[ "$#" -gt 0 ]]; do
     --dry-run)
       DRY_RUN=1
       shift
+      ;;
+    --max-age-hours)
+      MAX_AGE_HOURS="${2:-}"
+      shift 2 || { echo "--max-age-hours needs a value." >&2; exit 2; }
       ;;
     --status)
       STATUS_ONLY=1
@@ -65,6 +76,11 @@ if ! [[ "$MIN_AGE_MINUTES" =~ ^[0-9]+$ ]]; then
   exit 2
 fi
 
+if ! [[ "$MAX_AGE_HOURS" =~ ^[0-9]+$ ]]; then
+  echo "--max-age-hours / PLAYWRIGHT_REAPER_MAX_AGE_HOURS must be a non-negative integer." >&2
+  exit 2
+fi
+
 snapshot_file="$(mktemp -t playwright-reaper-processes.XXXXXX)"
 trap 'rm -f "$snapshot_file"' EXIT
 
@@ -72,8 +88,31 @@ take_snapshot() {
   if [[ -n "$PS_FILE" ]]; then
     cp "$PS_FILE" "$snapshot_file"
   else
-    ps -Aww -o pid=,ppid=,command= >"$snapshot_file"
+    ps -Aww -o pid=,ppid=,etime=,command= >"$snapshot_file"
   fi
+}
+
+# ps etime is [[dd-]hh:]mm:ss; print it as whole seconds.
+etime_seconds() {
+  local etime="$1"
+  local days=0
+  local hours=0
+  local minutes=0
+  local seconds=0
+  local IFS=":"
+  local parts=()
+
+  if [[ "$etime" == *-* ]]; then
+    days="${etime%%-*}"
+    etime="${etime#*-}"
+  fi
+  read -r -a parts <<<"$etime"
+  case "${#parts[@]}" in
+    3) hours="${parts[0]}"; minutes="${parts[1]}"; seconds="${parts[2]}" ;;
+    2) minutes="${parts[0]}"; seconds="${parts[1]}" ;;
+    *) printf '0\n'; return 0 ;;
+  esac
+  printf '%d\n' $(( 10#$days * 86400 + 10#$hours * 3600 + 10#$minutes * 60 + 10#$seconds ))
 }
 
 is_cli_daemon() {
@@ -138,13 +177,14 @@ add_target() {
 collect_targets() {
   local pid=""
   local ppid=""
+  local etime=""
   local command=""
   local kind=""
 
   TARGET_PIDS=()
   TARGET_DETAILS=()
 
-  while read -r pid ppid command; do
+  while read -r pid ppid etime command; do
     [[ "$pid" =~ ^[0-9]+$ && "$ppid" =~ ^[0-9]+$ ]] || continue
     kind="$(process_kind "$command")"
 
@@ -158,18 +198,56 @@ collect_targets() {
     if [[ "$ppid" == "1" ]] && has_playwright_profile "$command" && is_browser_process "$command"; then
       add_target "$pid" "pid=${pid} ppid=${ppid} kind=${kind}"
     fi
+
+    if (( MAX_AGE_HOURS > 0 )) && is_cli_daemon "$command" \
+      && (( $(etime_seconds "$etime") > MAX_AGE_HOURS * 3600 )); then
+      add_target "$pid" "pid=${pid} ppid=${ppid} kind=${kind} age=${etime}"
+    fi
   done <"$snapshot_file"
+
+  if [[ "$MODE" != "force" ]] && (( MAX_AGE_HOURS > 0 )); then
+    add_descendants
+  fi
+}
+
+# Pull in every process descended from a target (a stale daemon's Chrome tree).
+add_descendants() {
+  local pid=""
+  local ppid=""
+  local etime=""
+  local command=""
+  local before=-1
+
+  while (( before != ${#TARGET_PIDS[@]} )); do
+    before=${#TARGET_PIDS[@]}
+    while read -r pid ppid etime command; do
+      [[ "$pid" =~ ^[0-9]+$ && "$ppid" =~ ^[0-9]+$ ]] || continue
+      if is_target "$ppid"; then
+        add_target "$pid" "pid=${pid} ppid=${ppid} kind=$(process_kind "$command")"
+      fi
+    done <"$snapshot_file"
+  done
+}
+
+is_target() {
+  local candidate="$1"
+  local existing=""
+  for existing in "${TARGET_PIDS[@]:-}"; do
+    [[ "$existing" == "$candidate" ]] && return 0
+  done
+  return 1
 }
 
 print_status() {
   local pid=""
   local ppid=""
+  local etime=""
   local command=""
   local daemon_count=0
   local browser_count=0
   local orphan_browser_count=0
 
-  while read -r pid ppid command; do
+  while read -r pid ppid etime command; do
     [[ "$pid" =~ ^[0-9]+$ && "$ppid" =~ ^[0-9]+$ ]] || continue
     if is_cli_daemon "$command"; then
       daemon_count=$(( daemon_count + 1 ))

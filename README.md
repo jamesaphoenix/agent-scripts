@@ -137,8 +137,9 @@ Current loops:
   app there (validate with `python3 lib/docker-apps.py validate`) and both loops pick it up on
   the next deploy; no script edits.
 
-- `playwright-cli-reaper`: manual macOS backstop for orphaned Playwright CLI daemons and headless
-  Chrome process trees. Install it with `agent-loops/playwright-cli-reaper/install.sh`, inspect with
+- `playwright-cli-reaper`: backstop for orphaned or abandoned Playwright CLI daemons and headless
+  Chrome process trees. Runs hourly on both Macs (`com.jud.playwright-cli-reaper`, reaping daemons
+  older than 3h); install the manual command with `agent-loops/playwright-cli-reaper/install.sh`, inspect with
   `playwright-reap --status`, use the safe orphan-only mode as `playwright-reap`, or use
   `playwright-reap --force` only when no Playwright session should remain.
 

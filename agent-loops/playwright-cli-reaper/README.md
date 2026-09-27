@@ -48,10 +48,25 @@ Inspect without changing anything:
 playwright-reap --status
 ```
 
-This is installed as a manual MacBook command. It is deliberately not registered as a MacBook
-LaunchAgent because this repository's unattended launchd tasks are installed on the Mac Studio
-only. The upgraded Playwright CLI owns normal lifecycle cleanup; this script is the independent
-manual backstop.
+Abandoned sessions whose daemon is still alive are not orphans, so default mode leaves them. Add
+`--max-age-hours N` to also terminate CLI daemons older than N hours together with their whole
+process tree (headless Chrome and its helpers):
+
+```bash
+playwright-reap --max-age-hours 3 --dry-run
+```
+
+This runs hourly on both Macs as the `com.jud.playwright-cli-reaper` LaunchAgent, registered in
+`launchd-tasks/registry.json` as `playwright-cli-reaper` (MacBook Pro) and
+`playwright-cli-reaper-studio` (Mac Studio). Install it on the current machine with:
+
+```bash
+scripts/install-launchd-tasks.sh --task playwright-cli-reaper        # MacBook Pro
+scripts/install-launchd-tasks.sh --task playwright-cli-reaper-studio # Mac Studio
+```
+
+The age threshold defaults to 3 hours; set `PLAYWRIGHT_REAPER_MAX_AGE_HOURS` when running
+`install-launchd.sh` to change it. Logs go to `~/Library/Logs/playwright-cli-reaper.log`.
 
 Run the focused tests:
 

@@ -258,6 +258,42 @@
         ]
       },
       "notes": "Local inference server for coding agents, OpenAI-compatible at http://100.77.197.1:8080/v1 over the tailnet. One resident model, multiplexed over --parallel slots with continuous batching, so another worker costs its KV cache rather than another copy of the weights. DEFAULT MODEL: Qwen3.8-27B-UD-Q4_K_M.gguf (15.3GB, dense 27B, vision-capable, reasoning). Chosen 2026-09-09 over Ornith-1.5-35B (also in ~/models, 20.2GB) after a turns-to-green bake-off compiling real Bevy 0.19 output with cargo: with a 12-turn budget BOTH reached 4/4, and total wall time was a dead heat (Qwen 195.5s vs Ornith 200.7s). They differ in shape, not speed: Qwen takes fewer, slower turns (median 2) and is very consistent (46-51s every episode), while Ornith takes more, cheaper turns (median 3 at ~10s) with a better median (28.6s) but a bad tail (one episode burned 11 turns / 120s). Qwen picked for predictability under unattended runs. NOTE an earlier 5-turn cap made both look like 75% failures and made Ornith look 3.2x faster; both were artifacts of the cap. Neither model one-shots Bevy 0.19 - always >=2 turns. REASONING: Qwen3.8-27B is a reasoning model and WILL spend its whole token budget thinking and return nothing if left unbounded (measured: 142.9s, 11419 chars of reasoning, 0 chars of answer). LLAMA_SERVE_REASONING_BUDGET=512 + LLAMA_SERVE_REASONING_EFFORT=low fixes it (16.1s, finish_reason=stop). reasoning_effort=minimal returns HTTP 500 in this build; the /no_think prompt prefix does NOT work, only chat_template_kwargs or these flags. SLOTS: 2 x 131072 ctx - one chat session occupies exactly ONE slot (verified via /slots), so 4 slots just left 3 idle. PREFILL is the real constraint on this dense model: 29.9s at 8k, 89.0s at 24k, 112.8s at 48k, so keep agent auto-compaction ON with a threshold well below 131k. Prompt-cache reuse is worth ~26x on a stable prefix (22.4s cold vs 0.8s cached), and compaction destroys that prefix, so compact rarely rather than never. This box is an M4 Max (40 GPU cores, 546GB/s), not an Ultra. iogpu.wired_limit_mb stays at the system default. Maintenance opt-out: touch state/llama-server/disabled then launchctl kill TERM."
+    },
+    {
+      "id": "playwright-cli-reaper",
+      "name": "Playwright CLI reaper (stale daemons + orphaned headless Chrome)",
+      "machine": "macbook-pro",
+      "enabled": true,
+      "launchdLabel": "com.jud.playwright-cli-reaper",
+      "schedule": "hourly plus RunAtLoad",
+      "requiresOpServiceAccount": false,
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesaphoenix/Desktop/projects/just-understanding-data/agent-scripts",
+        "command": [
+          "bash",
+          "agent-loops/playwright-cli-reaper/install-launchd.sh"
+        ]
+      },
+      "notes": "Runs on both Macs (the one exception to one-machine-per-task): agents on either host leave detached playwright-cli daemons plus headless Chrome trees alive for hours. Kills orphaned Playwright browsers, daemons older than 3h with their whole process tree, and unreferenced temp profiles. 2026-09-27: 9 abandoned daemons, ~9h old, pinned 3 GPU helpers at ~18% CPU each on the MacBook."
+    },
+    {
+      "id": "playwright-cli-reaper-studio",
+      "name": "Playwright CLI reaper (stale daemons + orphaned headless Chrome)",
+      "machine": "mac-studio",
+      "enabled": true,
+      "launchdLabel": "com.jud.playwright-cli-reaper",
+      "schedule": "hourly plus RunAtLoad",
+      "requiresOpServiceAccount": false,
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
+        "command": [
+          "bash",
+          "agent-loops/playwright-cli-reaper/install-launchd.sh"
+        ]
+      },
+      "notes": "Runs on both Macs (the one exception to one-machine-per-task): agents on either host leave detached playwright-cli daemons plus headless Chrome trees alive for hours. Kills orphaned Playwright browsers, daemons older than 3h with their whole process tree, and unreferenced temp profiles. 2026-09-27: 9 abandoned daemons, ~9h old, pinned 3 GPU helpers at ~18% CPU each on the MacBook."
     }
   ]
 }

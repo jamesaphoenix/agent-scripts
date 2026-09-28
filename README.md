@@ -3,6 +3,7 @@
 Agent-oriented experiments, research loops, and ad hoc automation.
 
 - `agent-loops/` - reusable loops for autonomous agent research (ralph, reverse-ralph, auto-research)
+- `pi-extensions/` - global pi (pi.dev) extensions: Brave `web_search`/`web_fetch` and subscription failover, symlinked into `~/.pi/agent/extensions/` by `dotfiles/install.sh` (see `pi-extensions/README.md`)
 
 ## Engineering Loops
 

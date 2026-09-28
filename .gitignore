@@ -8,3 +8,6 @@ state/
 
 # Local editor backups are not deployable sources.
 *.bak
+
+# pi extensions: legacy plaintext keys must never be committed.
+pi-extensions/**/*.key

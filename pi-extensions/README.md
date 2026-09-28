@@ -116,7 +116,7 @@ In print mode: `pi -p "/failover status" </dev/null` (the output goes to stderr)
 
 ```bash
 python3 -m unittest discover -s tests -v      # includes the pi-extensions suites
-node --test tests/pi-extensions/*.test.ts     # unit: classification, selection, key order
+node --test tests/pi-extensions/*.test.ts     # unit (Node 22: add --experimental-strip-types)
 node --test tests/pi-extensions/e2e-failover.test.mjs
 ```
 

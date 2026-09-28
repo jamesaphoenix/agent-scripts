@@ -1,6 +1,6 @@
 """Runs the pi-extensions Node test suites so `python3 -m unittest discover -s tests` covers them.
 
-Unit tests: tests/pi-extensions/*.test.ts (node --test, native TypeScript type stripping).
+Unit tests: tests/pi-extensions/*.test.ts (node --test with TypeScript type stripping, Node 22.6+).
 End-to-end: tests/pi-extensions/e2e-failover.test.mjs (real `pi -p` against fake local providers;
 skips itself when pi is not installed).
 """
@@ -24,11 +24,13 @@ def node_major() -> int:
         return 0
 
 
-@unittest.skipIf(node_major() < 23, "needs Node 23+ for native TypeScript type stripping")
+@unittest.skipIf(node_major() < 22, "needs Node 22.6+ for TypeScript type stripping")
 class PiExtensionTests(unittest.TestCase):
     def run_node_tests(self, *files: Path) -> None:
+        # Node 22 needs the flag; 23.6+ strips types by default.
+        flags = ["--experimental-strip-types", "--no-warnings"] if node_major() == 22 else []
         proc = subprocess.run(
-            ["node", "--test", *[str(f) for f in files]],
+            ["node", *flags, "--test", *[str(f) for f in files]],
             cwd=ROOT,
             capture_output=True,
             text=True,

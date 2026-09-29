@@ -75,17 +75,6 @@ function withTimeout<T>(p: Promise<T>, ms: number, fallback: T): Promise<T> {
   });
 }
 
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-
-async function waitFor(cond: () => boolean, timeoutMs: number): Promise<boolean> {
-  const deadline = Date.now() + timeoutMs;
-  while (!cond()) {
-    if (Date.now() > deadline) return false;
-    await sleep(50);
-  }
-  return true;
-}
-
 export default function subscriptionFailover(pi: ExtensionAPI) {
   const state = new FailoverState();
   let config: FailoverConfig = loadConfig(process.env, readConfigFile(configPath()), configPath()).config;
@@ -104,9 +93,6 @@ export default function subscriptionFailover(pi: ExtensionAPI) {
   let lastResendTo: string | undefined;
 
   // Sequencing for print mode, where we must wait for the re-sent run before pi exits.
-  let agentStartSeq = 0;
-  let settledSeq = 0;
-  let driving = false;
 
   const say = (ctx: ExtensionContext, msg: string, level: "info" | "warning" | "error" = "info") => {
     if (ctx.hasUI) ctx.ui.notify(msg, level);
@@ -211,10 +197,6 @@ export default function subscriptionFailover(pi: ExtensionAPI) {
     if (current) state.triedThisPrompt.add(keyOf(current));
   });
 
-  pi.on("agent_start", () => {
-    agentStartSeq++;
-  });
-
   pi.on("turn_start", () => {
     lastStatus = undefined;
     lastHeaders = undefined;
@@ -273,10 +255,7 @@ export default function subscriptionFailover(pi: ExtensionAPI) {
   };
 
   pi.on("agent_settled", async (_event, ctx) => {
-    settledSeq++;
-    if (driving) return; // an outer print-mode loop is waiting on this run and will act on it
-    driving = true;
-    try {
+    {
       for (let guard = 0; guard <= config.candidates.length; guard++) {
         const stillFailed = lastAssistant?.stopReason === "error";
         if (pending && !stillFailed) {
@@ -301,26 +280,14 @@ export default function subscriptionFailover(pi: ExtensionAPI) {
         }
         const p = pending;
         pending = undefined;
-        const startBefore = agentStartSeq;
-        const settledBefore = settledSeq;
         if (!resend(p)) break;
         lastResendTo = p.to;
-        if (ctx.hasUI) break; // interactive/RPC: the re-sent run's own agent_settled continues the chain
-        const started = await waitFor(() => agentStartSeq > startBefore, config.startTimeoutMs);
-        if (!started) {
-          ownResendPending = false;
-          const to = config.candidates.find((c) => keyOf(c) === p.to);
-          if (to) state.mark(to, { kind: "unavailable", scope: "provider", reason: "re-sent prompt never started" }, Date.now());
-          say(ctx, `Re-sent prompt did not start on ${p.to}; giving up on it.`, "error");
-          const next = await switchToNext(ctx, to);
-          if (next) pending = { ...p, from: p.to, to: keyOf(next) };
-          else break;
-          continue;
-        }
-        await waitFor(() => settledSeq > settledBefore && ctx.isIdle(), Number.MAX_SAFE_INTEGER);
+        // Never wait for the re-sent run here. Since pi 0.87, runs requested from an
+        // agent_settled handler are deferred until every settled handler returns, so
+        // waiting for it to start deadlocks (print mode then timed out or hung). The
+        // re-sent run's own agent_settled continues the chain in every mode.
+        break;
       }
-    } finally {
-      driving = false;
     }
   });
 

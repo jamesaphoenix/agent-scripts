@@ -7,6 +7,5 @@
     "openai-codex/gpt-5.5"
   ],
   "preferPrimary": true,
-  "startTimeoutMs": 30000,
   "readyTimeoutMs": 20000
 }

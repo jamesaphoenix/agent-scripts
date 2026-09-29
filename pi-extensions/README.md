@@ -101,8 +101,7 @@ Candidate order, first match wins:
    `openai-codex/gpt-6-astra`, `openai-codex/gpt-5.5`
 
 `PI_FAILOVER_DISABLED=1` turns it off. Config file keys: `enabled`, `candidates`,
-`preferPrimary`, `startTimeoutMs` (print mode: how long to wait for a re-sent prompt to start),
-`readyTimeoutMs`.
+`preferPrimary`, `readyTimeoutMs`.
 
 ### `/failover`
 

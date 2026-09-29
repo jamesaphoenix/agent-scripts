@@ -182,8 +182,6 @@ export interface FailoverConfig {
   candidates: CandidateRef[];
   /** When a higher-priority candidate's reset time has passed, switch back to it on the next user prompt. */
   preferPrimary: boolean;
-  /** How long print mode waits for a re-sent prompt to start before giving up on that candidate. */
-  startTimeoutMs: number;
   /** Bound on the readiness probe (credential refresh) per candidate. */
   readyTimeoutMs: number;
   source: string;
@@ -221,7 +219,6 @@ export function loadConfig(
     enabled: true,
     candidates: DEFAULT_CANDIDATES,
     preferPrimary: true,
-    startTimeoutMs: 30_000,
     readyTimeoutMs: 20_000,
     source: "defaults",
   };
@@ -230,7 +227,6 @@ export function loadConfig(
       const data = JSON.parse(fileText) as Record<string, unknown>;
       if (typeof data.enabled === "boolean") config.enabled = data.enabled;
       if (typeof data.preferPrimary === "boolean") config.preferPrimary = data.preferPrimary;
-      if (typeof data.startTimeoutMs === "number" && data.startTimeoutMs > 0) config.startTimeoutMs = data.startTimeoutMs;
       if (typeof data.readyTimeoutMs === "number" && data.readyTimeoutMs > 0) config.readyTimeoutMs = data.readyTimeoutMs;
       if (Array.isArray(data.candidates)) {
         const list = parseCandidateList(data.candidates as string[]);

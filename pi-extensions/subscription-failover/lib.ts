@@ -189,18 +189,12 @@ export interface FailoverConfig {
   source: string;
 }
 
-/**
- * Strong coding models first on the Claude subscription, then the ChatGPT (Codex) subscription,
- * then a second ChatGPT account registered by the codex-accounts extension. Candidates whose
- * provider has no credentials (e.g. openai-codex-2 before `/login openai-codex-2`) are skipped.
- */
+/** Strong coding models first on the Claude subscription, then the ChatGPT (Codex) subscription. */
 export const DEFAULT_CANDIDATES: CandidateRef[] = [
   { provider: "anthropic", model: "claude-opus-5-5" },
   { provider: "anthropic", model: "claude-sonnet-5" },
   { provider: "openai-codex", model: "gpt-6-astra" },
   { provider: "openai-codex", model: "gpt-5.5" },
-  { provider: "openai-codex-2", model: "gpt-6-astra" },
-  { provider: "openai-codex-2", model: "gpt-5.5" },
 ];
 
 export function parseCandidateList(raw: string | string[]): CandidateRef[] {

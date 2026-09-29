@@ -7,7 +7,6 @@ here as versioned code and shared by both Macs.
 |---|---|
 | `web-search/` | `web_search` (Brave Search API) and `web_fetch` (URL to cleaned text) tools |
 | `subscription-failover/` | Switches model when a subscription hits a usage limit, rate limit, overload or auth error, then re-sends the interrupted prompt. Adds `/failover` |
-| `codex-accounts/` | Registers extra ChatGPT (Codex) subscription accounts as `openai-codex-2`, ... so more than one can be logged in and failed over to |
 
 ## Install and sync
 
@@ -112,18 +111,6 @@ Candidate order, first match wins:
 - `/failover next`: switch to the next ready candidate now.
 
 In print mode: `pi -p "/failover status" </dev/null` (the output goes to stderr).
-
-## codex-accounts
-
-pi keeps one credential per provider id in `~/.pi/agent/auth.json`, so a second `/login openai-codex` replaces the first ChatGPT account. This extension registers extra providers, `openai-codex-2` (and `-3`... if configured), that wrap pi's own built-in Codex provider: same ChatGPT OAuth login, streaming API and model catalogue, but a separate provider id, so each account's tokens have their own `auth.json` entry.
-
-- Log in once per machine: start `pi`, then `/login openai-codex-2` and sign in with the second ChatGPT account. Never copy `auth.json` between machines (refresh tokens rotate).
-- Use it like any provider: `pi --provider openai-codex-2 --model gpt-6-astra`, or `/model`.
-- `subscription-failover` lists `openai-codex-2/gpt-6-astra` and `openai-codex-2/gpt-5.5` after the first Codex account by default, and skips them until that account is logged in.
-- `PI_CODEX_EXTRA_ACCOUNTS=<n>` sets how many extra accounts to register (default 1, max 5); `PI_CODEX_ACCOUNTS_DISABLED=1` turns it off.
-- pi-ai does not export the Codex provider from its package root, so the extension loads `node_modules/@earendil-works/pi-ai/dist/providers/openai-codex.js` from pi's own install (override with `PI_AI_CODEX_MODULE`). If a pi upgrade moves it, it falls back to wrapping the live provider at session start.
-- `pi --list-models` and `pi auth check` do not load extensions, so they do not show `openai-codex-2`; check it with a print-mode run instead, e.g. `echo ok | pi -p --no-session --provider openai-codex-2 --model gpt-5.5` ("No API key found for openai-codex-2" means it is registered but not logged in yet).
-- Using several subscriptions to get around a provider's per-account usage limits may be against that provider's terms; check before relying on it.
 
 ## Tests
 

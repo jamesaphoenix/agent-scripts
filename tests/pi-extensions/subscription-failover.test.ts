@@ -99,13 +99,11 @@ describe("extractReset", () => {
 });
 
 describe("config", () => {
-  it("defaults to Claude first, then Codex, then the second Codex account", () => {
+  it("defaults to Claude first then Codex", () => {
     const { config } = loadConfig({}, undefined, "/x.json");
     assert.deepEqual(config.candidates, DEFAULT_CANDIDATES);
-    assert.deepEqual(
-      [...new Set(config.candidates.map((c) => c.provider))],
-      ["anthropic", "openai-codex", "openai-codex-2"]
-    );
+    assert.equal(config.candidates[0].provider, "anthropic");
+    assert.equal(config.candidates.at(-1)!.provider, "openai-codex");
     assert.equal(config.enabled, true);
   });
   it("file overrides defaults, env overrides file", () => {

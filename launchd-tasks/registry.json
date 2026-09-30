@@ -312,6 +312,29 @@
         ]
       },
       "notes": "Cache-only. Inactive Remotion bundles older than 24h, ignored outputs in idle worktrees older than 7d, deterministic mobile-readiness cache directory-index budget 4MiB / 7d expiry with writer/handle checks. Preserves source, sessions, media, databases, volumes and recovery data. No email. MacBook manual commands only. Pause: state/cache-hygiene/disabled. Free-space warning below 150GiB."
+    },
+    {
+      "id": "ci-disk-budget",
+      "name": "CI disk budget admission",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "actions.runner.Just-Understanding-Data-Ltd.mac-studio-runner",
+      "extraLaunchdLabels": [
+        "actions.runner.Just-Understanding-Data-Ltd.mac-studio-runner-2",
+        "actions.runner.Just-Understanding-Data-Ltd.mac-studio-runner-3",
+        "actions.runner.Just-Understanding-Data-Ltd.mac-studio-runner-4"
+      ],
+      "schedule": "before each new CI job through ACTIONS_RUNNER_HOOK_JOB_STARTED",
+      "requiresOpServiceAccount": false,
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
+        "command": [
+          "bash",
+          "runner-hooks/install-disk-preflight.sh"
+        ]
+      },
+      "notes": "Refuse new jobs below a 100 GiB free floor plus 20 GiB reserved per active CI worker. Never cancels existing jobs or services. Installer backs up runner configuration; idle restart is required after changing hook configuration. Manual laptop preflight uses the same Python CLI without --ci."
     }
   ]
 }

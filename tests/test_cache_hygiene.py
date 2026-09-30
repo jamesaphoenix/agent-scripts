@@ -17,6 +17,14 @@ spec=importlib.util.spec_from_file_location('disk_preflight',ROOT/'agent-loops/c
 preflight=importlib.util.module_from_spec(spec);spec.loader.exec_module(preflight)
 
 class HygieneTests(unittest.TestCase):
+    def test_activity_inventory_avoids_dns_and_service_name_lookups(self):
+        handles='\n'.join('n/fixture/file'+str(i) for i in range(6))
+        results=[subprocess.CompletedProcess([],0,handles,''),subprocess.CompletedProcess([],0,'','')]
+        with mock.patch.object(hygiene.subprocess,'run',side_effect=results) as run, mock.patch.object(hygiene.subprocess,'check_output',return_value='python3 maintenance.py\n'):
+            inventory=hygiene.snapshot()
+        self.assertEqual(len(inventory[0]),6)
+        self.assertIn('-nP',run.call_args_list[0].args[0])
+
     def test_owned_old_direct_child_is_eligible(self):
         with tempfile.TemporaryDirectory() as name:
             parent=Path(name);child=parent/'cache';child.mkdir()

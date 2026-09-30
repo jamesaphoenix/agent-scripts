@@ -27,6 +27,12 @@ bash agent-loops/docker-cleanup/install-launchd.sh
 Runs daily at 03:30 local. See `install-launchd.sh` for the artifact-dir
 defaults (every CI runner slot x product combination it can find).
 
+Build cache defaults to a 24-hour age filter and a 10 GB storage budget, with
+the installed buildx CLI's supported budget flag. The default host builder is
+explicitly selected. Recent or in-use cache can exceed the budget temporarily.
+Stopped containers and all volumes are preserved by default; stopped-container
+pruning requires `DOCKER_CLEANUP_PRUNE_STOPPED_CONTAINERS=1`.
+
 **Linux host sharing a daemon with prod (e.g. the Hetzner standby):** there is
 no launchd there, so this loop is deployed as a plain cron entry instead - see
 `install-cron.sh`.

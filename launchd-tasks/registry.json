@@ -116,7 +116,7 @@
           "agent-loops/docker-cleanup/install-launchd.sh"
         ]
       },
-      "notes": "Host-level, cross-product (CI runners + octospark-prod-live + trace-learn share one Docker daemon here). Protects every image referenced by any container on the host (running or stopped, any compose project), then reclaims old release image tags + BuildKit cache. Moved here from octospark (scripts/deploy/install-mac-docker-cleanup-launchd.sh, removed) so there is one owner and no drift as sibling products land on the same host. The Hetzner standby box (100.81.18.118) shares a daemon with its own prod/staging stacks but has no launchd - it runs the same cleanup-local-docker.sh via install-cron.sh instead; see agent-loops/docker-cleanup/README.md. Maintenance opt-out: touch state/docker-cleanup/disabled."
+      "notes": "Host-level, cross-product (CI runners + octospark-prod-live + trace-learn share one Docker daemon here). Protects every image referenced by any container on the host (running or stopped, any compose project), then reclaims old release image tags + BuildKit cache. Moved here from octospark (scripts/deploy/install-mac-docker-cleanup-launchd.sh, removed) so there is one owner and no drift as sibling products land on the same host. The Hetzner standby box (100.81.18.118) shares a daemon with its own prod/staging stacks but has no launchd - it runs the same cleanup-local-docker.sh via install-cron.sh instead; see agent-loops/docker-cleanup/README.md. Maintenance opt-out: touch state/docker-cleanup/disabled. Cache budget: 10GB with 24h age filter and CLI flag detection. Stopped containers preserved unless explicitly enabled. First runner artifact path is actions-runner/_work."
     },
     {
       "id": "ci-vm-cleanup",
@@ -134,7 +134,7 @@
           "agent-loops/ci-vm-cleanup/install-launchd.sh"
         ]
       },
-      "notes": "Second Docker daemon on this host. host-docker-cleanup (03:30) only ever talks to Docker Desktop; the self-hosted Actions runners build against the Colima 'ci' VM (DOCKER_HOST=unix://~/.colima/ci/docker.sock) and nothing cleaned it. By 2026-09-08 that VM held 398 orphaned anonymous volumes (36GB) and its sparse datadisk had grown to 108GB on the host, helping push the boot volume to 98% full. Prunes anonymous volumes, dangling images and build cache >168h INSIDE the VM, then runs fstrim so the freed guest blocks are actually returned to the host: the datadisk is a raw sparse image that only ever grows, so without the trim the reclaim is invisible to macOS (2026-09-08: prune freed 34GB in-guest, fstrim took the host file 108GB -> 27GB). Never touches named volumes (CI postgres/clickhouse/minio/langfuse depend on them), running containers, or the base image cache. Also reaps orphaned ephemeral CI containers on the HOST daemon whose creating shell PID is dead and which are older than 3h - trace-learn's mobile-readiness run-environment.sh removes its detached cloud-sql-proxy from an EXIT trap, which never fires when a cancelled workflow SIGKILLs the shell, leaving an authenticated prod Cloud SQL tunnel open (8 leaked over 7 days). Scheduled 04:10 so it never contends with the 03:30 host janitor. Maintenance opt-out: touch state/ci-vm-cleanup/disabled."
+      "notes": "Second Docker daemon on this host. host-docker-cleanup (03:30) only ever talks to Docker Desktop; the self-hosted Actions runners build against the Colima 'ci' VM (DOCKER_HOST=unix://~/.colima/ci/docker.sock) and nothing cleaned it. By 2026-09-08 that VM held 398 orphaned anonymous volumes (36GB) and its sparse datadisk had grown to 108GB on the host, helping push the boot volume to 98% full. Prunes dangling images and build cache older than 24h INSIDE the VM; anonymous volumes are preserved unless explicitly enabled, then runs fstrim so the freed guest blocks are actually returned to the host: the datadisk is a raw sparse image that only ever grows, so without the trim the reclaim is invisible to macOS (2026-09-08: prune freed 34GB in-guest, fstrim took the host file 108GB -> 27GB). Never touches named volumes (CI postgres/clickhouse/minio/langfuse depend on them), running containers, or the base image cache. Also reaps orphaned ephemeral CI containers on the HOST daemon whose creating shell PID is dead and which are older than 3h - trace-learn's mobile-readiness run-environment.sh removes its detached cloud-sql-proxy from an EXIT trap, which never fires when a cancelled workflow SIGKILLs the shell, leaving an authenticated prod Cloud SQL tunnel open (8 leaked over 7 days). Scheduled 04:10 so it never contends with the 03:30 host janitor. Maintenance opt-out: touch state/ci-vm-cleanup/disabled. Cache budget: 10GB with 24h age filter and CLI flag detection. Anonymous-volume pruning is now opt-in; default preserves all volumes. Build-cache errors fail the job instead of being hidden."
     },
     {
       "id": "chrome-clone-pruner",
@@ -294,6 +294,24 @@
         ]
       },
       "notes": "Runs on both Macs (the one exception to one-machine-per-task): agents on either host leave detached playwright-cli daemons plus headless Chrome trees alive for hours. Kills orphaned Playwright browsers, daemons older than 3h with their whole process tree, and unreferenced temp profiles. 2026-09-27: 9 abandoned daemons, ~9h old, pinned 3 GPU helpers at ~18% CPU each on the MacBook."
+    },
+    {
+      "id": "cache-hygiene",
+      "name": "Cache-only temp/worktree/mobile-readiness hygiene",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.cache-hygiene",
+      "schedule": "hourly, no RunAtLoad",
+      "requiresOpServiceAccount": false,
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
+        "command": [
+          "bash",
+          "agent-loops/cache-hygiene/install-launchd.sh"
+        ]
+      },
+      "notes": "Cache-only. Inactive Remotion bundles older than 24h, ignored outputs in idle worktrees older than 7d, deterministic mobile-readiness cache directory-index budget 4MiB / 7d expiry with writer/handle checks. Preserves source, sessions, media, databases, volumes and recovery data. No email. MacBook manual commands only. Pause: state/cache-hygiene/disabled. Free-space warning below 150GiB."
     }
   ]
 }

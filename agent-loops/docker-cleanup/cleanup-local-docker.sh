@@ -13,11 +13,14 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 source "$SCRIPT_DIR/lib/lock.sh"
 source "$SCRIPT_DIR/lib/timeout.sh"
+source "$SCRIPT_DIR/lib/cache-storage-flag.sh"
 
 DRY_RUN="${DRY_RUN:-0}"
 KEEP_DEPLOY_ARTIFACTS="${KEEP_DEPLOY_ARTIFACTS:-20}"
-BUILDER_CACHE_UNTIL="${BUILDER_CACHE_UNTIL:-168h}"
-BUILDER_KEEP_STORAGE="${BUILDER_KEEP_STORAGE:-30GB}"
+BUILDER_CACHE_UNTIL="${BUILDER_CACHE_UNTIL:-24h}"
+BUILDER_KEEP_STORAGE="${BUILDER_KEEP_STORAGE:-10GB}"
+BUILDER_NAME="${DOCKER_CLEANUP_BUILDER_NAME:-default}"
+PRUNE_STOPPED_CONTAINERS="${DOCKER_CLEANUP_PRUNE_STOPPED_CONTAINERS:-0}"
 LOCK_DIR="${DOCKER_CLEANUP_LOCK_DIR:-/tmp/host-docker-cleanup.lock}"
 LOCK_TIMEOUT_SECONDS="${DOCKER_CLEANUP_LOCK_TIMEOUT_SECONDS:-60}"
 LOCK_MISSING_PID_GRACE_SECONDS="${DOCKER_CLEANUP_LOCK_MISSING_PID_GRACE_SECONDS:-15}"
@@ -262,8 +265,12 @@ else
   echo "No unprotected old release image tags found."
 fi
 
-echo "Pruning stopped containers..."
-run_or_print docker container prune -f
+if [[ "$PRUNE_STOPPED_CONTAINERS" == "1" ]]; then
+  echo "Pruning stopped containers (explicitly enabled)..."
+  run_or_print docker container prune -f
+else
+  echo "Preserving stopped containers."
+fi
 
 echo "Pruning unused networks..."
 run_or_print docker network prune -f
@@ -272,6 +279,7 @@ echo "Pruning dangling images..."
 run_or_print docker image prune -f
 
 echo "Pruning BuildKit cache older than ${BUILDER_CACHE_UNTIL}, keeping ${BUILDER_KEEP_STORAGE}..."
-run_or_print docker builder prune -f --filter "until=${BUILDER_CACHE_UNTIL}" --keep-storage "$BUILDER_KEEP_STORAGE"
+STORAGE_FLAG="$(builder_storage_flag docker)"
+run_or_print docker buildx prune --builder "$BUILDER_NAME" -af --filter "until=${BUILDER_CACHE_UNTIL}" "$STORAGE_FLAG" "$BUILDER_KEEP_STORAGE"
 
 echo "Docker cleanup complete. Docker volumes were not pruned."

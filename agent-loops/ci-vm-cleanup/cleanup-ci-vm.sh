@@ -33,10 +33,13 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Shared with docker-cleanup deliberately: one owner, no drift.
 source "$SCRIPT_DIR/../docker-cleanup/lib/lock.sh"
 source "$SCRIPT_DIR/../docker-cleanup/lib/timeout.sh"
+source "$SCRIPT_DIR/../docker-cleanup/lib/cache-storage-flag.sh"
 
 DRY_RUN="${DRY_RUN:-0}"
 COLIMA_PROFILE="${CI_VM_CLEANUP_PROFILE:-ci}"
-BUILDER_CACHE_UNTIL="${CI_VM_CLEANUP_BUILDER_UNTIL:-168h}"
+BUILDER_CACHE_UNTIL="${CI_VM_CLEANUP_BUILDER_UNTIL:-24h}"
+BUILDER_KEEP_STORAGE="${CI_VM_CLEANUP_BUILDER_KEEP_STORAGE:-10GB}"
+PRUNE_ANONYMOUS_VOLUMES="${CI_VM_CLEANUP_PRUNE_ANONYMOUS_VOLUMES:-0}"
 LOCK_DIR="${CI_VM_CLEANUP_LOCK_DIR:-/tmp/ci-vm-cleanup.lock}"
 LOCK_TIMEOUT_SECONDS="${CI_VM_CLEANUP_LOCK_TIMEOUT_SECONDS:-60}"
 LOCK_MISSING_PID_GRACE_SECONDS="${CI_VM_CLEANUP_LOCK_MISSING_PID_GRACE_SECONDS:-15}"
@@ -224,11 +227,14 @@ prune_ci_vm() {
   echo "-- before --"
   vm_exec df -h /var/lib/docker | tail -1 || true
 
-  # Anonymous volumes only. `docker volume prune` without --all never
-  # touches named volumes, which is what the long-lived CI service
-  # containers (postgres, clickhouse, minio, langfuse) depend on.
-  echo "-- anonymous volumes --"
-  run_or_print vm_exec docker volume prune -f 2>&1 | tail -2 || true
+  # All volumes are preserved by default. Anonymous-volume removal is an
+  # explicit maintenance opt-in, not part of routine cache reclamation.
+  if [[ "$PRUNE_ANONYMOUS_VOLUMES" == "1" ]]; then
+    echo "-- anonymous volumes (explicitly enabled) --"
+    run_or_print vm_exec docker volume prune -f 2>&1 | tail -2
+  else
+    echo "-- all volumes preserved --"
+  fi
 
   # Dangling images only. A full `image prune -a` would evict the base
   # image cache every CI run depends on and just move the cost to network.
@@ -236,7 +242,9 @@ prune_ci_vm() {
   run_or_print vm_exec docker image prune -f 2>&1 | tail -2 || true
 
   echo "-- build cache older than $BUILDER_CACHE_UNTIL --"
-  run_or_print vm_exec docker builder prune -f --filter "until=$BUILDER_CACHE_UNTIL" 2>&1 | tail -1 || true
+  local storage_flag
+  storage_flag="$(builder_storage_flag vm_exec docker)"
+  run_or_print vm_exec docker buildx prune --builder default -af --filter "until=$BUILDER_CACHE_UNTIL" "$storage_flag" "$BUILDER_KEEP_STORAGE" 2>&1 | tail -1
 
   echo "-- after --"
   vm_exec df -h /var/lib/docker | tail -1 || true

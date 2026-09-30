@@ -106,94 +106,95 @@ def main():
     parser.add_argument('--state-dir',type=Path,default=ROOT/'state/cache-hygiene')
     args=parser.parse_args()
     state=args.state_dir;state.mkdir(parents=True,exist_ok=True,mode=0o700)
-    if (state/'disabled').exists():print('Disabled');return
-    lock=(state/'lock').open('a')
-    try:fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
-    except BlockingIOError:print('Maintenance already running');return
-    def progress(stage,path=None):
-        (state/'progress.json').write_text(json.dumps({'at':time.time(),'stage':stage,'path':str(path) if path else None})+'\n')
-    os.environ['CACHE_HYGIENE_PROGRESS']=str(state/'progress.json')
-    progress('activity-snapshot')
-    handles,commands,mounts,container=snapshot()
-    now=time.time();rows=[]
-    node_jobs=any(('vitest' in c or ('node' in c and '--import tsx' in c)) and 'maintenance.py' not in c for c in commands)
-    temp=Path(subprocess.check_output(['getconf','DARWIN_USER_TEMP_DIR'],text=True).strip())
-    for parent in (temp,Path('/private/tmp')):
-        progress('temp-discovery',parent)
-        for child in parent.iterdir():
-            if not child.name.startswith(TEMP_PREFIXES):continue
-            if node_jobs and not child.name.startswith('remotion-webpack-bundle-'):continue
-            if cache_candidate(child,parent,handles,now-86400):rows.append({'path':str(child),'kind':'temp-cache'})
-    # Main checkouts and nested apps can also accumulate abandoned dependencies.
-    project_roots=args.projects_root or [Path.home()/'Desktop/projects']
-    planned={r['path'] for r in rows}
-    discovery=[]
-    for projects in project_roots:
-        progress('bounded-project-discovery',projects)
-        if not projects.exists():
-            discovery.append({'root':str(projects),'status':'absent','count':0});continue
-        dependencies,scan=bounded_dependency_discovery(projects,state)
-        scan['root']=str(projects);discovery.append(scan)
-        for child in dependencies:
-            if str(child) in planned or not cache_candidate(child,child.parent,handles,now-7*86400):continue
-            tree=git_root(child.parent,projects)
-            if tree is None or busy_tree(tree,handles,commands,mounts):continue
-            relative=str(child.relative_to(tree))
-            tracked=subprocess.run(['git','-C',str(tree),'ls-files','--',relative],capture_output=True,text=True,timeout=30)
-            ignored=subprocess.run(['git','-C',str(tree),'check-ignore','-q',relative]).returncode==0
-            if tracked.returncode==0 and not tracked.stdout and ignored:
-                rows.append({'path':str(child),'tree':str(tree),'kind':'worktree-output'})
-                planned.add(str(child))
-    readiness=Path.home()/'.cache/tracelearn-mobile-readiness/staging'
-    progress('readiness-discovery',readiness)
-    if readiness.exists() and not readiness_busy(commands,container):
-        current=readiness/'deterministic'
-        if current.is_dir() and not current.is_symlink():
-            s=current.stat()
-            overflow=s.st_size>4*1024*1024
-            stale=s.st_mtime<now-7*86400
-            if (overflow or stale) and cache_candidate(current,readiness,handles,now-300):
-                rows.append({'path':str(current),'kind':'rotate-deterministic','reason':'directory index budget' if overflow else 'seven-day cache expiry'})
-        for p in readiness.iterdir():
-            if re.fullmatch(r'(?:deterministic|screenshots)\.retired-[0-9]+',p.name) and p.is_dir() and not p.is_symlink() and p.stat().st_uid==os.getuid():rows.append({'path':str(p),'kind':'retired-cache'})
-    report={'at':now,'apply':args.apply,'free_bytes_before':disk_free_bytes(),'dependency_discovery':discovery,'plan':rows,'results':[]}
-    (state/'last-plan.json').write_text(json.dumps(report,indent=2)+'\n')
-    for row in rows:
-        p=Path(row['path']);result=dict(row)
-        if not args.apply:result['result']='dry-run';report['results'].append(result);continue
-        # Refresh activity before each mutation. Writers that appear mid-pass
-        # cause retention, including the entire readiness namespace.
-        fresh,procs,binds,active=snapshot()
-        if row['kind'] in ('rotate-deterministic','retired-cache'):
-            if readiness_busy(procs,active) or busy_tree(p,fresh,[],binds):
-                result['result']='retained_active';report['results'].append(result);continue
-            if row['kind']=='rotate-deterministic' and not cache_candidate(p,p.parent,fresh,time.time()-300):
+    global_state=ROOT/'state/cache-hygiene';global_state.mkdir(parents=True,exist_ok=True,mode=0o700)
+    if (state/'disabled').exists() or (global_state/'disabled').exists():print('Disabled');return
+    with (global_state/'lock').open('a') as lock:
+        try:fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
+        except BlockingIOError:print('Maintenance already running');return
+        def progress(stage,path=None):
+            (state/'progress.json').write_text(json.dumps({'at':time.time(),'stage':stage,'path':str(path) if path else None})+'\n')
+        os.environ['CACHE_HYGIENE_PROGRESS']=str(state/'progress.json')
+        progress('activity-snapshot')
+        handles,commands,mounts,container=snapshot()
+        now=time.time();rows=[]
+        node_jobs=any(('vitest' in c or ('node' in c and '--import tsx' in c)) and 'maintenance.py' not in c for c in commands)
+        temp=Path(subprocess.check_output(['getconf','DARWIN_USER_TEMP_DIR'],text=True).strip())
+        for parent in (temp,Path('/private/tmp')):
+            progress('temp-discovery',parent)
+            for child in parent.iterdir():
+                if not child.name.startswith(TEMP_PREFIXES):continue
+                if node_jobs and not child.name.startswith('remotion-webpack-bundle-'):continue
+                if cache_candidate(child,parent,handles,now-86400):rows.append({'path':str(child),'kind':'temp-cache'})
+        # Main checkouts and nested apps can also accumulate abandoned dependencies.
+        project_roots=args.projects_root or [Path.home()/'Desktop/projects']
+        planned={r['path'] for r in rows}
+        discovery=[]
+        for projects in project_roots:
+            progress('bounded-project-discovery',projects)
+            if not projects.exists():
+                discovery.append({'root':str(projects),'status':'absent','count':0});continue
+            dependencies,scan=bounded_dependency_discovery(projects,state)
+            scan['root']=str(projects);discovery.append(scan)
+            for child in dependencies:
+                if str(child) in planned or not cache_candidate(child,child.parent,handles,now-7*86400):continue
+                tree=git_root(child.parent,projects)
+                if tree is None or busy_tree(tree,handles,commands,mounts):continue
+                relative=str(child.relative_to(tree))
+                tracked=subprocess.run(['git','-C',str(tree),'ls-files','--',relative],capture_output=True,text=True,timeout=30)
+                ignored=subprocess.run(['git','-C',str(tree),'check-ignore','-q',relative]).returncode==0
+                if tracked.returncode==0 and not tracked.stdout and ignored:
+                    rows.append({'path':str(child),'tree':str(tree),'kind':'worktree-output'})
+                    planned.add(str(child))
+        readiness=Path.home()/'.cache/tracelearn-mobile-readiness/staging'
+        progress('readiness-discovery',readiness)
+        if readiness.exists() and not readiness_busy(commands,container):
+            current=readiness/'deterministic'
+            if current.is_dir() and not current.is_symlink():
+                s=current.stat()
+                overflow=s.st_size>4*1024*1024
+                stale=s.st_mtime<now-7*86400
+                if (overflow or stale) and cache_candidate(current,readiness,handles,now-300):
+                    rows.append({'path':str(current),'kind':'rotate-deterministic','reason':'directory index budget' if overflow else 'seven-day cache expiry'})
+            for p in readiness.iterdir():
+                if re.fullmatch(r'(?:deterministic|screenshots)\.retired-[0-9]+',p.name) and p.is_dir() and not p.is_symlink() and p.stat().st_uid==os.getuid():rows.append({'path':str(p),'kind':'retired-cache'})
+        report={'at':now,'apply':args.apply,'free_bytes_before':disk_free_bytes(),'dependency_discovery':discovery,'plan':rows,'results':[]}
+        (state/'last-plan.json').write_text(json.dumps(report,indent=2)+'\n')
+        for row in rows:
+            p=Path(row['path']);result=dict(row)
+            if not args.apply:result['result']='dry-run';report['results'].append(result);continue
+            # Refresh activity before each mutation. Writers that appear mid-pass
+            # cause retention, including the entire readiness namespace.
+            fresh,procs,binds,active=snapshot()
+            if row['kind'] in ('rotate-deterministic','retired-cache'):
+                if readiness_busy(procs,active) or busy_tree(p,fresh,[],binds):
+                    result['result']='retained_active';report['results'].append(result);continue
+                if row['kind']=='rotate-deterministic' and not cache_candidate(p,p.parent,fresh,time.time()-300):
+                    result['result']='retained_active_or_changed';report['results'].append(result);continue
+            elif not cache_candidate(p,p.parent,fresh,time.time()-(7*86400 if row['kind']=='worktree-output' else 86400)):
                 result['result']='retained_active_or_changed';report['results'].append(result);continue
-        elif not cache_candidate(p,p.parent,fresh,time.time()-(7*86400 if row['kind']=='worktree-output' else 86400)):
-            result['result']='retained_active_or_changed';report['results'].append(result);continue
-        if row.get('tree') and busy_tree(Path(row['tree']),fresh,procs,binds):
-            result['result']='retained_active';report['results'].append(result);continue
-        if row['kind']=='rotate-deterministic':
-            retired=p.with_name('deterministic.retired-'+str(time.time_ns()))
-            p.rename(retired);p.mkdir(mode=0o700);p=retired
-        if row['kind'] in ('rotate-deterministic','retired-cache'):
-            targets=[p]
-            screenshots=p/'screenshots'
-            if screenshots.is_dir() and not screenshots.is_symlink():
-                moved=readiness/('screenshots.retired-'+str(time.time_ns()));screenshots.rename(moved);targets.append(moved)
-            def clear(target):
-                return subprocess.run([str(HERE/'unlink-cache'),str(target)],timeout=3600).returncode
-            with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
-                codes=list(pool.map(clear,targets))
-            result['result']='removed' if all(c==0 for c in codes) else 'retained_unknown_entries'
-        else:shutil.rmtree(p);result['result']='removed'
-        report['results'].append(result)
+            if row.get('tree') and busy_tree(Path(row['tree']),fresh,procs,binds):
+                result['result']='retained_active';report['results'].append(result);continue
+            if row['kind']=='rotate-deterministic':
+                retired=p.with_name('deterministic.retired-'+str(time.time_ns()))
+                p.rename(retired);p.mkdir(mode=0o700);p=retired
+            if row['kind'] in ('rotate-deterministic','retired-cache'):
+                targets=[p]
+                screenshots=p/'screenshots'
+                if screenshots.is_dir() and not screenshots.is_symlink():
+                    moved=readiness/('screenshots.retired-'+str(time.time_ns()));screenshots.rename(moved);targets.append(moved)
+                def clear(target):
+                    return subprocess.run([str(HERE/'unlink-cache'),str(target)],timeout=3600).returncode
+                with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
+                    codes=list(pool.map(clear,targets))
+                result['result']='removed' if all(c==0 for c in codes) else 'retained_unknown_entries'
+            else:shutil.rmtree(p);result['result']='removed'
+            report['results'].append(result)
+            (state/'last-report.json').write_text(json.dumps(report,indent=2)+'\n')
+        report['free_bytes_after']=disk_free_bytes()
+        report['disk_warning']=report['free_bytes_after']<150*2**30
         (state/'last-report.json').write_text(json.dumps(report,indent=2)+'\n')
-    report['free_bytes_after']=disk_free_bytes()
-    report['disk_warning']=report['free_bytes_after']<150*2**30
-    (state/'last-report.json').write_text(json.dumps(report,indent=2)+'\n')
-    progress('complete')
-    print(json.dumps({'apply':args.apply,'targets':len(rows),'free_gib':round(report['free_bytes_after']/2**30,1),'warning':report['disk_warning']}))
+        progress('complete')
+        print(json.dumps({'apply':args.apply,'targets':len(rows),'free_gib':round(report['free_bytes_after']/2**30,1),'warning':report['disk_warning']}))
 
 if __name__=='__main__':
     if len(sys.argv)==3 and sys.argv[1]=='--scan-dependencies':

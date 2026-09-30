@@ -47,3 +47,6 @@ The default requires 100 GiB remaining plus a 20 GiB growth reservation. Studio 
 job-start hook reserves 20 GiB per active worker; low space refuses the new job and
 leaves existing jobs/services running. Register using the canonical installer:
 `scripts/install-launchd-tasks.sh --task ci-disk-budget`, then restart only idle runners.
+
+Manual and scheduled runs share one lock even when report directories differ.
+The global disabled marker also applies to custom report directories.

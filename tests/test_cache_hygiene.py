@@ -10,6 +10,9 @@ ROOT=Path(__file__).resolve().parents[1]
 spec=importlib.util.spec_from_file_location('cache_hygiene',ROOT/'agent-loops/cache-hygiene/maintenance.py')
 hygiene=importlib.util.module_from_spec(spec);spec.loader.exec_module(hygiene)
 
+spec=importlib.util.spec_from_file_location('disk_preflight',ROOT/'agent-loops/cache-hygiene/disk-preflight.py')
+preflight=importlib.util.module_from_spec(spec);spec.loader.exec_module(preflight)
+
 class HygieneTests(unittest.TestCase):
     def test_owned_old_direct_child_is_eligible(self):
         with tempfile.TemporaryDirectory() as name:
@@ -59,6 +62,22 @@ class HygieneTests(unittest.TestCase):
             self.assertEqual(set(hygiene.project_dependency_roots(repo)),{deps,app/'node_modules'})
             self.assertEqual(hygiene.git_root(app,root),repo)
             self.assertIsNone(hygiene.git_root(external,root))
+
+    def test_runtime_checkout_root_itself_can_own_dependencies(self):
+        with tempfile.TemporaryDirectory() as name:
+            repo=Path(name);(repo/'.git').mkdir();app=repo/'app';app.mkdir()
+            self.assertEqual(hygiene.git_root(app,repo),repo)
+
+    def test_admission_preserves_floor_for_all_concurrent_workers(self):
+        self.assertTrue(preflight.budget_allows(180,100,20,4))
+        self.assertFalse(preflight.budget_allows(179,100,20,4))
+        self.assertTrue(preflight.budget_allows(120,100,20,1))
+        with self.assertRaises(ValueError):preflight.budget_allows(100,100,20,0)
+
+    def test_worker_count_uses_process_names_without_counting_shell_command_text(self):
+        commands=['/Users/test/runner/bin/Runner.Worker','Runner.Worker','/bin/zsh -c echo Runner.Worker','/Users/test/runner/bin/Runner.Listener']
+        self.assertEqual(preflight.worker_slots(commands),2)
+        self.assertEqual(preflight.worker_slots([]),1)
 
     def test_storage_flag_supports_both_cli_generations(self):
         helper=ROOT/'agent-loops/docker-cleanup/lib/cache-storage-flag.sh'

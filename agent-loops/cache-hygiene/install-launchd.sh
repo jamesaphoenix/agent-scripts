@@ -19,7 +19,7 @@ script=Path(sys.argv[1]);root=Path(sys.argv[2]);state=root/'state/cache-hygiene'
 state.mkdir(parents=True,exist_ok=True,mode=0o700)
 label='com.jud.cache-hygiene'
 path=Path.home()/'Library/LaunchAgents'/f'{label}.plist'
-data={'Label':label,'ProgramArguments':['/usr/bin/env','python3',str(script/'maintenance.py'),'--apply','--state-dir',str(state)],'StartInterval':3600,'ProcessType':'Background','LowPriorityIO':True,'Nice':10,'StandardOutPath':str(state/'launchd.out.log'),'StandardErrorPath':str(state/'launchd.err.log'),'EnvironmentVariables':{'PATH':'/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin'}}
+data={'Label':label,'ProgramArguments':['/usr/bin/env','python3',str(script/'maintenance.py'),'--apply','--state-dir',str(state),'--projects-root',str(Path.home()/'agent-runtime/just-understanding-data'),'--projects-root',str(Path.home()/'octospark-autofix'),'--projects-root',str(Path.home()/'trace-learn-autofix')],'StartInterval':3600,'ProcessType':'Background','LowPriorityIO':True,'Nice':10,'StandardOutPath':str(state/'launchd.out.log'),'StandardErrorPath':str(state/'launchd.err.log'),'EnvironmentVariables':{'PATH':'/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin'}}
 with path.open('wb') as f:plistlib.dump(data,f)
 path.chmod(0o600)
 domain=f'gui/{os.getuid()}'

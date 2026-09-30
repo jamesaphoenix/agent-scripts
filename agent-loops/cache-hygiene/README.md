@@ -1,7 +1,9 @@
 # Cache hygiene
 
 Cache-only maintenance authored on the MacBook and scheduled hourly on the Mac Studio.
-Manual MacBook use has no schedule. It never reads or deletes Codex sessions, application
+Manual MacBook use has no schedule. The Studio job scans runtime checkouts under
+agent-runtime plus both autofix checkouts; manual commands default to Desktop/projects.
+Desktop directory access stalled from launchd on this host, so scheduled jobs avoid that path. It never reads or deletes Codex sessions, application
 databases, original media, Git worktrees/branches, or recovery archives. It sends no messages.
 
 The default is a dry-run:
@@ -39,3 +41,9 @@ drop schemas, remove merged worktrees, discard unfinished temp stages, or expire
 data. Those need separate lifecycle and recovery policies. Product-level cache sharding
 would further reduce directory pressure; the hourly overflow rule limits the current flat
 format without changing the product or deploying an application release.
+
+Before new large work, use `python3 agent-loops/cache-hygiene/disk-preflight.py -- pnpm build`.
+The default requires 100 GiB remaining plus a 20 GiB growth reservation. Studio CI's
+job-start hook reserves 20 GiB per active worker; low space refuses the new job and
+leaves existing jobs/services running. Register using the canonical installer:
+`scripts/install-launchd-tasks.sh --task ci-disk-budget`, then restart only idle runners.

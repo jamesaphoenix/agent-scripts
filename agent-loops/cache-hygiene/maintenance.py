@@ -26,22 +26,31 @@ def cache_candidate(path, parent, handles, cutoff):
     return not any(h==name or h.startswith(name+'/') for h in handles)
 
 def snapshot():
+    def mark(stage):
+        target=os.environ.get('CACHE_HYGIENE_PROGRESS')
+        if target:Path(target).write_text(json.dumps({'at':time.time(),'stage':stage})+'\n')
+    mark('snapshot-lsof')
     p=subprocess.run(['lsof','-Fn'],capture_output=True,text=True,timeout=60)
     handles=[s[1:].removeprefix('/private').casefold() for s in p.stdout.splitlines() if s.startswith('n/')]
     if len(handles)<5:raise RuntimeError('Insufficient live-handle inventory; refusing cleanup')
+    mark('snapshot-ps')
     commands=subprocess.check_output(['ps','-axo','command='],text=True).splitlines()
     mounts=[];readiness_container=False
+    mark('snapshot-docker-contexts')
     contexts=subprocess.run(['docker','context','ls','--format','{{.Name}}'],capture_output=True,text=True,timeout=20)
     if contexts.returncode:raise RuntimeError('Cannot inventory container contexts')
     for context in ('default','colima-ci'):
         if context not in contexts.stdout.split():continue
+        mark('snapshot-docker-'+context)
         ids=subprocess.run(['docker','--context',context,'ps','-aq'],capture_output=True,text=True,timeout=30)
         if ids.returncode:raise RuntimeError('Cannot inventory Docker '+context)
         if not ids.stdout.strip():continue
+        mark('snapshot-inspect-'+context)
         p=subprocess.run(['docker','--context',context,'inspect',*ids.stdout.split()],capture_output=True,text=True,timeout=45,check=True)
         for c in json.loads(p.stdout):
             readiness_container |= c['State']['Running'] and 'mobile-readiness' in c['Name']
             mounts.extend(Path(m['Source'].removeprefix('/host_mnt')) for m in c.get('Mounts',[]) if m['Type']=='bind')
+    mark('snapshot-complete')
     return handles,commands,mounts,readiness_container
 
 def busy_tree(tree, handles, commands, mounts):
@@ -60,7 +69,7 @@ def project_dependency_roots(projects):
     for base,dirs,_ in os.walk(projects,followlinks=False):
         for name in list(dirs):
             path=Path(base)/name
-            if name=='node_modules':
+            if name in OUTPUT_NAMES:
                 dirs.remove(name)
                 if not path.is_symlink():yield path
             elif name in {'.git','.venv','venv','Library','Temp','__pycache__','.data','.artifacts'} or path.is_symlink():
@@ -80,17 +89,19 @@ def bounded_dependency_discovery(projects, state, timeout=60):
     for line in output.read_text().splitlines():
         row=json.loads(line)
         path=Path(row['path'])
-        if path.name=='node_modules' and path.is_relative_to(projects):paths.append(path)
+        if path.name in OUTPUT_NAMES and path.is_relative_to(projects):paths.append(path)
     return paths,{'status':status,'count':len(paths),'error':error[-2000:]}
 
 def git_root(path, boundary):
-    while path!=boundary and path.is_relative_to(boundary):
+    while path.is_relative_to(boundary):
         if (path/'.git').exists():return path
+        if path==boundary:break
         path=path.parent
     return None
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--projects-root',type=Path,action='append',help='Dependency scan root; repeat for runtime checkouts. Default Desktop/projects')
     parser.add_argument('--apply',action='store_true',help='Apply the audited cache-only plan; default is dry-run')
     parser.add_argument('--state-dir',type=Path,default=ROOT/'state/cache-hygiene')
     args=parser.parse_args()
@@ -99,34 +110,30 @@ def main():
     lock=(state/'lock').open('a')
     try:fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
     except BlockingIOError:print('Maintenance already running');return
+    def progress(stage,path=None):
+        (state/'progress.json').write_text(json.dumps({'at':time.time(),'stage':stage,'path':str(path) if path else None})+'\n')
+    os.environ['CACHE_HYGIENE_PROGRESS']=str(state/'progress.json')
+    progress('activity-snapshot')
     handles,commands,mounts,container=snapshot()
     now=time.time();rows=[]
     node_jobs=any(('vitest' in c or ('node' in c and '--import tsx' in c)) and 'maintenance.py' not in c for c in commands)
     temp=Path(subprocess.check_output(['getconf','DARWIN_USER_TEMP_DIR'],text=True).strip())
     for parent in (temp,Path('/private/tmp')):
+        progress('temp-discovery',parent)
         for child in parent.iterdir():
             if not child.name.startswith(TEMP_PREFIXES):continue
             if node_jobs and not child.name.startswith('remotion-webpack-bundle-'):continue
             if cache_candidate(child,parent,handles,now-86400):rows.append({'path':str(child),'kind':'temp-cache'})
-    for project in ('trace-learn','octospark'):
-        repo=Path.home()/'Desktop/projects/just-understanding-data'/project
-        parent=repo/'.worktrees'
-        if not parent.exists():continue
-        for tree in parent.iterdir():
-            if not tree.is_dir() or tree.is_symlink() or not (tree/'.git').exists():continue
-            if busy_tree(tree,handles,commands,mounts):continue
-            for name in OUTPUT_NAMES:
-                child=tree/name
-                if not cache_candidate(child,tree,handles,now-7*86400):continue
-                tracked=subprocess.run(['git','-C',str(tree),'ls-files','--',name],capture_output=True,text=True,timeout=30)
-                ignored=subprocess.run(['git','-C',str(tree),'check-ignore','-q',name]).returncode==0
-                if tracked.returncode==0 and not tracked.stdout and ignored:rows.append({'path':str(child),'tree':str(tree),'kind':'worktree-output'})
     # Main checkouts and nested apps can also accumulate abandoned dependencies.
-    projects=Path.home()/'Desktop/projects'
+    project_roots=args.projects_root or [Path.home()/'Desktop/projects']
     planned={r['path'] for r in rows}
-    discovery={'status':'absent','count':0}
-    if projects.exists():
-        dependencies,discovery=bounded_dependency_discovery(projects,state)
+    discovery=[]
+    for projects in project_roots:
+        progress('bounded-project-discovery',projects)
+        if not projects.exists():
+            discovery.append({'root':str(projects),'status':'absent','count':0});continue
+        dependencies,scan=bounded_dependency_discovery(projects,state)
+        scan['root']=str(projects);discovery.append(scan)
         for child in dependencies:
             if str(child) in planned or not cache_candidate(child,child.parent,handles,now-7*86400):continue
             tree=git_root(child.parent,projects)
@@ -136,7 +143,9 @@ def main():
             ignored=subprocess.run(['git','-C',str(tree),'check-ignore','-q',relative]).returncode==0
             if tracked.returncode==0 and not tracked.stdout and ignored:
                 rows.append({'path':str(child),'tree':str(tree),'kind':'worktree-output'})
+                planned.add(str(child))
     readiness=Path.home()/'.cache/tracelearn-mobile-readiness/staging'
+    progress('readiness-discovery',readiness)
     if readiness.exists() and not readiness_busy(commands,container):
         current=readiness/'deterministic'
         if current.is_dir() and not current.is_symlink():
@@ -183,6 +192,7 @@ def main():
     report['free_bytes_after']=disk_free_bytes()
     report['disk_warning']=report['free_bytes_after']<150*2**30
     (state/'last-report.json').write_text(json.dumps(report,indent=2)+'\n')
+    progress('complete')
     print(json.dumps({'apply':args.apply,'targets':len(rows),'free_gib':round(report['free_bytes_after']/2**30,1),'warning':report['disk_warning']}))
 
 if __name__=='__main__':

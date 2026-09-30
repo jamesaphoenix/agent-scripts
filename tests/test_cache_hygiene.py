@@ -17,6 +17,14 @@ spec=importlib.util.spec_from_file_location('disk_preflight',ROOT/'agent-loops/c
 preflight=importlib.util.module_from_spec(spec);spec.loader.exec_module(preflight)
 
 class HygieneTests(unittest.TestCase):
+    def test_only_read_only_node_exporter_root_mount_is_exempt(self):
+        mount={'Type':'bind','Source':'/','Destination':'/rootfs','RW':False}
+        exporter={'Config':{'Image':'prom/node-exporter:v1.9.0'}}
+        self.assertFalse(hygiene.protected_bind(mount,exporter))
+        self.assertTrue(hygiene.protected_bind(dict(mount,RW=True),exporter))
+        self.assertTrue(hygiene.protected_bind(dict(mount,Source='/Users/test/project'),exporter))
+        self.assertTrue(hygiene.protected_bind(mount,{'Config':{'Image':'application:latest'}}))
+
     def test_activity_inventory_avoids_dns_and_service_name_lookups(self):
         handles='\n'.join('n/fixture/file'+str(i) for i in range(6))
         results=[subprocess.CompletedProcess([],0,handles,''),subprocess.CompletedProcess([],0,'','')]

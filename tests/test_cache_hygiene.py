@@ -4,6 +4,7 @@ import subprocess
 import tempfile
 import time
 import unittest
+from unittest import mock
 
 ROOT=Path(__file__).resolve().parents[1]
 spec=importlib.util.spec_from_file_location('cache_hygiene',ROOT/'agent-loops/cache-hygiene/maintenance.py')
@@ -67,6 +68,15 @@ class HygieneTests(unittest.TestCase):
                 cli=Path(name)/'docker';cli.write_text('#!/bin/sh\nprintf "%s\\n" "'+expected+'"\n');cli.chmod(0o700)
                 p=subprocess.run(['bash','-c','source "$1"; builder_storage_flag "$2"','test',str(helper),str(cli)],capture_output=True,text=True)
                 self.assertEqual((p.returncode,p.stdout.strip()),(0,expected))
+
+    def test_discovery_timeout_kills_only_its_worker_and_reports_incomplete_scan(self):
+        worker=mock.Mock()
+        worker.communicate.side_effect=[subprocess.TimeoutExpired('scanner',0.01),('', 'stalled filesystem')]
+        with tempfile.TemporaryDirectory() as name, mock.patch.object(hygiene.subprocess,'Popen',return_value=worker):
+            paths,report=hygiene.bounded_dependency_discovery(Path(name)/'projects',Path(name),timeout=0.01)
+        worker.kill.assert_called_once()
+        self.assertEqual(paths,[])
+        self.assertEqual(report['status'],'timed_out')
 
     def test_unknown_storage_flag_fails_closed(self):
         helper=ROOT/'agent-loops/docker-cleanup/lib/cache-storage-flag.sh'

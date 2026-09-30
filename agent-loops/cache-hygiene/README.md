@@ -30,6 +30,9 @@ Rules:
   a bounded native stream, rather than enumerating millions of file attributes into memory.
 - Retain unrecognized cache entries for inspection. The native helper refuses fresh cache
   paths, other directories, traversal, and wrong ownership.
+- Bound dependency discovery to 60 seconds in a separate worker. Skip generated audit data
+  and Unity state; record an incomplete scan instead of letting a stalled filesystem
+  prevent temp-cache and mobile-readiness maintenance.
 
 This complements the existing worktree and Docker janitors. It does not kill dev servers,
 drop schemas, remove merged worktrees, discard unfinished temp stages, or expire recovery

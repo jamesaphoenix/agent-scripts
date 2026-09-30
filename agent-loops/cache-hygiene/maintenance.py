@@ -9,6 +9,7 @@ import re
 from pathlib import Path
 import shutil
 import subprocess
+import sys
 import time
 
 HERE=Path(__file__).resolve().parent
@@ -62,8 +63,25 @@ def project_dependency_roots(projects):
             if name=='node_modules':
                 dirs.remove(name)
                 if not path.is_symlink():yield path
-            elif name in {'.git','.venv','venv','Library','Temp','__pycache__'} or path.is_symlink():
+            elif name in {'.git','.venv','venv','Library','Temp','__pycache__','.data','.artifacts'} or path.is_symlink():
                 dirs.remove(name)
+
+def bounded_dependency_discovery(projects, state, timeout=60):
+    """A stalled filesystem must not prevent all other cache maintenance."""
+    output=state/'dependency-discovery.jsonl'
+    with output.open('w') as log:
+        worker=subprocess.Popen([sys.executable,str(Path(__file__).resolve()),'--scan-dependencies',str(projects)],stdout=log,stderr=subprocess.PIPE,text=True)
+        try:
+            _,error=worker.communicate(timeout=timeout)
+            status='complete' if worker.returncode==0 else 'failed'
+        except subprocess.TimeoutExpired:
+            worker.kill();_,error=worker.communicate();status='timed_out'
+    paths=[]
+    for line in output.read_text().splitlines():
+        row=json.loads(line)
+        path=Path(row['path'])
+        if path.name=='node_modules' and path.is_relative_to(projects):paths.append(path)
+    return paths,{'status':status,'count':len(paths),'error':error[-2000:]}
 
 def git_root(path, boundary):
     while path!=boundary and path.is_relative_to(boundary):
@@ -106,8 +124,10 @@ def main():
     # Main checkouts and nested apps can also accumulate abandoned dependencies.
     projects=Path.home()/'Desktop/projects'
     planned={r['path'] for r in rows}
+    discovery={'status':'absent','count':0}
     if projects.exists():
-        for child in project_dependency_roots(projects):
+        dependencies,discovery=bounded_dependency_discovery(projects,state)
+        for child in dependencies:
             if str(child) in planned or not cache_candidate(child,child.parent,handles,now-7*86400):continue
             tree=git_root(child.parent,projects)
             if tree is None or busy_tree(tree,handles,commands,mounts):continue
@@ -127,7 +147,7 @@ def main():
                 rows.append({'path':str(current),'kind':'rotate-deterministic','reason':'directory index budget' if overflow else 'seven-day cache expiry'})
         for p in readiness.iterdir():
             if re.fullmatch(r'(?:deterministic|screenshots)\.retired-[0-9]+',p.name) and p.is_dir() and not p.is_symlink() and p.stat().st_uid==os.getuid():rows.append({'path':str(p),'kind':'retired-cache'})
-    report={'at':now,'apply':args.apply,'free_bytes_before':disk_free_bytes(),'plan':rows,'results':[]}
+    report={'at':now,'apply':args.apply,'free_bytes_before':disk_free_bytes(),'dependency_discovery':discovery,'plan':rows,'results':[]}
     (state/'last-plan.json').write_text(json.dumps(report,indent=2)+'\n')
     for row in rows:
         p=Path(row['path']);result=dict(row)
@@ -165,4 +185,8 @@ def main():
     (state/'last-report.json').write_text(json.dumps(report,indent=2)+'\n')
     print(json.dumps({'apply':args.apply,'targets':len(rows),'free_gib':round(report['free_bytes_after']/2**30,1),'warning':report['disk_warning']}))
 
-if __name__=='__main__':main()
+if __name__=='__main__':
+    if len(sys.argv)==3 and sys.argv[1]=='--scan-dependencies':
+        for dependency in project_dependency_roots(Path(sys.argv[2])):
+            print(json.dumps({'path':str(dependency)}),flush=True)
+    else:main()

@@ -45,7 +45,7 @@ def clone_replace(source,target,expected,root):
   if created and temp.exists():temp.unlink()
 
 def main():
- ap=argparse.ArgumentParser(description=__doc__);ap.add_argument('--worktree-root',type=Path,required=True);ap.add_argument('--state-dir',type=Path,required=True);ap.add_argument('--minimum-kib',type=int,default=256);ap.add_argument('--apply',action='store_true');ap.add_argument('--limit',type=int,default=20000);a=ap.parse_args()
+ ap=argparse.ArgumentParser(description=__doc__);ap.add_argument('--worktree-root',type=Path,required=True);ap.add_argument('--state-dir',type=Path,required=True);ap.add_argument('--minimum-kib',type=int,default=256);ap.add_argument('--apply',action='store_true');ap.add_argument('--limit',type=int,default=20000);ap.add_argument('--deadline-epoch',type=float,default=float('inf'));a=ap.parse_args()
  root=a.worktree_root.absolute()
  if root.resolve()!=root or not root.is_relative_to(Path.home()) or root.name not in ('.worktrees','worktrees'):ap.error('Require an owned real worktrees directory under home')
  if root.stat().st_uid!=os.getuid():ap.error('Worktree root is not owned by this user')
@@ -54,12 +54,14 @@ def main():
  statepath=a.state_dir/'shared-files.json';done=json.loads(statepath.read_text()) if statepath.exists() else {}
  handles,commands,mounts,_=hygiene.snapshot();canonical={};rows=[];start=hygiene.disk_free_bytes();count=0
  for tree in sorted(root.iterdir()):
+  if time.time()>=a.deadline_epoch:break
   if tree.is_symlink() or not tree.is_dir() or not (tree/'.git').exists():continue
   if hygiene.busy_tree(tree,handles,commands,mounts):rows.append({'tree':str(tree),'status':'retained-active'});continue
   try:raw=subprocess.check_output(['git','-C',str(tree),'ls-files','-z'],timeout=30,stderr=subprocess.PIPE)
   except (subprocess.CalledProcessError,subprocess.TimeoutExpired):
    rows.append({'tree':str(tree),'status':'retained-invalid-or-busy-git'});continue
   for relative in raw.decode().split('\0'):
+   if time.time()>=a.deadline_epoch:break
    if not relative:continue
    p=tree/relative
    if not eligible(p,root,a.minimum_kib*1024):continue

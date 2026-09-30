@@ -6,6 +6,29 @@ HERE=Path(__file__).resolve().parent
 spec=importlib.util.spec_from_file_location('hygiene',HERE/'maintenance.py')
 hygiene=importlib.util.module_from_spec(spec);spec.loader.exec_module(hygiene)
 LIB=ctypes.CDLL(None,use_errno=True)
+class AttrList(ctypes.Structure):
+ _fields_=[('bitmapcount',ctypes.c_uint16),('reserved',ctypes.c_uint16),('commonattr',ctypes.c_uint32),('volattr',ctypes.c_uint32),('dirattr',ctypes.c_uint32),('fileattr',ctypes.c_uint32),('forkattr',ctypes.c_uint32)]
+class Timespec(ctypes.Structure):
+ _fields_=[('seconds',ctypes.c_long),('nanoseconds',ctypes.c_long)]
+
+def creation_time(path):
+ attributes=AttrList(5,0,0x00000200,0,0,0,0);buffer=ctypes.create_string_buffer(64)
+ if LIB.getattrlist(os.fsencode(path),ctypes.byref(attributes),buffer,ctypes.c_size_t(64),ctypes.c_ulong(1)):
+  code=ctypes.get_errno();raise OSError(code,os.strerror(code))
+ value=Timespec.from_buffer_copy(buffer.raw[4:4+ctypes.sizeof(Timespec)])
+ return value.seconds,value.nanoseconds
+
+def set_creation_time(path,value):
+ attributes=AttrList(5,0,0x00000200,0,0,0,0);timestamp=Timespec(*value)
+ if LIB.setattrlist(os.fsencode(path),ctypes.byref(attributes),ctypes.byref(timestamp),ctypes.c_size_t(ctypes.sizeof(timestamp)),ctypes.c_ulong(1)):
+  code=ctypes.get_errno();raise OSError(code,os.strerror(code))
+
+def atomic_json(path,value):
+ temporary=path.with_name('.'+path.name+'.'+uuid.uuid4().hex)
+ try:
+  temporary.write_text(json.dumps(value)+'\n');temporary.chmod(0o600);os.replace(temporary,path)
+ finally:
+  if temporary.exists():temporary.unlink()
 ALLOWED={'.json','.png','.jpg','.jpeg','.webp','.glb','.html','.csv','.ts','.tsx','.js','.md','.txt','.pdf'}
 EXCLUDED={'.git','node_modules','.venv','venv','Library','Temp','.data','.artifacts'}
 
@@ -27,6 +50,7 @@ def eligible(p,root,minimum):
 def clone_replace(source,target,expected,root):
  if not eligible(source,root,0) or not eligible(target,root,0):raise ValueError('Unsafe source or target')
  original=fingerprint(target)
+ original_creation=creation_time(target)
  if digest(source)!=expected or digest(target)!=expected:raise ValueError('Content changed before cloning')
  temp=target.parent/('.cow-share-'+uuid.uuid4().hex);created=False
  try:
@@ -36,11 +60,14 @@ def clone_replace(source,target,expected,root):
   subprocess.run(['/usr/bin/xattr','-c',str(temp)],check=True,capture_output=True)
   if LIB.copyfile(os.fsencode(target),os.fsencode(temp),None,ctypes.c_uint32(7)):
    code=ctypes.get_errno();raise OSError(code,os.strerror(code))
+  set_creation_time(temp,original_creation)
+  if creation_time(temp)!=original_creation:raise ValueError('Clone creation time differs')
   if digest(temp)!=expected or digest(target)!=expected or fingerprint(target)!=original:raise ValueError('Content or metadata changed during cloning')
   before=target.stat();after=temp.stat()
   if (before.st_mode,before.st_mtime_ns,before.st_uid,before.st_gid)!=(after.st_mode,after.st_mtime_ns,after.st_uid,after.st_gid):raise ValueError('Clone metadata differs')
   if subprocess.check_output(['/usr/bin/xattr','-lx',str(target)])!=subprocess.check_output(['/usr/bin/xattr','-lx',str(temp)]):raise ValueError('Clone attributes differ')
   os.replace(temp,target)
+  return original_creation
  finally:
   if created and temp.exists():temp.unlink()
 
@@ -66,7 +93,8 @@ def main():
    p=tree/relative
    if not eligible(p,root,a.minimum_kib*1024):continue
    key=digest(p);identity=list(fingerprint(p))
-   if done.get(str(p))=={'sha256':key,'identity':identity}:
+   entry=done.get(str(p),{})
+   if entry.get('sha256')==key and entry.get('identity')==identity:
     canonical.setdefault(key,p);continue
    source=canonical.setdefault(key,p)
    if source==p:continue
@@ -76,12 +104,12 @@ def main():
      if count%50==0:handles,commands,mounts,_=hygiene.snapshot()
      if hygiene.busy_tree(tree,handles,commands,mounts):row['status']='retained-active'
      else:
-      clone_replace(source,p,key,root);row['status']='shared';done[str(p)]={'sha256':key,'identity':list(fingerprint(p))};count+=1
+      created=clone_replace(source,p,key,root);row.update(status='shared',preserved_creation_time=created);done[str(p)]={'sha256':key,'identity':list(fingerprint(p)),'preserved_creation_time':created};count+=1
     except (OSError,ValueError,subprocess.SubprocessError) as e:row.update(status='retained-race-or-error',error=str(e))
    rows.append(row)
    if count>=a.limit:break
-  statepath.write_text(json.dumps(done)+'\n')
-  (a.state_dir/'report.json').write_text(json.dumps({'apply':a.apply,'shared':count,'free_before':start,'free_now':hygiene.disk_free_bytes(),'rows':rows},indent=2)+'\n')
+  atomic_json(statepath,done)
+  atomic_json(a.state_dir/'report.json',{'apply':a.apply,'shared':count,'free_before':start,'free_now':hygiene.disk_free_bytes(),'rows':rows})
   print(tree.name,'shared',count,flush=True)
   if count>=a.limit:break
  print('Completed',count,'independent APFS clones; net free-space change',hygiene.disk_free_bytes()-start,flush=True)

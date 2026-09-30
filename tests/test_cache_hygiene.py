@@ -1,4 +1,7 @@
 import importlib.util
+import contextlib
+import fcntl
+import io
 from pathlib import Path
 import subprocess
 import tempfile
@@ -78,6 +81,15 @@ class HygieneTests(unittest.TestCase):
         commands=['/Users/test/runner/bin/Runner.Worker','Runner.Worker','/bin/zsh -c echo Runner.Worker','/Users/test/runner/bin/Runner.Listener']
         self.assertEqual(preflight.worker_slots(commands),2)
         self.assertEqual(preflight.worker_slots([]),1)
+
+    def test_custom_report_directory_does_not_bypass_an_existing_maintenance_lock(self):
+        with tempfile.TemporaryDirectory() as name:
+            root=Path(name);global_state=root/'state/cache-hygiene';global_state.mkdir(parents=True)
+            with (global_state/'lock').open('a') as lock:
+                fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
+                with mock.patch.object(hygiene,'ROOT',root), mock.patch('sys.argv',['maintenance.py','--state-dir',str(root/'reports')]), mock.patch.object(hygiene,'snapshot',side_effect=AssertionError('Locked run must not inspect or mutate')), contextlib.redirect_stdout(io.StringIO()) as output:
+                    hygiene.main()
+            self.assertIn('already running',output.getvalue())
 
     def test_storage_flag_supports_both_cli_generations(self):
         helper=ROOT/'agent-loops/docker-cleanup/lib/cache-storage-flag.sh'

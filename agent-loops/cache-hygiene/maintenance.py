@@ -30,7 +30,7 @@ def snapshot():
         target=os.environ.get('CACHE_HYGIENE_PROGRESS')
         if target:Path(target).write_text(json.dumps({'at':time.time(),'stage':stage})+'\n')
     mark('snapshot-lsof')
-    p=subprocess.run(['lsof','-Fn'],capture_output=True,text=True,timeout=60)
+    p=subprocess.run(['lsof','-nP','-Fn'],capture_output=True,text=True,timeout=60)
     handles=[s[1:].removeprefix('/private').casefold() for s in p.stdout.splitlines() if s.startswith('n/')]
     if len(handles)<5:raise RuntimeError('Insufficient live-handle inventory; refusing cleanup')
     mark('snapshot-ps')

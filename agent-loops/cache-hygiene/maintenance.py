@@ -194,7 +194,10 @@ def main():
                 with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
                     codes=list(pool.map(clear,targets))
                 result['result']='removed' if all(c==0 for c in codes) else 'retained_unknown_entries'
-            else:shutil.rmtree(p);result['result']='removed'
+            else:
+                try:shutil.rmtree(p);result['result']='removed'
+                except FileNotFoundError:result['result']='already_absent'
+                except OSError as e:result.update(result='retained_error',error=str(e))
             report['results'].append(result)
             (state/'last-report.json').write_text(json.dumps(report,indent=2)+'\n')
         report['free_bytes_after']=disk_free_bytes()

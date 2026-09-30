@@ -25,6 +25,13 @@ def cache_candidate(path, parent, handles, cutoff):
     name=str(path).removeprefix('/private').casefold().rstrip('/')
     return not any(h==name or h.startswith(name+'/') for h in handles)
 
+def protected_bind(mount, container):
+    """A read-only node-exporter host-metrics mount does not own project files."""
+    if mount.get('Type')!='bind':return False
+    source=mount.get('Source','').removeprefix('/host_mnt') or '/'
+    metrics_root=(source=='/' and mount.get('Destination')=='/rootfs' and mount.get('RW') is False and 'node-exporter' in container.get('Config',{}).get('Image',''))
+    return not metrics_root
+
 def snapshot():
     def mark(stage):
         target=os.environ.get('CACHE_HYGIENE_PROGRESS')
@@ -49,7 +56,7 @@ def snapshot():
         p=subprocess.run(['docker','--context',context,'inspect',*ids.stdout.split()],capture_output=True,text=True,timeout=45,check=True)
         for c in json.loads(p.stdout):
             readiness_container |= c['State']['Running'] and 'mobile-readiness' in c['Name']
-            mounts.extend(Path(m['Source'].removeprefix('/host_mnt')) for m in c.get('Mounts',[]) if m['Type']=='bind')
+            mounts.extend(Path(m['Source'].removeprefix('/host_mnt')) for m in c.get('Mounts',[]) if protected_bind(m,c))
     mark('snapshot-complete')
     return handles,commands,mounts,readiness_container
 

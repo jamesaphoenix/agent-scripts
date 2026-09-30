@@ -50,3 +50,22 @@ leaves existing jobs/services running. Register using the canonical installer:
 
 Manual and scheduled runs share one lock even when report directories differ.
 The global disabled marker also applies to custom report directories.
+
+Identical tracked worktree assets can also share APFS storage while remaining
+independently editable. This is a manual operation, separate from the hourly cache job:
+
+```sh
+python3 agent-loops/cache-hygiene/cow-deduplicate.py \
+  --worktree-root "$HOME/Desktop/projects/just-understanding-data/trace-learn/.worktrees" \
+  --state-dir "$HOME/agent-runtime/disk-cleanup/cow-sharing"
+# Review report.json, then repeat with --apply.
+```
+
+The default minimum file size is 256 KiB. Only supported asset/source file types tracked
+by Git are considered. Database files, symlinks, hardlinks, flagged files, dependency
+stores and active worktrees are excluded. Every replacement requires identical SHA-256
+content before and after cloning and unchanged target metadata. Target permissions,
+ACLs, timestamps and extended attributes are copied onto the clone. No hardlinks are
+created, so later edits remain independent. The state records successful replacements
+for repeat runs; actual free-space gains must be measured with df because du counts
+shared extents in every file. An invalid Git registration is retained for review.

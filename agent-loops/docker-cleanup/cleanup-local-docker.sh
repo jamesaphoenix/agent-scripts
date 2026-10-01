@@ -19,6 +19,7 @@ DRY_RUN="${DRY_RUN:-0}"
 KEEP_DEPLOY_ARTIFACTS="${KEEP_DEPLOY_ARTIFACTS:-20}"
 BUILDER_CACHE_UNTIL="${BUILDER_CACHE_UNTIL:-24h}"
 BUILDER_KEEP_STORAGE="${BUILDER_KEEP_STORAGE:-10GB}"
+IMAGE_MIN_AGE_HOURS="${DOCKER_CLEANUP_IMAGE_MIN_AGE_HOURS:-24}"
 # A scheduled host job must not inherit the CLI's selected CI context. Buildx
 # also requires a context-backed builder to match the invocation's context.
 DOCKER_CLEANUP_CONTEXT="${DOCKER_CLEANUP_CONTEXT:-default}"
@@ -60,8 +61,8 @@ if [[ -n "$DOCKER_CLEANUP_DISABLE_FILE" && -e "$DOCKER_CLEANUP_DISABLE_FILE" ]];
   exit 0
 fi
 
-if ! command -v docker >/dev/null 2>&1; then
-  echo "docker is required"
+if ! command -v docker >/dev/null 2>&1 || ! command -v python3 >/dev/null 2>&1; then
+  echo "docker and python3 are required"
   exit 1
 fi
 
@@ -221,6 +222,14 @@ is_reclaimable_repository() {
   return 1
 }
 
+image_is_old_enough() {
+  local metadata=""
+  if ! metadata="$(run_with_timeout "$DOCKER_CLEANUP_INSPECT_TIMEOUT_SECONDS" docker image inspect "$1" 2>/dev/null)"; then
+    return 1
+  fi
+  printf '%s\n' "$metadata" | python3 "$SCRIPT_DIR/lib/image-age.py" --min-age-hours "$IMAGE_MIN_AGE_HOURS"
+}
+
 collect_candidate_images() {
   local repository=""
   local tag=""
@@ -237,7 +246,7 @@ collect_candidate_images() {
     fi
 
     image_ref="${repository}:${tag}"
-    if ! is_protected_image "$image_ref" "$image_id"; then
+    if ! is_protected_image "$image_ref" "$image_id" && image_is_old_enough "$image_ref"; then
       printf '%s\n' "$image_ref" >> "$CANDIDATE_IMAGES"
     fi
   done < <(docker image ls --no-trunc --format '{{.Repository}}\t{{.Tag}}\t{{.ID}}')
@@ -261,6 +270,12 @@ if [[ -s "$SORTED_CANDIDATES" ]]; then
   echo "Removing unprotected old release image tags:"
   sed 's/^/  /' "$SORTED_CANDIDATES"
   while IFS= read -r image_ref; do
+    # A pull/retag after discovery makes the tag recent again. Refresh age at
+    # mutation time rather than deleting newly reused cached content.
+    if ! image_is_old_enough "$image_ref"; then
+      echo "Retaining recently tagged or unverified image: $image_ref"
+      continue
+    fi
     if ! run_or_print docker image rm "$image_ref"; then
       echo "Warning: failed to remove image tag ${image_ref}; continuing cleanup."
     fi

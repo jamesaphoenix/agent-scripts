@@ -18,6 +18,11 @@ The installer is Studio-only. It builds the native retired-cache helper and regi
 hourly job without RunAtLoad. Pause using `touch state/cache-hygiene/disabled`. The latest
 plan and result are in that state directory. Free space below 150 GiB sets a warning in the
 report; it does not cancel jobs or prevent user work.
+Owned Cloudflared logs above 256 MiB also produce metadata-only warnings in
+`last-report.json` and `storage-warnings.jsonl`. These records include size, modification
+time and whether an open handle was observed. Logs are never read, truncated, moved or
+deleted by this job. Configure controlled service log rotation separately. Discovery
+refuses symlinked/unowned log directories and stops after 128 directory entries.
 
 Rules:
 

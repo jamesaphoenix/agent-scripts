@@ -25,6 +25,12 @@ stay allocated on macOS until the guest issues TRIM. On 2026-09-08 the prune
 freed 34GB inside the VM; the subsequent `fstrim` took the host file from
 108GB to 27GB. Skip the trim and the reclaim is invisible to the host.
 
+Allocation measurements locate named profiles under `colima-<profile>` and
+the default profile under `colima`, respecting `COLIMA_HOME` and retaining an
+unprefixed-layout fallback. The bytes printed by `fstrim` are potential discard
+bytes; repeated trims can report the same ranges. Compare the host's allocated
+datadisk size before and after to measure actual sparse-file reduction.
+
 ## What it will not touch
 
 - **All volumes by default.** Anonymous-volume pruning requires explicit

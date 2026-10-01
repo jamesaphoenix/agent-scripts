@@ -40,6 +40,7 @@ pulled moments ago, so its build date alone does not prove it is stale. Missing
 or invalid local tagging metadata retains the image. Age is refreshed immediately
 before removal to protect tags reused after discovery. The age helper requires
 Python 3; it reads inspection metadata through stdin and emits no image contents.
+Container inventory or inspection failures abort cleanup before any pruning.
 Docker's nanosecond timestamp precision is normalized for older system Python
 interpreters before parsing, while preserving timezone-aware age comparisons.
 Stopped containers and all volumes are preserved by default; stopped-container

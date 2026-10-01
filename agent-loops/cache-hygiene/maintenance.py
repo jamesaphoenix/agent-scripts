@@ -8,6 +8,7 @@ import os
 import re
 from pathlib import Path
 import shutil
+import stat
 import subprocess
 import sys
 import time
@@ -70,6 +71,31 @@ def readiness_busy(commands, container):
 def disk_free_bytes():
     raw=subprocess.check_output(['df','-k','/System/Volumes/Data'],text=True,timeout=10)
     return int(raw.splitlines()[-1].split()[3])*1024
+
+def oversized_service_logs(handles, home=None):
+    """Report known service logs using metadata only; never rotate live writers."""
+    home=Path.home() if home is None else home
+    parent=home/'.cloudflared/logs'
+    for directory in (parent.parent,parent):
+        try:s=directory.lstat()
+        except FileNotFoundError:return {'status':'absent','warnings':[]}
+        except OSError as e:return {'status':'unreadable','error':str(e),'warnings':[]}
+        if not stat.S_ISDIR(s.st_mode) or s.st_uid!=os.getuid():
+            return {'status':'retained_untrusted_path','warnings':[]}
+    warnings=[]
+    try:
+        with os.scandir(parent) as entries:
+            for count,entry in enumerate(entries):
+                if count>=128:return {'status':'partial_entry_limit','warnings':warnings}
+                if not entry.name.endswith('.log'):continue
+                s=entry.stat(follow_symlinks=False)
+                if not stat.S_ISREG(s.st_mode) or s.st_uid!=os.getuid() or s.st_size<256*2**20:continue
+                path=Path(entry.path);name=str(path).removeprefix('/private').casefold()
+                warnings.append({'path':str(path),'kind':'oversized-service-log','bytes':s.st_size,
+                    'modified_at':s.st_mtime,'open_handle':name in handles,
+                    'next_step':'Configure controlled service log rotation; retain the active log.'})
+    except OSError as e:return {'status':'partial_unreadable','error':str(e),'warnings':warnings}
+    return {'status':'complete','warnings':warnings}
 
 def project_dependency_roots(projects):
     """Walk source directories without entering dependency stores or Unity state."""
@@ -202,9 +228,13 @@ def main():
             (state/'last-report.json').write_text(json.dumps(report,indent=2)+'\n')
         report['free_bytes_after']=disk_free_bytes()
         report['disk_warning']=report['free_bytes_after']<150*2**30
+        report['service_log_budget']=oversized_service_logs(handles)
+        if report['service_log_budget']['warnings']:
+            with (state/'storage-warnings.jsonl').open('a') as log:
+                log.write(json.dumps({'at':time.time(),**report['service_log_budget']})+'\n')
         (state/'last-report.json').write_text(json.dumps(report,indent=2)+'\n')
         progress('complete')
-        print(json.dumps({'apply':args.apply,'targets':len(rows),'free_gib':round(report['free_bytes_after']/2**30,1),'warning':report['disk_warning']}))
+        print(json.dumps({'apply':args.apply,'targets':len(rows),'free_gib':round(report['free_bytes_after']/2**30,1),'warning':report['disk_warning'],'oversized_service_logs':len(report['service_log_budget']['warnings'])}))
 
 if __name__=='__main__':
     if len(sys.argv)==3 and sys.argv[1]=='--scan-dependencies':

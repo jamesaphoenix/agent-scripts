@@ -259,9 +259,20 @@ trim_ci_vm() {
     return 0
   fi
 
-  local datadisk="$HOME/.colima/_lima/_disks/${COLIMA_PROFILE}/datadisk"
+  local colima_root="${COLIMA_HOME:-$HOME/.colima}"
+  local lima_name="colima-${COLIMA_PROFILE}"
+  if [[ "$COLIMA_PROFILE" == "default" ]]; then
+    lima_name="colima"
+  fi
+  local datadisk="${colima_root}/_lima/_disks/${lima_name}/datadisk"
+  # Named profiles use Lima's colima- prefix. Retain older unprefixed layouts.
+  if [[ ! -f "$datadisk" ]]; then
+    datadisk="${colima_root}/_lima/_disks/${COLIMA_PROFILE}/datadisk"
+  fi
   if [[ -f "$datadisk" ]]; then
     echo "host datadisk before: $(du -sh "$datadisk" 2>/dev/null | cut -f1)"
+  else
+    echo "Host datadisk allocation unavailable; trim output alone is not host recovery."
   fi
 
   run_or_print vm_exec sudo fstrim -v /var/lib/docker || true

@@ -4,6 +4,7 @@ import argparse
 import datetime
 import json
 import math
+import re
 import sys
 
 
@@ -15,7 +16,11 @@ def old_enough(image, hours, now=None):
     for raw in (image.get('Created'), image.get('Metadata', {}).get('LastTagTime')):
         if not isinstance(raw, str):
             raise ValueError('Missing image age metadata')
-        stamp = datetime.datetime.fromisoformat(raw.replace('Z', '+00:00'))
+        # RFC3339Nano can emit varying fractional lengths; older Python
+        # accepts only milliseconds or microseconds. Normalize to six digits.
+        raw = re.sub(r'\.(\d+)', lambda m: '.' + (m.group(1) + '000000')[:6],
+                     raw.replace('Z', '+00:00'))
+        stamp = datetime.datetime.fromisoformat(raw)
         if stamp.tzinfo is None or stamp.year < 1970:
             raise ValueError('Untrusted image age metadata')
         times.append(stamp)

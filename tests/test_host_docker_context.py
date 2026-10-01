@@ -11,7 +11,7 @@ SCRIPT = Path(__file__).resolve().parents[1] / 'agent-loops/docker-cleanup/clean
 
 
 class HostDockerContextTests(unittest.TestCase):
-    def run_janitor(self, override=None, image=None, image_after=None):
+    def run_janitor(self, override=None, image=None, image_after=None, inventory_failure=None):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             docker = root / 'docker'
@@ -20,7 +20,13 @@ args = sys.argv[1:]
 context = os.environ.get('DOCKER_CONTEXT', 'desktop-linux')
 with open(os.environ['CONTEXT_TEST_CALLS'], 'a') as output:
     output.write(json.dumps({'args': args, 'context': context}) + '\\n')
-if args[:2] == ['buildx', 'prune']:
+if args and args[0] == 'ps' and os.environ.get('CONTEXT_TEST_INVENTORY_FAILURE'):
+    if os.environ['CONTEXT_TEST_INVENTORY_FAILURE'] == 'list':
+        sys.exit(1)
+    print('fixture-container')
+elif args and args[0] == 'inspect' and os.environ.get('CONTEXT_TEST_INVENTORY_FAILURE'):
+    sys.exit(1)
+elif args[:2] == ['buildx', 'prune']:
     if '--help' in args:
         print('--max-used-space')
     else:
@@ -51,6 +57,9 @@ else:
                        DOCKER_CONTEXT='desktop-linux')
             for key in ('DOCKER_CLEANUP_CONTEXT', 'DOCKER_CLEANUP_BUILDER_NAME', 'DRY_RUN'):
                 env.pop(key, None)
+            env.pop('CONTEXT_TEST_INVENTORY_FAILURE', None)
+            if inventory_failure:
+                env['CONTEXT_TEST_INVENTORY_FAILURE'] = inventory_failure
             if image is not None:
                 env['CONTEXT_TEST_IMAGE'] = json.dumps([image])
             else:
@@ -72,6 +81,16 @@ else:
         self.assertEqual({call['context'] for call in calls}, {'default'})
         prune = next(call['args'] for call in calls if call['args'][:2] == ['buildx', 'prune'] and '--help' not in call['args'])
         self.assertEqual(prune[prune.index('--builder') + 1], 'default')
+
+    def test_failed_container_inventory_aborts_before_mutation(self):
+        for failure in ('list', 'inspect'):
+            with self.subTest(failure=failure):
+                result, calls = self.run_janitor(inventory_failure=failure)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn('refusing Docker cleanup', result.stdout)
+                self.assertFalse(any(call['args'][:2] in (
+                    ['image', 'rm'], ['image', 'prune'], ['network', 'prune'],
+                    ['buildx', 'prune']) for call in calls))
 
     def test_explicit_context_uses_its_matching_builder(self):
         result, calls = self.run_janitor('host-maintenance')
@@ -113,6 +132,17 @@ else:
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertGreaterEqual(sum(call['args'][:2] == ['image', 'inspect'] for call in calls), 2)
         self.assertFalse(any(call['args'][:2] == ['image', 'rm'] for call in calls))
+
+    def test_os_python_can_age_nanosecond_docker_timestamps(self):
+        interpreter = Path('/usr/bin/python3')
+        if not interpreter.exists():
+            self.skipTest('OS Python is unavailable')
+        image = {'Created': '2020-01-01T00:00:00.12345Z',
+                 'Metadata': {'LastTagTime': '2020-01-02T00:00:00.987654321Z'}}
+        helper = SCRIPT.parent / 'lib/image-age.py'
+        result = subprocess.run([str(interpreter), str(helper)], input=json.dumps([image]),
+                                capture_output=True, text=True, timeout=15)
+        self.assertEqual(result.returncode, 0, result.stderr)
 
 if __name__ == '__main__':
     unittest.main()

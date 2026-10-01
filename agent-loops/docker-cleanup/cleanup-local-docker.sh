@@ -145,24 +145,34 @@ run_or_print() {
 # stopped-but-current container, exactly the state a release leaves behind
 # mid-rollout).
 protect_referenced_container_images() {
+  local container_ids=""
   local container_id=""
   local image_ref=""
   local image_id=""
+
+  if ! container_ids="$(run_with_timeout "$DOCKER_CLEANUP_INSPECT_TIMEOUT_SECONDS" docker ps -a --format '{{.ID}}' 2>/dev/null)"; then
+    echo "Cannot inventory container references; refusing Docker cleanup."
+    return 1
+  fi
 
   while IFS= read -r container_id; do
     if [[ -z "$container_id" ]]; then
       continue
     fi
 
-    image_ref="$(run_with_timeout "$DOCKER_CLEANUP_INSPECT_TIMEOUT_SECONDS" \
-      docker inspect "$container_id" --format '{{.Config.Image}}' 2>/dev/null || true)"
-    image_id="$(run_with_timeout "$DOCKER_CLEANUP_INSPECT_TIMEOUT_SECONDS" \
-      docker inspect "$container_id" --format '{{.Image}}' 2>/dev/null || true)"
+    if ! image_ref="$(run_with_timeout "$DOCKER_CLEANUP_INSPECT_TIMEOUT_SECONDS" \
+      docker inspect "$container_id" --format '{{.Config.Image}}' 2>/dev/null)" || \
+       ! image_id="$(run_with_timeout "$DOCKER_CLEANUP_INSPECT_TIMEOUT_SECONDS" \
+      docker inspect "$container_id" --format '{{.Image}}' 2>/dev/null)" || \
+       [[ -z "$image_ref" || -z "$image_id" ]]; then
+      echo "Cannot inspect container references; refusing Docker cleanup."
+      return 1
+    fi
     add_protected_image "$image_ref"
     if [[ -n "$image_id" ]]; then
       printf '%s\n' "$image_id" >> "$PROTECTED_IMAGES"
     fi
-  done < <(docker ps -a --format '{{.ID}}' 2>/dev/null || true)
+  done <<< "$container_ids"
 }
 
 artifact_dirs() {

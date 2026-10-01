@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Cache-only maintenance. Source, sessions, databases and media are out of scope."""
+"""Generated-cache maintenance. Source, sessions, databases and original media stay intact."""
 import argparse
 import concurrent.futures
 import fcntl
@@ -226,6 +226,17 @@ def main():
                 except OSError as e:result.update(result='retained_error',error=str(e))
             report['results'].append(result)
             (state/'last-report.json').write_text(json.dumps(report,indent=2)+'\n')
+        # Known numbered render/audit PNGs have a separate retention contract.
+        progress('render-frame-retention')
+        try:
+            import importlib.util
+            spec=importlib.util.spec_from_file_location('render_frame_retention',HERE/'render_frames.py')
+            frames=importlib.util.module_from_spec(spec);spec.loader.exec_module(frames)
+            frame_roots=sorted({root for projects in project_roots for root in frames.roots_for_projects(projects)})
+            frame_report=frames.run(frame_roots,state/'render-frames',apply=args.apply,snapshot_fn=snapshot)
+            report['render_frame_retention']={k:v for k,v in frame_report.items() if k!='directories'}
+        except Exception as error:
+            report['render_frame_retention']={'status':'retained_error','error':str(error)[:500]}
         report['free_bytes_after']=disk_free_bytes()
         report['disk_warning']=report['free_bytes_after']<150*2**30
         report['service_log_budget']=oversized_service_logs(handles)

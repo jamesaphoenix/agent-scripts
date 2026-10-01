@@ -74,3 +74,32 @@ ACLs, timestamps and extended attributes are copied onto the clone. No hardlinks
 created, so later edits remain independent. The state records successful replacements
 for repeat runs; actual free-space gains must be measured with df because du counts
 shared extents in every file. An invalid Git registration is retained for review.
+
+## Render frame retention
+
+The hourly maintenance job also expires seven-day-old numbered PNGs in two known
+output layouts: Claude Code episode `renders/overlay-*` sequences (`frame-N.png`)
+and video-lab `runs/**/geometry/{wide,tall}` diagnostics (`audit-N.png`). It requires
+five minutes of directory quiet, current ownership, no symlinks, no tracked source,
+no open output handles, no rendering process, and no overlapping container bind.
+Overlay cleanup also requires a final movie in the same episode that passes ffprobe.
+Geometry cleanup requires its audit metadata. Native `final-frames` are preserved
+because encode verification reads those PNGs, even when the final movie exists.
+Original PNG assets, JSON audit results, Blender sources and all MP4s are retained.
+Each cleared folder receives a `frames-pruned.json` receipt. Discovery is limited
+to the known rendering projects inside configured project roots, including their
+registered worktrees. Per-run deletion is bounded to two minutes; later hourly
+runs continue the remaining eligible directories.
+
+Manual review, dry-run by default:
+
+```sh
+python3 agent-loops/cache-hygiene/render_frames.py \
+  --root "$HOME/Desktop/projects/just-understanding-data/just-understanding-data/artifacts/claude-code" \
+  --state-dir "$HOME/agent-runtime/disk-cleanup/render-frames"
+# Add --apply after reviewing last-report.json. Defaults: seven days and five minutes quiet.
+```
+
+For an explicitly authorized one-time cleanup, `--age-days 0` removes old completed
+frame outputs without the seven-day retention period. Activity, media validation,
+file identity and source protections still apply.

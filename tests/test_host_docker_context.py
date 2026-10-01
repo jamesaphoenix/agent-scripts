@@ -114,5 +114,16 @@ else:
         self.assertGreaterEqual(sum(call['args'][:2] == ['image', 'inspect'] for call in calls), 2)
         self.assertFalse(any(call['args'][:2] == ['image', 'rm'] for call in calls))
 
+    def test_os_python_can_age_nanosecond_docker_timestamps(self):
+        interpreter = Path('/usr/bin/python3')
+        if not interpreter.exists():
+            self.skipTest('OS Python is unavailable')
+        image = {'Created': '2020-01-01T00:00:00.123456789Z',
+                 'Metadata': {'LastTagTime': '2020-01-02T00:00:00.987654321Z'}}
+        helper = SCRIPT.parent / 'lib/image-age.py'
+        result = subprocess.run([str(interpreter), str(helper)], input=json.dumps([image]),
+                                capture_output=True, text=True, timeout=15)
+        self.assertEqual(result.returncode, 0, result.stderr)
+
 if __name__ == '__main__':
     unittest.main()

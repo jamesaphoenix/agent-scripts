@@ -11,7 +11,7 @@ SCRIPT = Path(__file__).resolve().parents[1] / 'agent-loops/docker-cleanup/clean
 
 
 class HostDockerContextTests(unittest.TestCase):
-    def run_janitor(self, override=None):
+    def run_janitor(self, override=None, image=None, image_after=None):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             docker = root / 'docker'
@@ -29,6 +29,13 @@ if args[:2] == ['buildx', 'prune']:
             print('ERROR: use docker --context=' + builder + ' buildx', file=sys.stderr)
             sys.exit(1)
         print('Total: 0B')
+elif args[:2] == ['image', 'ls'] and os.environ.get('CONTEXT_TEST_IMAGE'):
+    print('registry/trace-learn/api\\tcandidate\\tsha256:fixture')
+elif args[:2] == ['image', 'inspect'] and os.environ.get('CONTEXT_TEST_IMAGE'):
+    with open(os.environ['CONTEXT_TEST_CALLS']) as calls:
+        inspected = sum(json.loads(line)['args'][:2] == ['image', 'inspect'] for line in calls)
+    key = 'CONTEXT_TEST_IMAGE_AFTER' if inspected > 1 and os.environ.get('CONTEXT_TEST_IMAGE_AFTER') else 'CONTEXT_TEST_IMAGE'
+    print(os.environ[key])
 elif args and args[0] in ('info', 'ps', 'images', 'image', 'network', 'container'):
     pass
 else:
@@ -44,6 +51,14 @@ else:
                        DOCKER_CONTEXT='desktop-linux')
             for key in ('DOCKER_CLEANUP_CONTEXT', 'DOCKER_CLEANUP_BUILDER_NAME', 'DRY_RUN'):
                 env.pop(key, None)
+            if image is not None:
+                env['CONTEXT_TEST_IMAGE'] = json.dumps([image])
+            else:
+                env.pop('CONTEXT_TEST_IMAGE', None)
+            if image_after is not None:
+                env['CONTEXT_TEST_IMAGE_AFTER'] = json.dumps([image_after])
+            else:
+                env.pop('CONTEXT_TEST_IMAGE_AFTER', None)
             if override:
                 env['DOCKER_CLEANUP_CONTEXT'] = override
             result = subprocess.run(['bash', str(SCRIPT)], env=env, capture_output=True, text=True, timeout=30)
@@ -65,6 +80,39 @@ else:
         prune = next(call['args'] for call in calls if call['args'][:2] == ['buildx', 'prune'] and '--help' not in call['args'])
         self.assertEqual(prune[prune.index('--builder') + 1], 'host-maintenance')
 
+
+    def test_old_build_pulled_recently_is_retained(self):
+        import datetime
+        now = datetime.datetime.now(datetime.timezone.utc)
+        image = {'Created': (now - datetime.timedelta(days=365)).isoformat(),
+                 'Metadata': {'LastTagTime': (now - datetime.timedelta(hours=2)).isoformat()}}
+        result, calls = self.run_janitor(image=image)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse(any(call['args'][:2] == ['image', 'rm'] for call in calls))
+
+    def test_both_old_timestamps_allow_unprotected_release_removal(self):
+        import datetime
+        now = datetime.datetime.now(datetime.timezone.utc)
+        old = (now - datetime.timedelta(days=30)).isoformat()
+        result, calls = self.run_janitor(image={'Created': old, 'Metadata': {'LastTagTime': old}})
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertTrue(any(call['args'] == ['image', 'rm', 'registry/trace-learn/api:candidate'] for call in calls))
+
+    def test_missing_local_tag_timestamp_retains_release(self):
+        result, calls = self.run_janitor(image={'Created': '2020-01-01T00:00:00Z'})
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse(any(call['args'][:2] == ['image', 'rm'] for call in calls))
+
+    def test_retag_after_discovery_is_retained_at_mutation_time(self):
+        import datetime
+        now = datetime.datetime.now(datetime.timezone.utc)
+        old = (now - datetime.timedelta(days=30)).isoformat()
+        initial = {'Created': old, 'Metadata': {'LastTagTime': old}}
+        reused = {'Created': old, 'Metadata': {'LastTagTime': now.isoformat()}}
+        result, calls = self.run_janitor(image=initial, image_after=reused)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertGreaterEqual(sum(call['args'][:2] == ['image', 'inspect'] for call in calls), 2)
+        self.assertFalse(any(call['args'][:2] == ['image', 'rm'] for call in calls))
 
 if __name__ == '__main__':
     unittest.main()

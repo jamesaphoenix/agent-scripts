@@ -50,6 +50,15 @@ pruning requires `DOCKER_CLEANUP_PRUNE_STOPPED_CONTAINERS=1`.
 no launchd there, so this loop is deployed as a plain cron entry instead - see
 `install-cron.sh`.
 
+Digest-pinned pulls are included even when Docker lists their tag as `<none>`.
+They use the same container, release-artifact and local-age protections as tags.
+This matters on the standby, where deployment pulls `repository@sha256:...`.
+The 24-hour age guard keeps recently pulled rollback images. Set
+`DOCKER_CLEANUP_ARTIFACT_DIRS` to the product checkout artifact directories for
+longer rollback retention. The cron log shows candidate references and the
+amount reclaimed; a successful run that continually finds no candidates while
+storage grows needs investigation.
+
 ## Manual use
 
 ```bash

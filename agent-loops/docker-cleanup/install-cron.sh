@@ -9,11 +9,13 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
 START_HOUR="${DOCKER_CLEANUP_START_HOUR:-3}"
 START_MINUTE="${DOCKER_CLEANUP_START_MINUTE:-30}"
 STATE_DIR="${DOCKER_CLEANUP_STATE_DIR:-$SCRIPT_DIR/state}"
+ARTIFACT_DIRS="${DOCKER_CLEANUP_ARTIFACT_DIRS:-/opt/trace-learn/deploy/artifacts:/opt/octospark/deploy/artifacts}"
 CRON_MARKER="# host-docker-cleanup (managed by agent-scripts, do not hand-edit this line)"
 
 mkdir -p "$STATE_DIR/logs"
 
-CRON_LINE="${START_MINUTE} ${START_HOUR} * * * DOCKER_CLEANUP_DISABLE_FILE=${STATE_DIR}/disabled DOCKER_CLEANUP_LOCK_DIR=${STATE_DIR}/lock ${SCRIPT_DIR}/cleanup-local-docker.sh >>${STATE_DIR}/logs/cron.log 2>&1 ${CRON_MARKER}"
+printf -v artifact_dirs_quoted '%q' "$ARTIFACT_DIRS"
+CRON_LINE="${START_MINUTE} ${START_HOUR} * * * DOCKER_CLEANUP_ARTIFACT_DIRS=${artifact_dirs_quoted} DOCKER_CLEANUP_DISABLE_FILE=${STATE_DIR}/disabled DOCKER_CLEANUP_LOCK_DIR=${STATE_DIR}/lock ${SCRIPT_DIR}/cleanup-local-docker.sh >>${STATE_DIR}/logs/cron.log 2>&1 ${CRON_MARKER}"
 
 existing_crontab="$(crontab -l 2>/dev/null || true)"
 filtered_crontab="$(printf '%s\n' "$existing_crontab" | grep -Fv "$CRON_MARKER" || true)"

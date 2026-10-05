@@ -11,7 +11,7 @@ SCRIPT = Path(__file__).resolve().parents[1] / 'agent-loops/docker-cleanup/clean
 
 
 class HostDockerContextTests(unittest.TestCase):
-    def run_janitor(self, override=None, image=None, image_after=None, inventory_failure=None):
+    def run_janitor(self, override=None, image=None, image_after=None, inventory_failure=None, digest=None, protected=False):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             docker = root / 'docker'
@@ -20,7 +20,11 @@ args = sys.argv[1:]
 context = os.environ.get('DOCKER_CONTEXT', 'desktop-linux')
 with open(os.environ['CONTEXT_TEST_CALLS'], 'a') as output:
     output.write(json.dumps({'args': args, 'context': context}) + '\\n')
-if args and args[0] == 'ps' and os.environ.get('CONTEXT_TEST_INVENTORY_FAILURE'):
+if args and args[0] == 'ps' and os.environ.get('CONTEXT_TEST_PROTECTED'):
+    print('fixture-container')
+elif args and args[0] == 'inspect' and os.environ.get('CONTEXT_TEST_PROTECTED'):
+    print('sha256:fixture')
+elif args and args[0] == 'ps' and os.environ.get('CONTEXT_TEST_INVENTORY_FAILURE'):
     if os.environ['CONTEXT_TEST_INVENTORY_FAILURE'] == 'list':
         sys.exit(1)
     print('fixture-container')
@@ -36,7 +40,9 @@ elif args[:2] == ['buildx', 'prune']:
             sys.exit(1)
         print('Total: 0B')
 elif args[:2] == ['image', 'ls'] and os.environ.get('CONTEXT_TEST_IMAGE'):
-    print('registry/trace-learn/api\\tcandidate\\tsha256:fixture')
+    digest = os.environ.get('CONTEXT_TEST_DIGEST', '<none>')
+    tag = '<none>' if digest != '<none>' else 'candidate'
+    print('registry/trace-learn/api\\t' + tag + '\\t' + digest + '\\tsha256:fixture')
 elif args[:2] == ['image', 'inspect'] and os.environ.get('CONTEXT_TEST_IMAGE'):
     with open(os.environ['CONTEXT_TEST_CALLS']) as calls:
         inspected = sum(json.loads(line)['args'][:2] == ['image', 'inspect'] for line in calls)
@@ -58,6 +64,12 @@ else:
             for key in ('DOCKER_CLEANUP_CONTEXT', 'DOCKER_CLEANUP_BUILDER_NAME', 'DRY_RUN'):
                 env.pop(key, None)
             env.pop('CONTEXT_TEST_INVENTORY_FAILURE', None)
+            env.pop('CONTEXT_TEST_DIGEST', None)
+            env.pop('CONTEXT_TEST_PROTECTED', None)
+            if digest:
+                env['CONTEXT_TEST_DIGEST'] = digest
+            if protected:
+                env['CONTEXT_TEST_PROTECTED'] = '1'
             if inventory_failure:
                 env['CONTEXT_TEST_INVENTORY_FAILURE'] = inventory_failure
             if image is not None:
@@ -119,6 +131,25 @@ else:
 
     def test_missing_local_tag_timestamp_retains_release(self):
         result, calls = self.run_janitor(image={'Created': '2020-01-01T00:00:00Z'})
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse(any(call['args'][:2] == ['image', 'rm'] for call in calls))
+
+    def test_digest_only_old_release_is_reclaimed(self):
+        old = '2020-01-01T00:00:00Z'
+        result, calls = self.run_janitor(image={'Created': old, 'Metadata': {'LastTagTime': old}}, digest='sha256:old')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertTrue(any(call['args'] == ['image', 'rm', 'registry/trace-learn/api@sha256:old'] for call in calls))
+
+    def test_container_referenced_digest_is_retained(self):
+        old = '2020-01-01T00:00:00Z'
+        result, calls = self.run_janitor(image={'Created': old, 'Metadata': {'LastTagTime': old}}, digest='sha256:current', protected=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse(any(call['args'][:2] == ['image', 'rm'] for call in calls))
+
+    def test_recently_pulled_digest_is_retained(self):
+        import datetime
+        now = datetime.datetime.now(datetime.timezone.utc).isoformat()
+        result, calls = self.run_janitor(image={'Created': '2020-01-01T00:00:00Z', 'Metadata': {'LastTagTime': now}}, digest='sha256:recent')
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertFalse(any(call['args'][:2] == ['image', 'rm'] for call in calls))
 

@@ -243,11 +243,12 @@ image_is_old_enough() {
 collect_candidate_images() {
   local repository=""
   local tag=""
+  local digest=""
   local image_id=""
   local image_ref=""
 
-  while IFS=$'\t' read -r repository tag image_id; do
-    if [[ -z "$repository" || "$repository" == "<none>" || "$tag" == "<none>" ]]; then
+  while IFS=$'\t' read -r repository tag digest image_id; do
+    if [[ -z "$repository" || "$repository" == "<none>" ]]; then
       continue
     fi
 
@@ -255,11 +256,17 @@ collect_candidate_images() {
       continue
     fi
 
-    image_ref="${repository}:${tag}"
+    if [[ -n "$tag" && "$tag" != "<none>" ]]; then
+      image_ref="${repository}:${tag}"
+    elif [[ "$digest" == sha256:* ]]; then
+      image_ref="${repository}@${digest}"
+    else
+      continue
+    fi
     if ! is_protected_image "$image_ref" "$image_id" && image_is_old_enough "$image_ref"; then
       printf '%s\n' "$image_ref" >> "$CANDIDATE_IMAGES"
     fi
-  done < <(docker image ls --no-trunc --format '{{.Repository}}\t{{.Tag}}\t{{.ID}}')
+  done < <(docker image ls --digests --no-trunc --format '{{.Repository}}\t{{.Tag}}\t{{.Digest}}\t{{.ID}}')
 }
 
 echo "Collecting images referenced by containers on this host..."
@@ -268,7 +275,7 @@ protect_artifact_images
 sort -u "$PROTECTED_IMAGES" -o "$PROTECTED_IMAGES"
 echo "Protected $(grep -c . "$PROTECTED_IMAGES" || true) image refs/ids."
 
-echo "Collecting unprotected old image tags..."
+echo "Collecting unprotected old image references..."
 collect_candidate_images
 sort -u "$CANDIDATE_IMAGES" -o "$SORTED_CANDIDATES"
 
@@ -277,7 +284,7 @@ if [[ "$DRY_RUN" == "1" ]]; then
 fi
 
 if [[ -s "$SORTED_CANDIDATES" ]]; then
-  echo "Removing unprotected old release image tags:"
+  echo "Removing unprotected old release image references:"
   sed 's/^/  /' "$SORTED_CANDIDATES"
   while IFS= read -r image_ref; do
     # A pull/retag after discovery makes the tag recent again. Refresh age at
@@ -291,7 +298,7 @@ if [[ -s "$SORTED_CANDIDATES" ]]; then
     fi
   done < "$SORTED_CANDIDATES"
 else
-  echo "No unprotected old release image tags found."
+  echo "No unprotected old release image references found."
 fi
 
 if [[ "$PRUNE_STOPPED_CONTAINERS" == "1" ]]; then

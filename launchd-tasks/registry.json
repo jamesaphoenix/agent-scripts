@@ -294,6 +294,25 @@
         ]
       },
       "notes": "Runs on both Macs (the one exception to one-machine-per-task): agents on either host leave detached playwright-cli daemons plus headless Chrome trees alive for hours. Kills orphaned Playwright browsers, daemons older than 3h with their whole process tree, and unreferenced temp profiles. 2026-09-27: 9 abandoned daemons, ~9h old, pinned 3 GPU helpers at ~18% CPU each on the MacBook."
+    },
+    {
+      "id": "tracelearn-tutor-discovery-20261009",
+      "name": "Finite Trace Learn independent tutor discovery, seven hours and USD100 cap",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.tracelearn-tutor-discovery-20261009",
+      "schedule": "one finite run, RunAtLoad; restart failures with original deadline and budget",
+      "requiresOpServiceAccount": true,
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
+        "command": [
+          "bash",
+          "agent-loops/tracelearn-tutor-discovery/install-launchd.sh"
+        ]
+      },
+      "notes": "User-authorised 2026-10-09. Independent 11+/primary tutors in Buckinghamshire including Milton Keynes, HP10 8BP priority. Go crawler plus DataForSEO. Immutable seven-hour window and USD100 run ledger, max15 external sites per root branch/depth2. Artifact-only research, no email/domain purchase or tenant impersonation. Credentials via 1Password at runtime. Successful finite completion exits; job.json/discovery.json preserve restart boundaries.",
+      "opServiceAccountSource": "profile-or-keychain"
     }
   ]
 }

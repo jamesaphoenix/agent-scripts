@@ -157,7 +157,7 @@ def display_task(data: dict[str, Any], task: dict[str, Any]) -> None:
     print(f"  hosts: {', '.join(sorted(hosts)) or 'any'}")
     print(f"  users: {', '.join(sorted(users)) or 'any'}")
     if task.get("requiresOpServiceAccount"):
-        print("  requires: cached OP service account token")
+        print(f"  requires: OP service account ({task.get('opServiceAccountSource', 'keychain')})")
     install = task.get("install") or {}
     if install.get("kind") == "command":
         print(f"  installer: {' '.join(install.get('command') or [])}")
@@ -168,7 +168,17 @@ def display_task(data: dict[str, Any], task: dict[str, Any]) -> None:
         print(f"  notes: {task['notes']}")
 
 
-def ensure_op_service_account() -> None:
+def ensure_op_service_account(task: dict[str, Any]) -> None:
+    # Only wrappers that explicitly source the shared profile may use its exported
+    # token. Existing keychain-only jobs retain their original installation gate.
+    if task.get("opServiceAccountSource") == "profile-or-keychain" and os.environ.get("OP_SERVICE_ACCOUNT_TOKEN"):
+        op = shutil.which("op")
+        if not op:
+            raise SystemExit("Missing op CLI for service-account authentication")
+        subprocess.run([op, "vault", "list", "--format", "json"],
+                       check=True, stdout=subprocess.DEVNULL)
+        print("  authenticated existing profile service account; no keychain write needed")
+        return
     script = ROOT / "scripts" / "cache-op-service-account-token.sh"
     if not script.exists():
         raise SystemExit(f"Missing OP service account cache script: {script}")
@@ -213,9 +223,9 @@ def install_command(task: dict[str, Any], dry_run: bool) -> None:
 def install_task(task: dict[str, Any], dry_run: bool) -> None:
     print(f"Installing {task['id']}: {task.get('name', task['id'])}")
     if task.get("requiresOpServiceAccount"):
-        print("  ensuring cached OP service account token")
+        print("  ensuring OP service account authentication")
         if not dry_run:
-            ensure_op_service_account()
+            ensure_op_service_account(task)
     kind = (task.get("install") or {}).get("kind")
     if kind == "plist":
         install_plist(task, dry_run)

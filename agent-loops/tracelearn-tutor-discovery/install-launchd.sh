@@ -20,6 +20,25 @@ with open(path, "wb") as stream:
     plistlib.dump(value, stream)
 PY
 chmod 600 "$PLIST_PATH"
-launchctl bootout "gui/$(id -u)/$LABEL" 2>/dev/null || true
-launchctl bootstrap "gui/$(id -u)" "$PLIST_PATH"
+# BEGIN bootstrap_launch_agent
+bootstrap_launch_agent() {
+  local domain="$1" label="$2" plist="$3"
+  local attempt bootstrap_code
+  launchctl bootout "$domain/$label" 2>/dev/null || true
+  # launchd can still be unregistering the old service when bootout returns.
+  # Only its transient I/O exit is retried, for at most 28 seconds. This does
+  # not replay provider calls or change the saved job deadline and budget.
+  for ((attempt = 1; attempt <= 15; attempt++)); do
+    if launchctl bootstrap "$domain" "$plist"; then
+      return 0
+    else
+      bootstrap_code=$?
+    fi
+    [[ "$bootstrap_code" == 5 ]] || return "$bootstrap_code"
+    if ((attempt < 15)); then sleep 2; fi
+  done
+  return 5
+}
+# END bootstrap_launch_agent
+bootstrap_launch_agent "gui/$(id -u)" "$LABEL" "$PLIST_PATH"
 echo "Installed $LABEL. The stored deadline and budget survive restarts."

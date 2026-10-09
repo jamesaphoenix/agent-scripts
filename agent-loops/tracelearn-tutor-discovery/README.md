@@ -10,6 +10,8 @@ Credentials are resolved through 1Password at runtime. The wrapper sources the s
 
 Launchd restarts failures with a two-minute throttle. Successful completion stops the job. A reboot resumes the original run and deadline. Keep the permanent OS flock inode: process exit releases ownership automatically. A loaded process alone does not establish successful discovery or delivery.
 
+Reinstallation removes the old registration once, then retries launchd's transient bootstrap I/O error for at most 28 seconds. Other bootstrap errors fail immediately. These retries concern host registration only; they never retry DataForSEO requests or change the research checkpoint. Run `python3 -m unittest discover -s tests -p test_tracelearn_discovery_launchd.py` for its regression checks.
+
 Results are research artifacts for authenticated tenant-scoped import into the outbound dashboard. Research completion and contact import are separate proof steps. Use the project CLI or the dashboard CSV import under the intended organisation, rather than copying another organisation's database or impersonating its administrator.
 
 Status: `launchctl print gui/$(id -u)/com.jud.tracelearn-tutor-discovery-20261009` and `tutor-crawler discover-status --state state/tracelearn-tutors-20261009/discovery.json` from the runtime agent-scripts directory. Stop with `launchctl bootout gui/$(id -u)/com.jud.tracelearn-tutor-discovery-20261009`; the checkpoint remains resumable.

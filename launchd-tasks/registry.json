@@ -351,6 +351,21 @@
         ]
       },
       "notes": "User authorised 2026-10-10: creative county-wide discovery for 8-10 hours. Fixed ten-hour window, 44 towns/villages, six source classes, Google operators, Maps and free web seeds. SHA256 excludes every historical submitted search; original charges/reservations plus new USD20 remain below shared USD100. Go limits: depth2, external branch15, sites500, content attempts1000. Research only; original runs preserved."
+    },
+    {
+      "id": "tracelearn-tutor-watch-20261010",
+      "name": "Eight-hour tutor discovery health checks and bounded recovery",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.tracelearn-tutor-watch-20261010",
+      "schedule": "every thirty minutes plus RunAtLoad, fixed eight-hour window",
+      "requiresOpServiceAccount": false,
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
+        "command": ["bash", "agent-loops/tracelearn-tutor-watch/install-launchd.sh"]
+      },
+      "notes": "User authorised 2026-10-10: check tutor discovery every thirty minutes for 6-8 hours. Save actual progress, budget and ownership reports for eight hours. Preserve paid uncertainty and intentional limits; at most three guarded graceful recovery attempts of the existing checkpoint. No provider calls or credentials in the watcher; unload at the saved monitoring deadline."
     }
   ]
 }

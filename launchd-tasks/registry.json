@@ -313,6 +313,25 @@
       },
       "notes": "User-authorised 2026-10-09. Independent 11+/primary tutors in Buckinghamshire including Milton Keynes, HP10 8BP priority. Go crawler plus DataForSEO. Immutable seven-hour window and USD100 run ledger, max15 external sites per root branch/depth2. Artifact-only research, no email/domain purchase or tenant impersonation. Credentials via 1Password at runtime. Successful finite completion exits; job.json/discovery.json preserve restart boundaries.",
       "opServiceAccountSource": "profile-or-keychain"
+    },
+    {
+      "id": "tracelearn-tutor-expansion-20261010",
+      "name": "Expanded Bucks tutor discovery, seven hours, USD20 incremental ceiling",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.tracelearn-tutor-expansion-20261010",
+      "schedule": "one finite run, RunAtLoad; restart failures with original deadline and budget",
+      "requiresOpServiceAccount": true,
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
+        "command": [
+          "bash",
+          "agent-loops/tracelearn-tutor-expansion/install-launchd.sh"
+        ]
+      },
+      "notes": "User authorised 2026-10-10: additional crawling, organic operators and four additional source types. USD20 new conservative exposure plus USD0.59 prior exposure is below the shared USD100 cap. Known engine errors cool down; uncertain paid posts are never replayed and free queued crawling continues. Research only, no outreach or domain purchases. Original run is preserved.",
+      "opServiceAccountSource": "profile-or-keychain"
     }
   ]
 }

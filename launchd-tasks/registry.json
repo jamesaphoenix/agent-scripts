@@ -332,6 +332,25 @@
       },
       "notes": "User authorised 2026-10-10: additional crawling, organic operators and four additional source types. USD20 new conservative exposure plus USD0.59 prior exposure is below the shared USD100 cap. Known engine errors cool down; uncertain paid posts are never replayed and free queued crawling continues. Research only, no outreach or domain purchases. Original run is preserved.",
       "opServiceAccountSource": "profile-or-keychain"
+    },
+    {
+      "id": "tracelearn-tutor-countywide-20261010",
+      "name": "County-wide independent Bucks tutor discovery, ten hours, USD20 incremental ceiling",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.tracelearn-tutor-countywide-20261010",
+      "schedule": "one finite ten-hour run, RunAtLoad; restart with original deadline and budget",
+      "requiresOpServiceAccount": true,
+      "opServiceAccountSource": "profile-or-keychain",
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
+        "command": [
+          "bash",
+          "agent-loops/tracelearn-tutor-countywide/install-launchd.sh"
+        ]
+      },
+      "notes": "User authorised 2026-10-10: creative county-wide discovery for 8-10 hours. Fixed ten-hour window, 44 towns/villages, six source classes, Google operators, Maps and free web seeds. SHA256 excludes every historical submitted search; original charges/reservations plus new USD20 remain below shared USD100. Go limits: depth2, external branch15, sites500, content attempts1000. Research only; original runs preserved."
     }
   ]
 }

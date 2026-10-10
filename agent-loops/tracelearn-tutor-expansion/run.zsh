@@ -33,6 +33,7 @@ deadline="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["dea
 budget="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["budgetCents"])' "$run_dir/job.json")"
 interval="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["queryInterval"])' "$run_dir/job.json")"
 plan="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["queryPlan"])' "$run_dir/job.json")"
+seed_plan="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("seedPlan", ""))' "$run_dir/job.json")"
 if ! python3 - "$deadline" <<'PY'
 import datetime, sys
 sys.exit(0 if datetime.datetime.now(datetime.timezone.utc) < datetime.datetime.fromisoformat(sys.argv[1]) else 1)
@@ -54,4 +55,6 @@ PY
 if [[ -f "$run_dir/discovery.json" ]]; then
   exec op run --env-file="$script_dir/dataforseo.env" -- env -u OP_SERVICE_ACCOUNT_TOKEN "$binary" discover --state "$run_dir/discovery.json" --resume
 fi
-exec op run --env-file="$script_dir/dataforseo.env" -- env -u OP_SERVICE_ACCOUNT_TOKEN "$binary" discover --state "$run_dir/discovery.json" --run-id "$run_id" --deadline "$deadline" --budget-cents "$budget" --query-interval "$interval" --plan-file "$run_dir/$plan"
+seed_flags=()
+if [[ -n "$seed_plan" ]]; then seed_flags=(--seeds "$run_dir/$seed_plan"); fi
+exec op run --env-file="$script_dir/dataforseo.env" -- env -u OP_SERVICE_ACCOUNT_TOKEN "$binary" discover --state "$run_dir/discovery.json" --run-id "$run_id" --deadline "$deadline" --budget-cents "$budget" --query-interval "$interval" --plan-file "$run_dir/$plan" "${seed_flags[@]}"

@@ -1,5 +1,7 @@
 # Tutor lead discovery through five pathways
 
+Discovery improvements follow the bounded baseline/change/evaluate loop in [program.md](program.md). Offline seed experiments use frozen, SHA256-bound fetch outcomes and [evaluate-seeds.py](evaluate-seeds.py); private `results.tsv` files record kept, discarded and failed experiments. Queue efficiency and live candidate yield are reported separately.
+
 Six-hour research job for independent 11+ and primary tutor practices in Buckinghamshire, including Milton Keynes. MacBook is the authoring source; Mac Studio owns the registered runtime.
 
 The paths are Google Maps searches, Business Listings category searches, targeted organic search, community/professional directory and newsletter search, and a Codex TypeScript SDK session using existing ChatGPT OAuth. The SDK uses live web search, a read-only sandbox and structured source-attributed results. It cannot inherit provider/API credentials or enabled MCP servers. OAuth token usage is recorded; no dollar cost or remaining subscription allowance is inferred from token counts.

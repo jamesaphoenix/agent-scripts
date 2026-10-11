@@ -17,6 +17,42 @@ configuration = importlib.util.module_from_spec(configuration_spec)
 configuration_spec.loader.exec_module(configuration)
 
 
+class ExperimentEvaluationTests(unittest.TestCase):
+    def setUp(self):
+        path = MODULE.with_name("evaluate-seeds.py")
+        evaluation_spec = importlib.util.spec_from_file_location("seed_evaluation", path)
+        self.evaluation = importlib.util.module_from_spec(evaluation_spec)
+        evaluation_spec.loader.exec_module(self.evaluation)
+        self.cases = [{"url": "https://tutor.co.uk/contact", "permit": True},
+                      {"url": "https://tutor.co.uk/news.pdf", "permit": False}]
+
+    def test_missing_duplicate_and_unknown_decisions_cannot_look_like_improvements(self):
+        for decisions in [{"permitted": [], "rejected": []},
+                          {"permitted": [self.cases[0]["url"]] * 2, "rejected": []},
+                          {"permitted": ["https://unknown.co.uk/"], "rejected": []}]:
+            with self.assertRaisesRegex(ValueError, "exactly once"):
+                self.evaluation.evaluate_decisions(self.cases, decisions)
+
+    def test_dropping_every_seed_is_a_guardrail_failure(self):
+        result = self.evaluation.evaluate_decisions(self.cases, {
+            "permitted": [], "rejected": [{"url": case["url"]} for case in self.cases]})
+        self.assertEqual(result["htmlRejected"], 1)
+        self.assertEqual(result["admissionErrors"], 1)
+        correct = self.evaluation.evaluate_decisions(self.cases, {
+            "permitted": [self.cases[0]["url"]], "rejected": [{"url": self.cases[1]["url"]}]})
+        self.assertEqual(correct["admissionErrors"], 0)
+
+    def test_changed_fixture_is_rejected_before_the_binary_runs(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            fixture = Path(temporary) / "fixture.json"
+            fixture.write_text(json.dumps({"cases": self.cases}))
+            with patch.object(sys, "argv", ["evaluate-seeds", "--binary", "/unused", "--fixture", str(fixture), "--sha256", "changed"]), \
+                    patch.object(self.evaluation.subprocess, "run") as run:
+                with self.assertRaisesRegex(ValueError, "SHA256 changed"):
+                    self.evaluation.main()
+                run.assert_not_called()
+
+
 class SecretLaunchTests(unittest.TestCase):
     def load_launcher(self):
         path = MODULE.with_name("launch.py")

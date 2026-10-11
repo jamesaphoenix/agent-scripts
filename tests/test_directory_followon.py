@@ -61,3 +61,19 @@ class FollowOnTests(unittest.TestCase):
                 followon.prepare(parent, root / "child", 2, 30, 1200)
             self.assertFalse((root / "child").exists())
 
+    def test_a_sealed_empty_frontier_can_use_a_hash_bound_new_source_batch(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            parent = self.fixture(root)
+            state = json.loads((parent / "state.json").read_text())
+            state["queue"] = []
+            (parent / "state.json").write_text(json.dumps(state))
+            raw = json.dumps({"urls": ["https://www.uktutors.com/county/buckinghamshire-tutors/"]}).encode()
+            batch = root / (hashlib.sha256(raw).hexdigest() + ".json")
+            batch.write_bytes(raw)
+            followon.prepare(parent, root / "child", 2, 30, 1200, batch)
+            child = json.loads((root / "child/state.json").read_text())
+            self.assertEqual(child["queue"], ["https://www.uktutors.com/county/buckinghamshire-tutors/"])
+            self.assertIn(batch.stem, child["importedSeedBatches"])
+            self.assertEqual(json.loads((parent / "state.json").read_text())["queue"], [])
+

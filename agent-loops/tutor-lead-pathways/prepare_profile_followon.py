@@ -10,14 +10,14 @@ import shutil
 import tempfile
 import time
 
-from directory_profiles import admitted_url, decode_page, export_csv, merge_profiles, now, profile_locality_status, exclusion_reason, profile_record, save
+from directory_profiles import admitted_url, decode_page, export_csv, import_seed_batches, merge_profiles, now, profile_locality_status, exclusion_reason, profile_record, save
 
 
 def digest(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def prepare(parent, output, hours, new_pages, target):
+def prepare(parent, output, hours, new_pages, target, seed_batch=None):
     if not 0 < hours <= 6 or not 1 <= new_pages <= 5000 or not 1 <= target <= 5000:
         raise ValueError("Choose bounded duration, additional attempts and target")
     if output.exists():
@@ -28,8 +28,10 @@ def prepare(parent, output, hours, new_pages, target):
         state = json.loads((parent / "state.json").read_text())
         if status.get("phase") != "stage_complete" or state.get("phase") != "stage_complete":
             raise ValueError("Parent stage must be terminal")
-        if not state["queue"] or any(admitted_url(u) != u for u in state["queue"]):
-            raise ValueError("Parent must retain an admitted public frontier")
+        if any(admitted_url(u) != u for u in state["queue"]):
+            raise ValueError("Parent frontier left admitted public paths")
+        if seed_batch and (seed_batch.stat().st_size > 2 * 1024 * 1024 or digest(seed_batch) != seed_batch.stem):
+            raise ValueError("New source seed batch hash changed or exceeded its bound")
         page_limit = state["attempts"] + new_pages
         if page_limit > 10000:
             raise ValueError("Inherited and additional attempts exceed the stage ceiling")
@@ -70,6 +72,11 @@ def prepare(parent, output, hours, new_pages, target):
                 if digest(batch) != batch.stem:
                     raise ValueError("Source seed batch hash changed")
                 shutil.copy2(batch, temporary / "seed-batches" / batch.name)
+            if seed_batch:
+                shutil.copy2(seed_batch, temporary / "seed-batches" / seed_batch.name)
+                import_seed_batches(temporary, state)
+            if not state["queue"]:
+                raise ValueError("Follow-on stage has no new public frontier")
             job = {"startedAt": now(), "deadlineUnix": time.time() + hours * 3600,
                    "pageLimit": page_limit, "initialAttemptCount": state["attempts"], "newAttemptLimit": new_pages,
                    "target": target, "seeds": list(state["queue"]), "paidBudget": 0, "parentStage": provenance,
@@ -105,5 +112,6 @@ if __name__ == "__main__":
     parser.add_argument("--hours", type=float, default=2)
     parser.add_argument("--additional-pages", type=int, default=2000)
     parser.add_argument("--target", type=int, default=1500)
+    parser.add_argument("--seed-batch", type=Path)
     args = parser.parse_args()
-    print(json.dumps(prepare(args.parent_dir, args.run_dir, args.hours, args.additional_pages, args.target)))
+    print(json.dumps(prepare(args.parent_dir, args.run_dir, args.hours, args.additional_pages, args.target, args.seed_batch)))

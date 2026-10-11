@@ -154,6 +154,29 @@ class LeadCleaningTests(unittest.TestCase):
         for row in [{"name": "Kumon Maths", "website": "https://kumon.co.uk/penn"}, {"name": "Tutor jobs", "website": "https://www.teachingpersonnel.com/job/tutor"}, {"name": "Tutor directory", "website": "https://www.11plusguide.com/tutors"}]:
             self.assertIsNotNone(discovery.hold_reason(row))
 
+    def test_franchise_brands_are_held_by_name_and_domain(self):
+        for row in [{"name": "Kip McGrath Aylesbury Tuition Centre"},
+                    {"name": "Local tuition", "website": "https://www.kipmcgrath.co.uk/milton-keynes-north"},
+                    {"name": "NumberWorks’nWords"},
+                    {"name": "Local tuition", "website": "https://numberworksnwords.com/uk/our-locations"}]:
+            with self.subTest(row=row):
+                self.assertEqual(discovery.hold_reason(row), "recognised_chain")
+
+    def test_non_academic_maps_categories_do_not_pad_tutor_counts(self):
+        for name, category in [("Cowper and Newton Museum", "Museum"),
+                               ("Rapid Book Test", "Driving school"),
+                               ("Tai Chi Globe", "Martial arts school"),
+                               ("Better Piano Lessons", "Piano instructor"),
+                               ("ArtLife Studio", "Art school"),
+                               ("Leadership Training", "Life coach"),
+                               ("UK MI Translation Services", "Translation service")]:
+            with self.subTest(category=category):
+                self.assertEqual(discovery.hold_reason({"name": name, "category": category}), "outside_academic_tuition_scope")
+        for row in [{"name": "Marie Hayes Primary Maths Tuition", "category": "Educational institution"},
+                    {"name": "Primary School Tutor in Beaconsfield", "category": "Tutor"},
+                    {"name": "Tutoring with Natalie", "category": "Educational consultant"}]:
+            self.assertIsNone(discovery.hold_reason(row))
+
     def test_changing_plan_is_rejected(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
@@ -203,6 +226,27 @@ class CountyCleaningTests(unittest.TestCase):
                 second = self.clean.lookup_postcodes(Path(temporary), ["HP108BP"])
                 self.assertEqual(first, second)
                 self.assertEqual(opener.return_value.open.call_count, 1)
+
+    def test_cleaning_existing_exports_rechecks_scope_and_keeps_agent_notes(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / "exports").mkdir()
+            records = [{"name": "Kip McGrath Aylesbury Tuition Centre", "advertisedAddress": "HP10 8BP", "status": "research"},
+                       {"name": "Primary School Tutor in Beaconsfield", "advertisedAddress": "HP10 8BP", "status": "research",
+                        "provenance": [{"lane": "codex_oauth", "notes": "Older newsletter advert; verify current activity.",
+                                        "servicesClaim": ["11+ tuition"], "localityClaim": "Beaconsfield"}]}]
+            (root / "exports/businesses.json").write_text(json.dumps(records))
+            geography = {"HP108BP": {"result": {"codes": {"admin_district": "E06000060"}}}}
+            with patch.object(self.clean, "lookup_postcodes", return_value=geography):
+                summary = self.clean.clean_exports(root)
+            self.assertEqual(summary["countyListingsResearch"], 1)
+            self.assertEqual(summary["heldOrSourceOnly"], 1)
+            import csv
+            with (root / "exports/bucks-listings-research.csv").open() as stream:
+                row = next(csv.DictReader(stream))
+            self.assertIn("Older newsletter advert", row["verificationNotes"])
+            self.assertEqual(row["currentActivityVerified"], "False")
+            self.assertEqual(row["servicesClaim"], "11+ tuition")
 
 
 class RunnerHealthTests(unittest.TestCase):

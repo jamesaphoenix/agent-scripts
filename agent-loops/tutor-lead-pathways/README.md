@@ -32,6 +32,8 @@ Final cleaning uses free cached Postcodes.io lookups for actual advertised estab
 
 Shared directory hosts retain their complete profile path as identity. Recognised individual Childcare.co.uk profiles remain research contacts; its generic search pages remain sources. Two independent profiles on one platform must not collapse into one business.
 
+Cleaning rechecks franchise and service scope even on earlier exports. Recognised franchises include [Kip McGrath](https://www.kipmcgrath.com/global/) and [NumberWorks'nWords](https://numberworksnwords.com/uk/own-a-business/franchise-opportunities). Listings explicitly categorised as museums, driving schools, martial arts, piano instruction, art schools, life coaching or translation services are held outside academic tuition scope. Primary school tutors and academic educational consultants remain available for review. CSV exports retain agent service/locality claims and verification notes, including historical adverts, parked domains and conflicting addresses. Current activity remains unverified.
+
 Verification:
 
 ```bash

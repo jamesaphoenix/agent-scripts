@@ -21,7 +21,11 @@ ENDPOINTS = {
     "directories": "/v3/serp/google/organic/live/advanced",
     "business": "/v3/business_data/business_listings/search/live",
 }
-CHAINS = re.compile(r"\b(kumon|explore learning|first class learning|mathnasium|tutor doctor|teachers to your home|bright young things)\b", re.I)
+CHAINS = re.compile(r"\b(kumon|explore learning|first class learning|mathnasium|tutor doctor|teachers to your home|bright young things|kip\s*mcgrath|number\s*works\s*['’]?\s*n\s*words)\b", re.I)
+NON_ACADEMIC_CATEGORIES = {
+    "museum", "driving school", "martial arts school", "piano instructor",
+    "art school", "life coach", "translation service",
+}
 SOURCE_HOSTS = {
     "11plusguide.com", "elevenplusexams.co.uk", "hometutorsdirectory.co.uk", "my-towns.co.uk",
     "redkitedays.co.uk", "tophelp.co.uk", "universitytutor.com", "teachingpersonnel.com",
@@ -285,6 +289,8 @@ def hold_reason(record):
         return "recognised_chain"
     if any(host == h or host.endswith("." + h) for h in SOURCE_HOSTS) and not professional_profile(url):
         return "source_directory_or_job_page"
+    if (record.get("category") or "").strip().lower() in NON_ACADEMIC_CATEGORIES:
+        return "outside_academic_tuition_scope"
     if record.get("category") in ("Primary school", "Secondary school"):
         return "school"
     if host.endswith((".sch.uk", ".ac.uk")) or re.search(r"(?i)\b(?:grammar|high|secondary|primary) school\b", name) and not re.search(r"(?i)tutor|tuition", name):

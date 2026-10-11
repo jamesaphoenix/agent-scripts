@@ -10,7 +10,7 @@ import re
 import time
 import urllib.request
 
-from discovery import NoRedirect, atomic_json, now_iso, parse_time
+from discovery import NoRedirect, atomic_json, hold_reason, now_iso, parse_time
 
 POSTCODES_URL = "https://api.postcodes.io/postcodes"
 DISTRICTS = {"E06000060", "E06000042"}  # Buckinghamshire and Milton Keynes.
@@ -103,7 +103,8 @@ def county_evidence(record, geography):
 
 def write_csv(path, rows):
     fields = ["name", "website", "phone", "email", "emailClaims", "localAddress", "advertisedAddress", "category",
-              "subjectEvidence", "countyStatus", "newInThisRun", "sourceUrl", "reviewed", "independentVerified", "outreachEligible"]
+              "subjectEvidence", "servicesClaim", "localityClaim", "verificationNotes", "currentActivityVerified",
+              "countyStatus", "newInThisRun", "sourceUrl", "holdReason", "reviewed", "independentVerified", "outreachEligible"]
     temporary = path.with_suffix(path.suffix + ".tmp")
     with temporary.open("w", newline="") as stream:
         writer = csv.DictWriter(stream, fieldnames=fields, extrasaction="ignore")
@@ -118,6 +119,15 @@ def clean_exports(root, deadline=None):
     geography = lookup_postcodes(root, postcodes, deadline)
     local, subject, unresolved, outside, held = [], [], [], [], []
     for record in records:
+        reason = hold_reason(record)
+        if reason:
+            record["status"], record["holdReason"] = "held", reason
+        sources = record.get("provenance", [])
+        record["verificationNotes"] = "; ".join(dict.fromkeys(s["notes"] for s in sources if isinstance(s.get("notes"), str)))
+        record["localityClaim"] = "; ".join(dict.fromkeys(s["localityClaim"] for s in sources if isinstance(s.get("localityClaim"), str)))
+        record["servicesClaim"] = "; ".join(sorted({v for s in sources for v in (s.get("servicesClaim") or []) if isinstance(v, str)}))
+        # Fetch time, a Maps listing and an agent's claim do not prove current activity.
+        record["currentActivityVerified"] = False
         record["countyEvidence"] = county_evidence(record, geography)
         record["countyStatus"] = record["countyEvidence"]["status"]
         record["localAddress"] = "; ".join(record["countyEvidence"]["localAddresses"])
@@ -144,6 +154,7 @@ def clean_exports(root, deadline=None):
                "postcodeQueries": len(set(map(normalise_postcode, postcodes))),
                "postcodeLookupFailures": sum(bool(r.get("error")) for r in geography.values()),
                "countyStatusCounts": dict(collections.Counter(r["countyStatus"] for r in records)),
+               "heldReasonCounts": dict(collections.Counter(r.get("holdReason") or "source_only" for r in held)),
                "qualification": "Research candidates only. County listing and subject hints do not verify independence, current services, contacts or consent."}
     atomic_json(output / "cleaning-summary.json", summary)
     return summary

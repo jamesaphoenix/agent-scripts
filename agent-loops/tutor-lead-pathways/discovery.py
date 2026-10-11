@@ -28,7 +28,9 @@ SOURCE_HOSTS = {
     "studysmarter.co.uk", "womenforhire.com", "tutorful.co.uk", "superprof.co.uk", "tutorhunt.com",
     "firsttutors.com", "bdadyslexia.org.uk", "haddenham.net", "chilternchatter.com",
     "directory.familyinfo.buckinghamshire.gov.uk", "findtutors.co.uk", "uk.indeed.com",
+    "childcare.co.uk",
 }
+PROFILE_PATHS = {"childcare.co.uk": re.compile(r"^/profile/\d+/?$")}
 MERGED_LISTS = ("aliases", "placeIds", "provenance", "emails", "identifiers", "siteEvidence", "establishments", "contactClaims")
 
 
@@ -248,10 +250,22 @@ def website_key(value):
         return None
     p = urllib.parse.urlsplit(value)
     host = p.hostname.lower().removeprefix("www.")
+    if host in SOURCE_HOSTS:
+        # Individual profiles and directory pages cannot share a business identity.
+        return host + (p.path.rstrip("/") or "/")
     if host in ("facebook.com", "instagram.com", "linktr.ee") or host.endswith(".wixsite.com"):
         return host + "/" + p.path.strip("/").split("/")[0]
     # A tenant subdomain remains part of its identity.
     return host
+
+
+def professional_profile(value):
+    value = public_url(value)
+    if not value:
+        return False
+    parsed = urllib.parse.urlsplit(value)
+    pattern = PROFILE_PATHS.get(parsed.hostname.lower().removeprefix("www."))
+    return bool(pattern and pattern.fullmatch(parsed.path))
 
 
 def phone_key(value):
@@ -269,7 +283,7 @@ def hold_reason(record):
     host = urllib.parse.urlsplit(url).hostname or ""
     if CHAINS.search(name + " " + host.replace(".", " ")):
         return "recognised_chain"
-    if any(host == h or host.endswith("." + h) for h in SOURCE_HOSTS):
+    if any(host == h or host.endswith("." + h) for h in SOURCE_HOSTS) and not professional_profile(url):
         return "source_directory_or_job_page"
     if record.get("category") in ("Primary school", "Secondary school"):
         return "school"
@@ -293,6 +307,7 @@ def business_record(item, source):
               "sourceUrl": "https://www.google.com/maps?cid=" + cid if cid else public_url(item.get("contact_url")),
               "provenance": [source], "reviewed": False, "localVerified": False, "outreachEligible": False,
               "independentVerified": False, "elevenPlusVerified": False, "status": "research", "emails": [], "contactClaims": []}
+    record["websiteKind"] = "professional_profile" if professional_profile(record["website"]) else "website" if record["website"] else "none"
     for contact in contacts:
         value = contact.get("value")
         if contact.get("type") == "mail":
@@ -324,7 +339,7 @@ def receipt_records(envelope, source):
                     record = business_record(item, provenance)
                     record["sourceUrl"] = public_url(item["url"])
                     record["description"] = (item.get("description") or "").replace("\u2014", "-")
-                    record["sourceOnly"] = bool(hold_reason(record)) or source.get("lane") == "directories"
+                    record["sourceOnly"] = bool(hold_reason(record)) or source.get("lane") == "directories" and not professional_profile(record["website"])
                     out.append(record)
     return out
 

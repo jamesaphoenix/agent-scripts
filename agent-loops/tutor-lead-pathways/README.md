@@ -10,6 +10,8 @@ All DataForSEO paths share one SQLite paid-request ledger. SHA256 identity inclu
 
 `prepare.py` writes the immutable plan and manifest. The first actual runtime creates one fixed six-hour start/deadline; paid research stops fifteen minutes before the deadline to allow final cleaning. Resuming retains that window, budget and plan digest. The four script paths are interleaved and paced independently. Repeated provider failures cool down the affected path rather than replaying a request.
 
+A verified search-engine error on a grouped directory query can produce one different single-source query. Its own semantic hash, paid reservation and receipt remain in the shared ledger, with the original key recorded in runtime state. An uncertain response never triggers this fallback. Billed searches with no matches remain cached terminal outcomes and do not count as provider outages.
+
 The existing reviewed Go crawler enriches new website seeds in bounded batches: external depth one, fifteen sites per root branch, four pages per site, fifty sites and two hundred pages per batch, four workers. The new window has a total four-thousand-page ceiling. Historical page evidence is reused; no-website business listings remain available for later enrichment.
 
 The watch task runs at startup and every thirty minutes. It checks the actual owner lock/PID, checkpoint age, meaningful progress, paid usage, SDK usage and runtime errors. A missing owner can request at most three registered launchd restarts without killing another process. It never calls a paid provider. The monitor saves its final report and unloads after completion or the original deadline.
@@ -27,6 +29,8 @@ python3 agent-loops/tutor-lead-pathways/run.py status --run-dir state/tutor-lead
 Private artifacts live under `state/tutor-lead-pathways-20261011`: native paid receipts and hashes, SDK events/results/token usage, Go checkpoints/evidence, monitor reports, deduplicated business JSON/CSV, a filtered research CSV and final `REPORT.md`. Business identities and establishment IDs are separate. Advertised location, independent ownership, current subjects, email validity and consent remain explicit verification fields; no heuristics grant outreach eligibility. Source directories, jobs, schools and recognised chains are held. No emails, domain purchases or tenant imports are part of this job.
 
 Final cleaning uses free cached Postcodes.io lookups for actual advertised establishment addresses. Buckinghamshire and Milton Keynes district codes determine listed county membership; HP/MK prefixes and search origins do not. A shared business with a Bucks branch survives even if its first listed address is in Berkshire. The exports separate county listings, local 11+/primary hints, unresolved locations, recorded outside addresses and held sources. Unverified provider email claims are retained separately from fetched-page email extraction. These lists remain research, with ownership and current tuition services requiring review.
+
+Shared directory hosts retain their complete profile path as identity. Recognised individual Childcare.co.uk profiles remain research contacts; its generic search pages remain sources. Two independent profiles on one platform must not collapse into one business.
 
 Verification:
 

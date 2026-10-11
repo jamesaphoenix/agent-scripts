@@ -136,6 +136,13 @@ class LeadCleaningTests(unittest.TestCase):
         two = {"name": "Two", "website": "https://two.learnworlds.com", "provenance": []}
         self.assertEqual(len(discovery.merge_businesses([one, two])), 2)
 
+    def test_independent_profiles_on_the_same_directory_remain_separate(self):
+        rows = [{"name": "Wendy", "website": "https://www.childcare.co.uk/profile/3678407"},
+                {"name": "Harrietl", "website": "https://www.childcare.co.uk/profile/2240893"}]
+        self.assertEqual(len(discovery.merge_businesses(rows)), 2)
+        self.assertIsNone(discovery.hold_reason(rows[0]))
+        self.assertEqual(discovery.hold_reason({"name": "Directory", "website": "https://www.childcare.co.uk/search/Private-Tutors/Bourne+End/11-Plus"}), "source_directory_or_job_page")
+
     def test_phone_merges_branches_and_preserves_all_places(self):
         rows = [{"name": "Tuition", "phone": "+447400000000", "placeId": "a", "provenance": ["a"]}, {"name": "Tuition", "phone": "07400 000000", "placeId": "b", "provenance": ["b"]}]
         merged = discovery.merge_businesses(rows)
@@ -210,6 +217,15 @@ class RunnerHealthTests(unittest.TestCase):
         self.assertFalse(self.runner.provider_is_failure(response, {"status": "failed"}))
         self.assertTrue(self.runner.provider_is_failure(None, {"status": "uncertain"}))
         self.assertTrue(self.runner.provider_is_failure({"status_code": 20000, "tasks": [{"status_code": 40101}]}, {"status": "failed"}))
+
+    def test_directory_fallback_changes_semantics_and_only_follows_a_verified_engine_error(self):
+        item = {"lane": "directories", "payload": {"keyword": '"Penn" (tutor OR tuition) (site:one.example OR site:two.example)', "depth": 20}}
+        response = {"status_code": 20000, "tasks": [{"status_code": 40101}]}
+        payload = self.runner.directory_fallback(item, response)
+        self.assertEqual(payload["keyword"], '"Penn" (tutor OR tuition) site:one.example')
+        self.assertNotEqual(discovery.request_key("directories", item["payload"]), discovery.request_key("directories", payload))
+        self.assertIsNone(self.runner.directory_fallback(item, None))
+        self.assertIsNone(self.runner.directory_fallback(item, {"status_code": 20000, "tasks": [{"status_code": 40102}]}))
 
     def test_live_owner_does_not_hide_sdk_or_paid_uncertainty(self):
         now = discovery.parse_time("2026-10-11T10:00:00+00:00")

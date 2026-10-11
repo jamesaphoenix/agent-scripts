@@ -100,6 +100,19 @@ def provider_is_failure(response, row):
     return not (response and response.get("status_code") == 20000 and len(tasks) == 1 and tasks[0].get("status_code") == 40102)
 
 
+def directory_fallback(item, response):
+    if item["lane"] != "directories" or not response or response.get("status_code") != 20000:
+        return None
+    tasks = response.get("tasks") or []
+    if len(tasks) != 1 or tasks[0].get("status_code") != 40101:
+        return None
+    keyword = item["payload"].get("keyword", "")
+    # A different single-source query may avoid an engine error on grouped site
+    # operators. Its separate semantic hash and receipt preserve cost attribution.
+    simplified = re.sub(r"\((site:[^\s()]+)(?:\s+OR\s+site:[^\s()]+)+\)", r"\1", keyword)
+    return dict(item["payload"], keyword=simplified) if simplified != keyword else None
+
+
 def runner_snapshot(root, job, cache, state):
     statuses = collections.Counter()
     lanes = collections.defaultdict(collections.Counter)
@@ -167,7 +180,7 @@ def start_crawl(root, job, cache, state, previous_urls):
             if source_count >= 1 or re.search(r"(?i)job|vacancy|teachingpersonnel|studysmarter|womenforhire", url):
                 continue
             source_count += 1
-        elif not re.search(r"(?i)tutor|tuition|11.?plus|education|dyslexia", record.get("name", "")):
+        elif record.get("websiteKind") != "professional_profile" and not re.search(r"(?i)tutor|tuition|11.?plus|education|dyslexia", record.get("name", "")):
             continue
         seeds.append(url)
         if len(seeds) >= 10:
@@ -278,6 +291,13 @@ def run(root):
                         if not finished_query(item, cache):
                             response = provider_request(cache, lane, item["payload"])
                             row = cache.get(item["key"])
+                            fallback = directory_fallback(item, response)
+                            if fallback:
+                                fallback_key = request_key(lane, fallback)
+                                state.setdefault("supplementaryQueries", []).append({"parentKey": item["key"], "key": fallback_key})
+                                atomic_json(root / "runtime.json", state)
+                                response = provider_request(cache, lane, fallback)
+                                row = cache.get(fallback_key)
                             failed = provider_is_failure(response, row)
                             state["pathFailures"][lane] = state["pathFailures"].get(lane, 0) + 1 if failed else 0
                             if state["pathFailures"][lane] >= 3:

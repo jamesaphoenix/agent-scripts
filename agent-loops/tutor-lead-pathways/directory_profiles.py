@@ -397,6 +397,20 @@ def import_seed_batches(root, state):
         imported.append(path.stem)
 
 
+def next_page(state):
+    queue = state["queue"]
+    hosts = sorted(set(urllib.parse.urlsplit(url).hostname for url in queue))
+    previous = state.get("lastHost")
+    host = next((value for value in hosts if value > previous), hosts[0]) if previous else urllib.parse.urlsplit(queue[0]).hostname
+    indices = [index for index, url in enumerate(queue) if urllib.parse.urlsplit(url).hostname == host]
+    def person_page(index):
+        path = urllib.parse.urlsplit(queue[index]).path
+        return path.startswith(("/profile/", "/t/", "/tutor/")) or bool(re.search(r"-\d+/?$", path))
+    index = next((index for index in indices if person_page(index)), indices[0])
+    state["lastHost"] = host
+    return queue.pop(index)
+
+
 def run(root, seeds, hours, page_limit, target):
     root.mkdir(parents=True, exist_ok=True, mode=0o700)
     with (root / "owner.lock").open("a") as lock:
@@ -421,7 +435,7 @@ def run(root, seeds, hours, page_limit, target):
                 state["errors"].append({"reason": "seed_batch_rejected", "type": type(error).__name__})
             if not state["queue"]:
                 break
-            url = state["queue"].pop(0)
+            url = next_page(state)
             if url in state["seen"]:
                 continue
             state["seen"].append(url)

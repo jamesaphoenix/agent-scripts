@@ -13,6 +13,30 @@ spec.loader.exec_module(directory)
 
 
 class ProfileTests(unittest.TestCase):
+    def test_page_selection_balances_hosts_and_prioritises_people_without_losing_pages(self):
+        first_index = "https://www.findtutors.co.uk/buckinghamshire-tutors/"
+        first_person = "https://www.findtutors.co.uk/tutors-aylesbury/maths-123"
+        other_index = "https://www.childcare.co.uk/search/Private-Tutors/Buckinghamshire"
+        other_person = "https://www.childcare.co.uk/profile/456"
+        state = {"queue": [first_index, first_person, other_index, other_person]}
+        self.assertEqual(directory.next_page(state), first_person)
+        # The last host is durable state, so a resumed process retains fairness.
+        state = json.loads(json.dumps(state))
+        self.assertEqual(directory.next_page(state), other_person)
+        self.assertEqual(directory.next_page(state), first_index)
+        self.assertEqual(directory.next_page(state), other_index)
+        self.assertEqual(state["queue"], [])
+
+    def test_all_sources_receive_slots_when_three_hosts_have_backlogs(self):
+        import collections
+        import urllib.parse
+        hosts = ["www.findtutors.co.uk", "tutorperch.com", "www.childcare.co.uk"]
+        state = {"queue": ["https://" + host + "/robots.txt?page=" + str(index) for host in hosts for index in range(20)]}
+        selected = [directory.next_page(state) for _ in range(9)]
+        counts = collections.Counter(urllib.parse.urlsplit(url).hostname for url in selected)
+        self.assertEqual(counts, {host: 3 for host in hosts})
+        self.assertEqual(len(state["queue"]), 51)
+
     def test_childcare_extracts_tutor_header_subjects_without_trusting_county_breadcrumbs(self):
         html = '''<div class="profile-header--info-wrapper"><h1>Jane Example</h1>
           <h3>Private Tutor in Chiltern (also available for babysitting)</h3></div>

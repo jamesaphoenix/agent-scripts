@@ -76,6 +76,29 @@ class RunConfigurationTests(unittest.TestCase):
             with self.subTest(manifest=manifest), self.assertRaises(ValueError):
                 self.settings(manifest)
 
+    def test_completed_source_evidence_survives_a_fresh_paid_cache(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            old, root = Path(temporary) / "previous", Path(temporary) / "next"
+            discovery.atomic_json(old / "sdk/results/slot-00.json", {"leads": [{
+                "name": "Named primary tutor", "website": "https://namedtutor.co.uk/", "email": None,
+                "phone": None, "localityClaim": "Amersham", "services": ["Primary tuition"],
+                "sourceUrls": ["https://namedtutor.co.uk/"], "notes": "Historical advert; activity unknown"}]})
+            discovery.atomic_json(old / "crawls/0001/crawl.json", {"results": [{
+                "node": {"url": "https://namedtutor.co.uk/about"}, "fetchedAt": "2026-10-10T10:00:00Z",
+                "evidence": {"url": "https://namedtutor.co.uk/about", "title": "Named tutor",
+                    "text": "Primary tuition and 11 plus tutoring", "emails": ["hello@namedtutor.co.uk"]}}]})
+            discovery.atomic_json(root / "manifest.json", {"historicalEvidenceRoots": [str(old)]})
+            cache = discovery.PaidCache(root, 200, 0)
+            self.addCleanup(cache.db.close)
+            rows = discovery.collect_records(cache, root)
+            self.assertEqual(len(rows), 2)
+            self.assertTrue(all(row["provenance"][0]["historical"] for row in rows))
+            self.assertIn("activity unknown", rows[0]["provenance"][0]["notes"])
+            self.assertEqual(rows[1]["provenance"][0]["observedAt"], "2026-10-10T10:00:00Z")
+            summary = discovery.write_exports(root, cache)
+            self.assertEqual(summary["newResearchIdentities"], 0)
+            self.assertEqual(summary["newCrawlerEvidencePages"], 0)
+
 
 class PaidCacheTests(unittest.TestCase):
     def setUp(self):

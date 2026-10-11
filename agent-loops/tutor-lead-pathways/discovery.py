@@ -484,26 +484,36 @@ def research_record(lead, source):
 
 def collect_records(cache, run_dir):
     records = []
+    manifest = json.loads((run_dir / "manifest.json").read_text()) if (run_dir / "manifest.json").exists() else {}
+    evidence_roots = [Path(value) for value in manifest.get("historicalEvidenceRoots", [])]
     for row in cache.db.execute("SELECT * FROM requests WHERE receipt IS NOT NULL AND status='succeeded'").fetchall():
         payload = json.loads(row["payload"])
         records.extend(receipt_records(cache.receipt(row), {"lane": row["lane"], "key": row["key"],
                        "keyword": payload.get("keyword"), "historical": bool(row["imported"]), "observedAt": row["updated_at"]}))
-    for path in sorted((run_dir / "sdk/results").glob("*.json")):
+    sdk_results = [(path, root != run_dir) for root in [run_dir, *evidence_roots]
+                   for path in sorted((root / "sdk/results").glob("*.json"))]
+    for path, historical in sdk_results:
         result = json.loads(path.read_text())
         for lead in result.get("leads", []):
-            record = research_record(lead, {"lane": "codex_oauth", "turn": path.name})
+            record = research_record(lead, {"lane": "codex_oauth", "turn": path.name,
+                                           "artifact": str(path), "artifactSha256": file_hash(path),
+                                           "historical": historical})
             if record:
                 records.append(record)
-    for path in sorted((run_dir / "review/candidates").glob("*.json")):
+    manual_results = [(path, root != run_dir) for root in [run_dir, *evidence_roots]
+                      for path in sorted((root / "review/candidates").glob("*.json"))]
+    for path, historical in manual_results:
         result = json.loads(path.read_text())
         for lead in result.get("leads", []):
-            record = research_record(lead, {"lane": "manual_source_review", "artifact": path.name,
+            record = research_record(lead, {"lane": "manual_source_review", "artifact": str(path), "historical": historical,
                                            "artifactSha256": file_hash(path), "observedAt": result.get("observedAt")})
             if record:
                 records.append(record)
     # Reuse prior Go page evidence, then add this run's fetched pages. No website refetch is required.
-    manifest = json.loads((run_dir / "manifest.json").read_text()) if (run_dir / "manifest.json").exists() else {}
     historical = list(Path(manifest["historyRoot"]).glob("tracelearn-tutors-*/discovery.json")) if manifest.get("historyRoot") else []
+    historical.extend(path for root in evidence_roots for path in sorted((root / "crawls").glob("*/crawl.json")))
+    historical.extend(root / "first-party-crawl/crawl.json" for root in evidence_roots
+                      if (root / "first-party-crawl/crawl.json").exists())
     for path in historical + sorted((run_dir / "crawls").glob("*/crawl.json")):
         saved = json.loads(path.read_text())
         crawl = saved.get("crawl", saved)

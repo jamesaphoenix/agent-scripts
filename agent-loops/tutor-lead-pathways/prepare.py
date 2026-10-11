@@ -123,6 +123,10 @@ def prepare(root, history_root, towns_file, codex_binary, crawler_binary, model,
         for folder in path.parent.glob("*-receipts"):
             receipts.extend(folder.glob("*.json"))
     prior, completed_receipts = completed_paid_history(history_root, prior, exclude=root)
+    evidence_roots = sorted(str(folder) for pattern in ("tutor-lead-pathways-*", "tutor-search-entrypoints-*")
+                            for folder in history_root.glob(pattern)
+                            if folder.resolve() != root.resolve() and (folder / "runtime.json").exists()
+                            and json.loads((folder / "runtime.json").read_text()).get("phase") == "complete")
     root.mkdir(parents=True, exist_ok=True, mode=0o700)
     cache = PaidCache(root, 2000, prior)
     imported = 0
@@ -156,7 +160,8 @@ def prepare(root, history_root, towns_file, codex_binary, crawler_binary, model,
                 "codexBinary": str(codex_binary), "codexModel": model or config.get("model"),
                 "nodeBinary": shutil.which("node"),
                 "disabledMcpServers": list(config.get("mcp_servers", {})), "crawlerBinary": str(crawler_binary),
-                "historyRoot": str(history_root), "importedHistoricalReceipts": imported,
+                "historyRoot": str(history_root), "historicalEvidenceRoots": evidence_roots,
+                "importedHistoricalReceipts": imported,
                 "maximumSdkTurns": 6, "sdkTokenCeiling": 1000000, "codexThreadMode": "isolated",
                 "sdkTownOffset": 12, "freePageBudget": 10000,
                 "crawlLimits": {"depth": 2, "branchSites": 15, "sites": 50, "batchPages": 400,

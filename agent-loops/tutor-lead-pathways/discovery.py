@@ -55,9 +55,12 @@ SOURCE_HOSTS = {
     "firsttutors.com", "bdadyslexia.org.uk", "haddenham.net", "chilternchatter.com",
     "directory.familyinfo.buckinghamshire.gov.uk", "findtutors.co.uk", "uk.indeed.com",
     "childcare.co.uk", "bark.com", "yell.com", "schoolguide.co.uk", "cylex-uk.co.uk",
-    "yelp.com", "yelp.co.uk", "yelp.ca", "pmt.education",
+    "yelp.com", "yelp.co.uk", "yelp.ca", "pmt.education", "tutorperch.com",
 }
-PROFILE_PATHS = {"childcare.co.uk": re.compile(r"^/profile/\d+/?$")}
+PROFILE_PATHS = {
+    "childcare.co.uk": re.compile(r"^/profile/\d+/?$"),
+    "tutorperch.com": re.compile(r"^/t/[a-z0-9]+(?:-[a-z0-9]+)+/?$"),
+}
 MERGED_LISTS = ("aliases", "categories", "placeIds", "provenance", "emails", "identifiers", "siteEvidence", "establishments", "contactClaims")
 
 

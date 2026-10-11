@@ -238,6 +238,21 @@ class LeadCleaningTests(unittest.TestCase):
         self.assertIsNone(discovery.hold_reason(rows[0]))
         self.assertEqual(discovery.hold_reason({"name": "Directory", "website": "https://www.childcare.co.uk/search/Private-Tutors/Bourne+End/11-Plus"}), "source_directory_or_job_page")
 
+    def test_tutorperch_keeps_named_profiles_separate_and_holds_its_generic_source_pages(self):
+        profiles = [{"name": "Jo", "website": "https://tutorperch.com/t/jo-rutw"},
+                    {"name": "Umer S.", "website": "https://tutorperch.com/t/umer-s-ymam"}]
+        records = [discovery.business_record(row, {}) for row in profiles]
+        guide = discovery.business_record({"name": "Buckinghamshire 11+ tutors", "website": "https://tutorperch.com/11-plus/buckinghamshire"}, {})
+        merged = discovery.merge_businesses([*records, guide])
+        self.assertEqual(len(merged), 3)
+        self.assertEqual([r["websiteKind"] for r in records], ["professional_profile", "professional_profile"])
+        self.assertTrue(all(r["status"] == "research" and not r["independentVerified"] and not r["outreachEligible"] for r in records))
+        for path in ["/", "/find/results?level=11-plus&location=buckinghamshire", "/11-plus/buckinghamshire",
+                     "/t/", "/t/jo-rutw/reviews", "/t/jo-rutw.pdf"]:
+            self.assertEqual(discovery.hold_reason({"name": "11+ source", "website": "https://tutorperch.com" + path}), "source_directory_or_job_page")
+        self.assertFalse(discovery.professional_profile("https://tutorperch.com.example/t/jo-rutw"))
+        self.assertEqual(discovery.website_key(profiles[0]["website"]), discovery.website_key(profiles[0]["website"] + "?utm_source=share#about"))
+
     def test_bark_profiles_remain_distinct_and_held_for_review(self):
         rows = [{"name": "Zofshan", "website": "https://www.bark.com/en/gb/company/private-tuition/a41d1/"},
                 {"name": "Actualize Tutoring", "website": "https://www.bark.com/en/gb/company/actualize-tutoring/lpbYY/"},

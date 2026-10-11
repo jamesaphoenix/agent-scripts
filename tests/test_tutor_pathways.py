@@ -289,6 +289,57 @@ class LeadCleaningTests(unittest.TestCase):
                     {"name": "Tutoring with Natalie", "category": "Educational consultant"}]:
             self.assertIsNone(discovery.hold_reason(row))
 
+    def test_broad_maps_businesses_require_tuition_evidence(self):
+        for name, category, website in [
+            ("Sterling Grove Accountants Limited", "Chartered accountant", "https://www.sgaweb.co.uk/"),
+            ("Sunday Tablewear", "Ceramic manufacturer", "https://sunday-tablewear.square.site/"),
+            ("A Bit of Support", "IT support and services", "https://abitofsupport.co.uk/"),
+            ("Best of You Consultancy", "Coaching center", "https://www.bestofyouconsultancy.co.uk/"),
+            ("NDA First Aid Training Ltd", "Training provider", "https://www.ndatraining.co.uk/"),
+        ]:
+            with self.subTest(name=name):
+                self.assertEqual(discovery.hold_reason({"name": name, "category": category, "website": website}), "needs_tuition_evidence")
+        for row in [
+            {"name": "Named tutor", "category": "Private tutor"},
+            {"name": "Named teacher", "category": "Educational consultant"},
+            {"name": "Marie Hayes Primary Maths Tuition", "category": "Educational institution"},
+            {"name": "THE RYE COLLEGE LTD", "category": "Private tutor"},
+            {"name": "Alison Taylor", "category": "After-school programme", "website": "https://alisontaylor11plustuition.co.uk/"},
+            {"name": "Named Maths Tuition", "category": "Corporate office"},
+            {"name": "Language tutor", "category": "Language school"},
+            {"name": "Tracy Stewart Tutoring", "category": None},
+        ]:
+            with self.subTest(control=row):
+                self.assertIsNone(discovery.hold_reason(row))
+
+    def test_actual_broad_maps_non_academic_and_school_categories_are_held(self):
+        for category in ["Pilates studio", "Swimming school", "Swimming instructor", "Dance school", "Tennis instructor",
+                         "Music school", "Guitar instructor", "Gym", "Yoga studio", "Yoga instructor", "Optometrist",
+                         "Physiotherapist", "Reflexologist", "Nursing home", "Cooking school", "Aviation training institute"]:
+            with self.subTest(category=category):
+                self.assertEqual(discovery.hold_reason({"name": "Named listing", "category": category}), "outside_academic_tuition_scope")
+        self.assertEqual(discovery.hold_reason({"name": "Optotutor", "category": "Optometrist", "siteEvidence": [{"elevenPlusHint": True}]}), "outside_academic_tuition_scope")
+        for category in ["Girls' Secondary School", "Girls’ Secondary School", "Faith school", "Community school", "Vocational school"]:
+            with self.subTest(category=category):
+                self.assertEqual(discovery.hold_reason({"name": "Named institution", "category": category}), "school_or_college")
+
+    def test_coding_franchises_are_held(self):
+        for name in ["Computer Xplorers South Buckinghamshire", "ComputerXplorers", "Code Ninjas Aylesbury"]:
+            self.assertEqual(discovery.hold_reason({"name": name, "category": "Learning Centre"}), "recognised_chain")
+
+    def test_tuition_evidence_is_checked_after_merging_provider_categories(self):
+        rows = [discovery.business_record({"name": "Jo Smith", "category": "Corporate office", "place_id": "jo"}, {"lane": "business"}),
+                discovery.business_record({"name": "Jo Smith", "category": "Private tutor", "place_id": "jo"}, {"lane": "maps"})]
+        merged = discovery.merge_businesses(rows)
+        self.assertEqual(len(merged), 1)
+        self.assertEqual(merged[0]["categories"], ["Corporate office", "Private tutor"])
+        self.assertIsNone(merged[0]["holdReason"])
+        self.assertIsNone(discovery.hold_reason(merged[0]))
+        self.assertEqual(merged[0]["status"], "research")
+        unrelated = discovery.merge_businesses([discovery.business_record({"name": "Sunday Tablewear", "category": "Ceramic manufacturer"}, {})])
+        self.assertEqual(unrelated[0]["holdReason"], "needs_tuition_evidence")
+        self.assertEqual(unrelated[0]["status"], "held")
+
     def test_independent_schools_and_unrelated_maps_businesses_are_held(self):
         for name, category in [("Caldicott Preparatory School", "Independent school"),
                                ("Thorpe House School", "Independent school"),

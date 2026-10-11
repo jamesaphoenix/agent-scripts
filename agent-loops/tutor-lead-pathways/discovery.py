@@ -24,21 +24,30 @@ ENDPOINTS = {
 CHAINS = re.compile(
     r"\b(?:kumon|explore learning|first class learning|mathnasium|tutor doctor|teachers to your home|"
     r"bright young things|kip\s*mcgrath|number\s*works\s*['’]?\s*n\s*words|"
-    r"brain\s*up(?:\s*abacus)?|clara\s*james(?:\s*tutoring)?)\b", re.I)
+    r"brain\s*up(?:\s*abacus)?|clara\s*james(?:\s*tutoring)?|computer\s*xplorers|code\s*ninjas)\b", re.I)
 ELEVEN_PLUS = re.compile(r"\b(?:11\s*\+|11[\s-]*plus\b|eleven[\s-]*plus\b)", re.I)
 NON_ACADEMIC_CATEGORIES = {
     "museum", "driving school", "martial arts school", "piano instructor",
     "art school", "life coach", "translation service",
     "personal trainer", "music teacher", "media company", "bag shop", "golf club",
     "artist", "recruiter", "hypnotherapy service", "drama school",
+    "pilates studio", "swimming school", "swimming instructor", "dance school", "tennis instructor",
+    "music school", "guitar instructor", "drum school", "gym", "yoga studio", "yoga instructor",
+    "optometrist", "optician", "physiotherapist", "reflexologist", "nursing home", "osteopath",
+    "massage therapist", "skin care clinic", "pregnancy care centre", "wellness centre",
+    "cooking school", "aviation training institute", "driving licence training school",
+    "self defence school", "martial arts club", "golf instructor", "physical fitness programme",
+    "women's personal trainer", "woodworker", "pottery classes", "salsa classes", "entertainer",
 }
 SCHOOL_CATEGORIES = {
     "school", "independent school", "private school", "preparatory school",
     "boarding school", "grammar school", "high school", "sixth form college",
     "college", "university", "preschool", "montessori preschool", "nursery school",
     "special education school",
-    "teachers college", "pre-school",
+    "teachers college", "pre-school", "girls' secondary school", "faith school", "community school", "vocational school",
 }
+ACADEMIC_CATEGORY = re.compile(r"\b(?:tutor|tutoring|teacher|teaching|educational|education|learning|language|test preparation)\b", re.I)
+TUITION_IDENTITY = re.compile(r"tutor|tuition|dyslexia|literacy|phonics|eleven[\s-]*plus|11[\s-]*plus|11\s*\+", re.I)
 SOURCE_HOSTS = {
     "11plusguide.com", "elevenplusexams.co.uk", "hometutorsdirectory.co.uk", "my-towns.co.uk",
     "redkitedays.co.uk", "tophelp.co.uk", "universitytutor.com", "teachingpersonnel.com",
@@ -49,7 +58,7 @@ SOURCE_HOSTS = {
     "yelp.com", "yelp.co.uk", "yelp.ca", "pmt.education",
 }
 PROFILE_PATHS = {"childcare.co.uk": re.compile(r"^/profile/\d+/?$")}
-MERGED_LISTS = ("aliases", "placeIds", "provenance", "emails", "identifiers", "siteEvidence", "establishments", "contactClaims")
+MERGED_LISTS = ("aliases", "categories", "placeIds", "provenance", "emails", "identifiers", "siteEvidence", "establishments", "contactClaims")
 
 
 def now_iso():
@@ -309,15 +318,15 @@ def phone_key(value):
     return digits if len(digits) >= 10 else None
 
 
-def hold_reason(record):
+def hold_reason(record, require_tuition_evidence=True):
     name = record.get("name") or ""
     url = record.get("website") or record.get("sourceUrl") or ""
     host = urllib.parse.urlsplit(url).hostname or ""
-    category = (record.get("category") or "").strip().lower()
+    category = (record.get("category") or "").strip().lower().replace("_", " ").replace("’", "'")
     if CHAINS.search(name + " " + host.replace(".", " ")):
         return "recognised_chain"
     named_source_claim = not record.get("website") and any(
-        source.get("lane") in ("codex_oauth", "manual_source_review") for source in record.get("provenance", []))
+        isinstance(source, dict) and source.get("lane") in ("codex_oauth", "manual_source_review") for source in record.get("provenance", []))
     if not named_source_claim and (host == "facebook.com" or host.endswith(".facebook.com")) and urllib.parse.urlsplit(url).path.strip("/").split("/")[0] in ("groups", "share"):
         return "source_directory_or_job_page"
     if not named_source_claim and source_host(host) and not professional_profile(url):
@@ -332,6 +341,15 @@ def hold_reason(record):
         return "school_or_college"
     if re.search(r"(?i)\b(tutor job|tutor vacancy|tutoring jobs)\b", name):
         return "job_page"
+    # A search keyword is not evidence that every returned business teaches.
+    # Delay this weaker hold until business identifiers have been merged so a
+    # corporate-office alias cannot hide another observed private-tutor listing.
+    if category and require_tuition_evidence:
+        categories = record.get("categories") or [category]
+        identities = [name, url, *record.get("aliases", [])]
+        identities.extend(value for source in record.get("provenance", []) if isinstance(source, dict) for value in (source.get("servicesClaim") or []) if isinstance(value, str))
+        if not any(ACADEMIC_CATEGORY.search(value.replace("_", " ")) for value in categories) and not TUITION_IDENTITY.search(" ".join(identities)):
+            return "needs_tuition_evidence"
     return None
 
 
@@ -360,7 +378,7 @@ def business_record(item, source):
             continue
         record["contactClaims"].append({"type": contact["type"], "value": value, "providerSource": contact.get("source"),
                                         "sourceUrl": record["sourceUrl"], "verified": False})
-    record["holdReason"] = hold_reason(record)
+    record["holdReason"] = hold_reason(record, require_tuition_evidence=False)
     if record["holdReason"]:
         record["status"] = "held"
     return record
@@ -423,6 +441,8 @@ def merge_businesses(records):
                 target[field] = record[field]
         if record.get("name") and record["name"] not in target["aliases"]:
             target["aliases"].append(record["name"])
+        if record.get("category") and record["category"] not in target["categories"]:
+            target["categories"].append(record["category"])
         if record.get("placeId") and record["placeId"] not in target["placeIds"]:
             target["placeIds"].append(record["placeId"])
         if record.get("placeId") or record.get("cid"):
@@ -433,7 +453,11 @@ def merge_businesses(records):
             target[field].extend(x for x in record.get(field, []) if x not in target[field])
         if record.get("holdReason"):
             target["holdReason"], target["status"] = record["holdReason"], "held"
-    return [g for g in groups if g is not None]
+    merged = [g for g in groups if g is not None]
+    for record in merged:
+        if not record.get("holdReason") and (reason := hold_reason(record)):
+            record["holdReason"], record["status"] = reason, "held"
+    return merged
 
 
 def research_record(lead, source):

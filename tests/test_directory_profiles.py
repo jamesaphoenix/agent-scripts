@@ -13,6 +13,72 @@ spec.loader.exec_module(directory)
 
 
 class ProfileTests(unittest.TestCase):
+    def test_verified_rural_places_are_local_without_accepting_ambiguous_names(self):
+        for town in ["Flackwell Heath", "Bledlow Ridge", "Hughenden Valley", "Little Kimble", "Long Crendon", "Stewkley", "Stokenchurch", "Woburn Sands"]:
+            self.assertEqual(directory.locality_status(town), "advertised_bucks_locality")
+        for town in ["Bourne End", "Lane End", "St Albans", "Reading"]:
+            self.assertEqual(directory.locality_status(town), "outside_or_unresolved")
+
+    def test_tutordex_uses_the_private_tutor_header_and_numeric_identity(self):
+        html = '''<h1>Tutor Profile</h1><div><h1>Catherine</h1><p class="uppercase">Private
+          <a href="/uk/academic/subject/english">English</a> Tutor in
+          <a href="/uk/academic/town/aylesbury">Aylesbury</a></p></div>'''
+        url = "https://tutordex.net/tutor/78/catherine"
+        row = directory.profile_record(html, url)
+        self.assertEqual((row["name"], row["personId"], row["localityClaim"]), ("Catherine", "78", "Aylesbury"))
+        self.assertEqual(row["services"], ["English"])
+        self.assertFalse(row["outreachEligible"])
+        self.assertIsNone(directory.profile_record(html.replace("Private", "Online"), url))
+        self.assertIsNone(directory.profile_record(html, "https://tutordex.net/uk/academic/town/aylesbury"))
+
+    def test_tutorextra_subject_table_and_header_ignore_global_navigation_and_ad_title(self):
+        html = '''<h1>Qualified teacher with experience</h1><nav><span>Maths</span><span>English</span></nav>
+          <div class="name-type"><div class="fullname">Sky Rogers - Tutor in High Wycombe</div>
+          <div class="usertype">Tutor, Teacher</div></div>
+          <div class="address"><select class="select-address"><option>High Wycombe, England</option></select></div>
+          <table class="table responsive-table"><tr><th>Subject</th><th>Age/level and price</th></tr>
+          <tr><td>English Literature lessons</td><td>Primary Age - £35</td></tr></table>'''
+        url = "https://tutorextra.co.uk/profile/example-tuition/50-64971"
+        row = directory.profile_record(html, url)
+        self.assertEqual((row["name"], row["personId"], row["localityClaim"]), ("Sky Rogers", "64971", "High Wycombe"))
+        self.assertEqual(row["services"], ["English Literature lessons"])
+        self.assertFalse(row["outreachEligible"])
+        outside = directory.profile_record(html.replace("High Wycombe", "Reading"), url)
+        self.assertEqual(directory.profile_locality_status(outside), "outside_or_unresolved")
+        conflict = directory.profile_record(html.replace("</option>", "</option><option>Murphy, NC</option>", 1), url)
+        self.assertTrue(conflict["locationConflict"])
+        self.assertIsNone(directory.profile_record(html.replace("Tutor, Teacher", "Learning Centre"), url))
+        company = directory.profile_record(html.replace("Qualified teacher with experience", "Online education company"), url)
+        self.assertEqual(directory.exclusion_reason(company), "institution_or_chain")
+
+    def test_merging_adverts_preserves_all_page_evidence_and_later_location_conflicts(self):
+        first = {"name": "Jane", "personId": "42", "platform": "tutorextra.co.uk", "localityClaim": "High Wycombe",
+                 "services": ["Maths"], "sourceUrls": ["https://tutorextra.co.uk/profile/maths/50-42"],
+                 "pageEvidence": [{"url": "https://tutorextra.co.uk/profile/maths/50-42", "sha256": "a"}]}
+        second = dict(first, sourceUrls=["https://tutorextra.co.uk/profile/english/50-42"], locationConflict=True,
+                      pageEvidence=[{"url": "https://tutorextra.co.uk/profile/english/50-42", "sha256": "b"}])
+        row = directory.merge_profiles([first, second, first])[0]
+        self.assertTrue(row["locationConflict"])
+        self.assertEqual(len(row["pageEvidence"]), 2)
+        self.assertEqual(len(row["sourceUrls"]), 2)
+
+    def test_new_directory_cards_retain_each_person_and_primary_location(self):
+        html = '''<div class="user-content-table"><div class="name"><a href="/profile/math-teacher/50-42">Jane</a></div>
+          <div class="usertype"><span>Maths</span> Tutor</div><div class="address"><span class="address-top"><span class="sm">Reading, England</span></span></div></div>
+          <div class="user-content-table"><div class="name"><a href="/profile/english-teacher/50-43">Jo</a></div>
+          <div class="usertype"><span>English</span> Teacher</div><div class="address"><span class="address-top"><span class="sm">High Wycombe, England</span></span></div></div>'''
+        rows = directory.listing_records(html, "https://tutorextra.co.uk/search/maths-lessons-in/high-wycombe")
+        self.assertEqual([r["personId"] for r in rows], ["42", "43"])
+        self.assertEqual([directory.profile_locality_status(r) for r in rows], ["outside_or_unresolved", "advertised_bucks_locality"])
+        html = '''<div class="lg:col-span-2"><h2>Catherine</h2><p class="uppercase">English Teacher in Aylesbury</p>
+          <a href="/tutor/78/catherine">View this tutor</a></div>'''
+        self.assertEqual(directory.listing_records(html, "https://tutordex.net/uk/academic/town/aylesbury/english")[0]["personId"], "78")
+        for url in ["https://tutordex.net/api/tutors", "https://tutordex.net/private/forum", "https://tutorextra.co.uk/login", "https://tutorextra.co.uk/profile/x/50-42/reviews"]:
+            self.assertIsNone(directory.admitted_url(url))
+        self.assertTrue(directory.local_directory_link("https://tutordex.net/uk/academic/town/aylesbury/english/gcse", "https://tutordex.net/uk/academic/town/aylesbury"))
+        self.assertFalse(directory.local_directory_link("https://tutordex.net/uk/academic/town/london/english", "https://tutordex.net/uk/academic/town/aylesbury"))
+        self.assertFalse(directory.local_directory_link("https://tutorextra.co.uk/search/maths-lessons-in/london", "https://tutorextra.co.uk/search/maths-lessons-in/high-wycombe"))
+
     def test_page_selection_balances_hosts_and_prioritises_people_without_losing_pages(self):
         first_index = "https://www.findtutors.co.uk/buckinghamshire-tutors/"
         first_person = "https://www.findtutors.co.uk/tutors-aylesbury/maths-123"

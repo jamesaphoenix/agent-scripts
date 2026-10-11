@@ -16,14 +16,14 @@ import urllib.parse
 import urllib.request
 import urllib.robotparser
 
-HOSTS = {"www.findtutors.co.uk", "tutorperch.com", "www.childcare.co.uk"}
+HOSTS = {"www.findtutors.co.uk", "tutorperch.com", "www.childcare.co.uk", "tutordex.net", "tutorextra.co.uk"}
 AGENT = "TutorResearch/1.0"
 BUCKS = {
     "amersham", "amersham on the hill", "aylesbury", "beaconsfield", "bierton", "buckingham",
     "burnham", "chalfont st giles", "chalfont st peter", "chalfont saint peter", "chesham",
     "chesham bois", "denham", "downley", "farnham common", "farnham royal", "gerrards cross",
     "great missenden", "haddenham", "hazlemere", "high wycombe", "hughenden", "iver", "iver heath",
-    "little chalfont", "marlow", "marlow bottom", "prestwood", "princes risborough", "stoke mandeville",
+    "little chalfont", "chalfont saint giles", "marlow", "marlow bottom", "prestwood", "princes risborough", "stoke mandeville",
     "stoke poges", "taplow", "wendover", "weston turville", "winslow", "wooburn", "wooburn green",
     "waddesdon", "penn", "tylers green", "olney", "newport pagnell", "milton keynes", "bancroft",
     "bletchley", "wolverton", "stony stratford", "great linford", "shenley brook end", "shenley church end",
@@ -32,6 +32,8 @@ BUCKS = {
     "broughton buckinghamshire", "broughton (buckinghamshire)", "bishopstone (buckinghamshire)",
     "bourton", "bourton meadow", "bourne end buckinghamshire", "bourne end (buckinghamshire)",
     "wavendon", "upper weald", "holmer green",
+    "flackwell heath", "bledlow ridge", "hughenden valley", "little kimble", "long crendon",
+    "stewkley", "stokenchurch", "woburn sands",
 }
 CHILDCARE_DISTRICTS = {"aylesbury vale", "chiltern", "south bucks", "wycombe"}
 NON_TUITION = re.compile(r"\b(?:yoga|football|fitness|personal training|swimming|pilates|driving)\b", re.I)
@@ -59,7 +61,13 @@ def admitted_url(value):
         p = urllib.parse.urlsplit(value)
         if p.scheme != "https" or p.hostname not in HOSTS or p.port not in (None, 443) or p.username or p.password:
             return None
-        if p.hostname == "www.childcare.co.uk":
+        if p.hostname == "tutordex.net":
+            profile = bool(re.fullmatch(r"/tutor/\d+/[a-z0-9-]+", p.path))
+            allowed = profile or p.path == "/robots.txt" or bool(re.fullmatch(r"/uk/academic/town/[a-z0-9-]+(?:/[a-z0-9-]+){0,2}", p.path))
+        elif p.hostname == "tutorextra.co.uk":
+            profile = bool(re.fullmatch(r"/profile/[a-z0-9-]+/\d+-\d+", p.path))
+            allowed = profile or p.path == "/robots.txt" or bool(re.fullmatch(r"/search/[a-z0-9-]+-lessons-in/[a-z0-9-]+", p.path))
+        elif p.hostname == "www.childcare.co.uk":
             profile = bool(re.fullmatch(r"/profile/\d+", p.path))
             allowed = profile or p.path == "/robots.txt" or bool(re.fullmatch(r"/search/Private-Tutors/Buckinghamshire(?:/\d+)?", p.path))
         elif p.hostname == "tutorperch.com":
@@ -152,11 +160,37 @@ def exclusion_reason(row):
     return None
 
 
+def public_person(platform, person_id, name, location, services, url):
+    return {"name": name, "personId": person_id, "platform": platform, "sourceUrls": [url],
+            "localityClaim": location, "services": services, "evidenceKind": "public_person_profile",
+            "outreachEligible": False, "institution": False}
+
+
 def listing_records(text, url):
     document = Document(text).root
+    host = urllib.parse.urlsplit(url).hostname
     rows = []
     for card in document.walk():
-        if urllib.parse.urlsplit(url).hostname == "www.childcare.co.uk" and card.has_class("search-result"):
+        if host == "tutordex.net" and card.has_class("lg:col-span-2"):
+            name = card.first(lambda n: n.tag == "h2")
+            role = card.first(lambda n: n.tag == "p" and n.has_class("uppercase"))
+            link = card.first(lambda n: n.tag == "a" and n.attrs.get("href", "").startswith("/tutor/"))
+            source = admitted_url(urllib.parse.urljoin(url, link.attrs["href"])) if link else None
+            claim = re.fullmatch(r"(.+?) (?:Teacher|Tutor) in (.+)", role.text()) if role else None
+            if source and name and claim:
+                row = public_person(host, urllib.parse.urlsplit(source).path.split("/")[2], name.text(), claim.group(2), [claim.group(1)], source)
+                rows.append(dict(row, evidenceKind="directory_listing", listingUrl=url))
+        if host == "tutorextra.co.uk" and card.has_class("user-content-table"):
+            name = card.first(lambda n: n.has_class("name"))
+            link = name.first(lambda n: n.tag == "a") if name else None
+            source = admitted_url(urllib.parse.urljoin(url, link.attrs.get("href", ""))) if link else None
+            address = card.first(lambda n: n.has_class("address-top"))
+            location = class_text(address, "sm") if address else ""
+            role = card.first(lambda n: n.has_class("usertype"))
+            if source and link and role and re.search(r"\b(?:Tutor|Teacher)\b", role.text()):
+                row = public_person(host, urllib.parse.urlsplit(source).path.rsplit("-", 1)[-1], link.text(), location.split(",", 1)[0].strip(), [role.text()], source)
+                rows.append(dict(row, evidenceKind="directory_listing", listingUrl=url))
+        if host == "www.childcare.co.uk" and card.has_class("search-result"):
             person_id, name = card.attrs.get("data-user-id", ""), card.attrs.get("data-screenname", "")
             if person_id.isdigit() and name:
                 location = class_text(card, "distance")
@@ -165,7 +199,7 @@ def listing_records(text, url):
                              "sourceUrls": ["https://www.childcare.co.uk/profile/" + person_id], "listingUrl": url,
                              "localityClaim": match.group(1) if match else "", "services": [],
                              "evidenceKind": "directory_listing", "outreachEligible": False})
-        if urllib.parse.urlsplit(url).hostname == "tutorperch.com" and card.attrs.get("data-slot") == "card":
+        if host == "tutorperch.com" and card.attrs.get("data-slot") == "card":
             link = card.first(lambda n: n.tag == "a" and n.has_class("card-overlay-link"))
             location = card.first(lambda n: n.tag == "span" and n.first(lambda child: child.tag == "svg" and child.has_class("lucide-map-pin")) is not None)
             if link:
@@ -194,7 +228,47 @@ def profile_record(text, url):
         return None
     p = urllib.parse.urlsplit(url)
     document = Document(text).root
-    if p.hostname == "www.childcare.co.uk":
+    if p.hostname == "tutordex.net":
+        if not re.fullmatch(r"/tutor/\d+/[a-z0-9-]+", p.path):
+            return None
+        header = document.first(lambda n: any(isinstance(c, Node) and c.tag == "h1" for c in n.children)
+                                and any(isinstance(c, Node) and c.tag == "p" and re.fullmatch(r"Private .+ Tutor in .+", c.text()) for c in n.children))
+        if not header:
+            return None
+        name = header.first(lambda n: n.tag == "h1")
+        role = header.first(lambda n: n.tag == "p" and n.text().startswith("Private "))
+        location = role.first(lambda n: n.tag == "a" and re.fullmatch(r"/uk/academic/town/[a-z0-9-]+", n.attrs.get("href", "")))
+        subjects = [n.text() for n in role.walk() if n.tag == "a" and n.attrs.get("href", "").startswith("/uk/academic/subject/")]
+        if not location or not name.text():
+            return None
+        return public_person(p.hostname, p.path.split("/")[2], name.text(), location.text(), subjects, url)
+    elif p.hostname == "tutorextra.co.uk":
+        if not re.fullmatch(r"/profile/[a-z0-9-]+/\d+-\d+", p.path):
+            return None
+        header = document.first(lambda n: n.has_class("name-type"))
+        name = class_text(header, "fullname") if header else ""
+        role = class_text(header, "usertype") if header else ""
+        claim = re.fullmatch(r"(.+?) - (?:Tutor|Teacher)(?:, [A-Za-z ]+)? in (.+)", name)
+        if not claim or not re.search(r"\b(?:Tutor|Teacher)\b", role) or INSTITUTION.search(role):
+            return None
+        address = document.first(lambda n: n.has_class("select-address"))
+        places = [n.text().split(",", 1)[0].strip() for n in address.walk() if n.tag == "option"] if address else []
+        table = document.first(lambda n: n.tag == "table" and n.has_class("responsive-table")
+                               and n.first(lambda c: c.tag == "th" and c.text() == "Subject") is not None)
+        subjects = []
+        if table:
+            for tr in table.walk():
+                cells = [c for c in tr.children if isinstance(c, Node) and c.tag == "td"] if tr.tag == "tr" else []
+                if cells and cells[0].text():
+                    subjects.append(cells[0].text())
+        row = public_person(p.hostname, p.path.rsplit("-", 1)[-1], claim.group(1), places[0] if places else claim.group(2), subjects, url)
+        row["additionalLocalityClaims"] = places[1:]
+        if any(place.lower() != row["localityClaim"].lower() for place in places[1:]):
+            row["locationConflict"] = True
+        title = document.first(lambda n: n.tag == "h1")
+        row["institution"] = bool(title and re.search(r"\b(?:education company|tuition centre|learning centre)\b", title.text(), re.I))
+        return row
+    elif p.hostname == "www.childcare.co.uk":
         if not re.fullmatch(r"/profile/\d+", p.path):
             return None
         header = document.first(lambda n: n.has_class("profile-header--info-wrapper"))
@@ -269,12 +343,15 @@ def merge_profiles(rows):
     merged = {}
     for row in rows:
         key = (row["platform"], row.get("personId") or row["sourceUrls"][0])
-        target = merged.setdefault(key, dict(row, services=[], sourceUrls=[]))
+        target = merged.setdefault(key, dict(row, services=[], sourceUrls=[], pageEvidence=[]))
         for field in ("services", "sourceUrls"):
             target[field] = list(dict.fromkeys([*target[field], *row.get(field, [])]))
         if target.get("localityClaim") != row.get("localityClaim"):
             target["locationConflict"] = True
+        target["locationConflict"] = bool(target.get("locationConflict") or row.get("locationConflict"))
         target["institution"] = bool(target.get("institution") or row.get("institution"))
+        evidence = {(item["url"], item.get("sha256")): item for item in [*target["pageEvidence"], *row.get("pageEvidence", [])]}
+        target["pageEvidence"] = list(evidence.values())
     return list(merged.values())
 
 
@@ -352,6 +429,12 @@ def local_directory_link(value, source):
     parsed, origin = urllib.parse.urlsplit(value), urllib.parse.urlsplit(source)
     if parsed.hostname != origin.hostname:
         return False
+    if parsed.hostname == "tutordex.net":
+        match = re.fullmatch(r"/uk/academic/town/([a-z0-9-]+)(?:/[a-z0-9-]+){0,2}", parsed.path)
+        return bool(match and locality_status(match.group(1).replace("-", " ")) == "advertised_bucks_locality")
+    if parsed.hostname == "tutorextra.co.uk":
+        match = re.fullmatch(r"/search/[a-z0-9-]+-lessons-in/([a-z0-9-]+)", parsed.path)
+        return bool(match and locality_status(match.group(1).replace("-", " ")) == "advertised_bucks_locality")
     if parsed.hostname == "www.childcare.co.uk":
         return bool(re.fullmatch(r"/search/Private-Tutors/Buckinghamshire(?:/\d+)?", parsed.path))
     if parsed.hostname == "tutorperch.com":

@@ -90,3 +90,27 @@ class ProfileTests(unittest.TestCase):
     def test_malformed_person_metadata_does_not_stop_other_pages(self):
         html = '<script type="application/ld+json">{"@type":"ProfilePage","mainEntity":[]}</script>'
         self.assertIsNone(directory.profile_record(html, "https://tutorperch.com/t/jo-rutw"))
+
+    def test_verified_tutor_name_is_not_replaced_by_a_breadcrumb(self):
+        html = '''<section id="sectionaddetail"><div class="profile"><div class="info"><div class="line1">
+          <div id="logo_academy_link_profile" class="non-academy"><a id="lnkProfile" href="/tutor/jane-example.htm">
+          <span class="user-name">Jane</span><span>View profile</span></a></div></div>
+          <div id="line_location">High Wycombe, Naphill</div><span class="subject">Maths Lessons</span></div></div>
+          <ul id="ariadna"><li><span itemprop="name">Find Tutors</span></li><li><span itemprop="name">Maths</span></li>
+          <li><span itemprop="name">High Wycombe</span></li></ul><input id="iduser" value="42"></section>'''
+        row = directory.profile_record(html, "https://www.findtutors.co.uk/tutors-high-wycombe/maths-123")
+        self.assertEqual(row["name"], "Jane")
+        self.assertEqual(row["localityClaim"], "High Wycombe, Naphill")
+
+    def test_tutorperch_card_location_limits_profile_following(self):
+        html = '''<div data-slot="card"><a class="card-overlay-link" href="/t/jo-rutw" aria-label="View Jo's profile"></a>
+          <span><svg class="lucide-map-pin"></svg>Bancroft</span><ul><li>English Language</li></ul></div>
+          <div data-slot="card"><a class="card-overlay-link" href="/t/chris-4nvk" aria-label="View Chris's profile"></a>
+          <span><svg class="lucide-map-pin"></svg>Cambridge</span><ul><li>Maths</li></ul></div>'''
+        url = "https://tutorperch.com/find/results?level=11-plus&mode=online"
+        rows = directory.listing_records(html, url)
+        self.assertEqual([r["name"] for r in rows], ["Jo", "Chris"])
+        self.assertEqual([directory.locality_status(r["localityClaim"]) for r in rows],
+                         ["advertised_bucks_locality", "outside_or_unresolved"])
+        self.assertFalse(directory.local_directory_link("https://tutorperch.com/find/results", url))
+        self.assertTrue(directory.local_directory_link(url + "&page=2", url))

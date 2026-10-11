@@ -143,6 +143,17 @@ def listing_records(text, url):
     document = Document(text).root
     rows = []
     for card in document.walk():
+        if urllib.parse.urlsplit(url).hostname == "tutorperch.com" and card.attrs.get("data-slot") == "card":
+            link = card.first(lambda n: n.tag == "a" and n.has_class("card-overlay-link"))
+            location = card.first(lambda n: n.tag == "span" and n.first(lambda child: child.tag == "svg" and child.has_class("lucide-map-pin")) is not None)
+            if link:
+                source = admitted_url(urllib.parse.urljoin(url, link.attrs.get("href", "")))
+                label = link.attrs.get("aria-label", "")
+                if source and label.startswith("View ") and label.endswith("'s profile"):
+                    subjects = [n.text() for n in card.walk() if n.tag == "li"]
+                    rows.append({"name": label[5:-10], "platform": "tutorperch.com", "sourceUrls": [source],
+                                 "listingUrl": url, "localityClaim": location.text() if location else "",
+                                 "services": subjects, "personId": None, "evidenceKind": "directory_listing", "outreachEligible": False})
         if not card.has_class("itemv3"):
             continue
         source = admitted_url(urllib.parse.urljoin(url, card.attrs.get("data-link", "")))
@@ -185,7 +196,8 @@ def profile_record(text, url):
         section = document.first(lambda n: n.attrs.get("id") == "sectionaddetail")
         if not section:
             return None
-        name = section.first(lambda n: n.tag == "span" and n.attrs.get("itemprop") == "name")
+        info = section.first(lambda n: n.has_class("info"))
+        name = info.first(lambda n: n.has_class("user-name") or (n.tag == "span" and n.attrs.get("itemprop") == "name")) if info else None
         person = document.first(lambda n: n.attrs.get("id") == "iduser")
         report = document.first(lambda n: n.attrs.get("id") == "report_error")
         person_id = person.attrs.get("value") if person else report.attrs.get("data-u") if report else None
@@ -195,8 +207,9 @@ def profile_record(text, url):
         crumbs = [n.text() for n in breadcrumb.walk() if n.tag == "span" and n.attrs.get("itemprop") == "name"] if breadcrumb else []
         academy = section.first(lambda n: n.attrs.get("id") == "logo_academy_link_profile")
         subject = section.first(lambda n: n.has_class("subject"))
+        location = info.first(lambda n: n.attrs.get("id") == "line_location") if info else None
         return {"name": name.text(), "personId": person_id, "platform": "findtutors.co.uk", "sourceUrls": [url],
-                "localityClaim": crumbs[2] if len(crumbs) >= 3 else "", "services": [subject.text() if subject else ""],
+                "localityClaim": location.text() if location else crumbs[2] if len(crumbs) >= 3 else "", "services": [subject.text() if subject else ""],
                 "evidenceKind": "public_advert_person", "outreachEligible": False,
                 "institution": bool(academy and not academy.has_class("non-academy"))}
     return None
@@ -290,7 +303,9 @@ def local_directory_link(value, source):
     if parsed.hostname != origin.hostname:
         return False
     if parsed.hostname == "tutorperch.com":
-        return parsed.path.startswith("/t/") or parsed.path == origin.path
+        origin_filters = dict(urllib.parse.parse_qsl(origin.query))
+        filters = dict(urllib.parse.parse_qsl(parsed.query))
+        return parsed.path == origin.path and filters.get("level") == origin_filters.get("level") and filters.get("mode") == origin_filters.get("mode")
     if parsed.path == origin.path:
         return True
     slug = parsed.path.lower().replace("-", " ")

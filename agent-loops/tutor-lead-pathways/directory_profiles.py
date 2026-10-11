@@ -528,7 +528,11 @@ def next_page(state):
     def person_page(index):
         path = urllib.parse.urlsplit(queue[index]).path
         return path.startswith(("/profile/", "/t/", "/tutor/")) or bool(re.search(r"-\d+/?$", path))
-    index = next((index for index in indices if person_page(index)), indices[0])
+    def town_root(index):
+        parsed = urllib.parse.urlsplit(queue[index])
+        return parsed.hostname == "www.findtutors.co.uk" and not parsed.query and bool(re.fullmatch(r"/tutors-[a-z0-9-]+/", parsed.path))
+    index = next((index for index in indices if person_page(index)),
+                 next((index for index in indices if town_root(index)), indices[0]))
     state["lastHost"] = host
     return queue.pop(index)
 

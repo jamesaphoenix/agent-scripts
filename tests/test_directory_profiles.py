@@ -144,6 +144,16 @@ class ProfileTests(unittest.TestCase):
         self.assertEqual(counts, {host: 3 for host in hosts})
         self.assertEqual(len(state["queue"]), 51)
 
+    def test_unvisited_town_roots_get_coverage_before_more_subject_indexes(self):
+        subject = "https://www.findtutors.co.uk/chemistry-tutors-marlow/"
+        page = "https://www.findtutors.co.uk/tutors-new-denham/?page=5"
+        town = "https://www.findtutors.co.uk/tutors-milton-keynes/"
+        person = "https://www.findtutors.co.uk/tutors-aylesbury/maths-123"
+        state = {"queue": [subject, page, town, person]}
+        self.assertEqual(directory.next_page(state), person)
+        self.assertEqual(directory.next_page(state), town)
+        self.assertEqual(state["queue"], [subject, page])
+
     def test_childcare_extracts_tutor_header_subjects_without_trusting_county_breadcrumbs(self):
         html = '''<div class="profile-header--info-wrapper"><h1>Jane Example</h1>
           <h3>Private Tutor in Chiltern (also available for babysitting)</h3></div>

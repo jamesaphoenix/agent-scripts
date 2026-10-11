@@ -176,6 +176,13 @@ class LeadCleaningTests(unittest.TestCase):
         self.assertNotEqual(discovery.website_key("https://www.facebook.com/people/First-Tutor/123456789/"),
                             discovery.website_key("https://www.facebook.com/people/Second-Tutor/987654321/"))
 
+    def test_facebook_group_posts_are_sources_but_named_profiles_remain_research(self):
+        for url in ["https://www.facebook.com/groups/11plusinfo/posts/123/",
+                    "https://m.facebook.com/groups/123/", "https://www.facebook.com/share/p/123/"]:
+            self.assertEqual(discovery.hold_reason({"name": "11+ tutor recommendations", "website": url}), "source_directory_or_job_page")
+        for url in ["https://www.facebook.com/profile.php?id=123", "https://www.facebook.com/individualtutor/"]:
+            self.assertIsNone(discovery.hold_reason({"name": "Independent Tutor", "website": url}))
+
     def test_pmt_profiles_and_directory_contacts_keep_separate_source_identities(self):
         rows = [discovery.business_record({"name": "Samuel W. Private Tutor", "website": "https://www.pmt.education/tutor/tutor-profile/samuel-w-226582"}, {}),
                 discovery.business_record({"name": "Another tutor", "website": "https://www.pmt.education/tutor/tutor-profile/another-tutor-123456"}, {}),
@@ -388,12 +395,44 @@ class RunnerHealthTests(unittest.TestCase):
                     discovery.business_record({"name": "Tuition bag shop", "category": "Bag shop", "website": "https://tuition-bags.example/"}, {})]
             state = {"crawlRoots": [], "crawlNumber": 0}
             job = {"freePageBudget": 4000, "crawlerBinary": "/reviewed/tutor-crawler"}
-            with patch.object(self.runner, "collect_records", return_value=rows), patch.object(self.runner.subprocess, "Popen"):
+            permitted = [row["website"] for row in rows[:3]]
+            with patch.object(self.runner, "collect_records", return_value=rows), patch.object(self.runner.subprocess, "Popen"), patch.object(self.runner.subprocess, "run", return_value=subprocess.CompletedProcess([], 0, json.dumps({"permitted": permitted, "rejected": []}), "")):
                 result = self.runner.start_crawl(root, job, None, state, set())
             self.assertIsNotNone(result)
             self.assertEqual((root / "crawls/batch-000/seeds.txt").read_text().splitlines(),
                              ["https://peasylearning.example/", "https://buckselevenplus.example/", "https://alisontaylor11plustuition.example/"])
             self.assertEqual(state["crawlNumber"], 1)
+
+    def test_rejected_roots_do_not_launch_an_empty_crawl_or_hide_next_valid_root(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            urls = [f"https://www.facebook.com/independenttutor{i}/" for i in range(12)]
+            rows = [discovery.business_record({"name": "Independent Tutor", "website": url}, {}) for url in urls]
+            rows.append(discovery.business_record({"name": "New Tutor", "website": "https://newtutor.example/"}, {}))
+            state = {"crawlRoots": [], "crawlNumber": 0}
+            rejected = [{"url": url, "reason": "excluded_site"} for url in urls]
+            response = {"permitted": ["https://newtutor.example/"], "rejected": rejected}
+            with patch.object(self.runner, "collect_records", return_value=rows), patch.object(self.runner.subprocess, "Popen") as launch, patch.object(self.runner.subprocess, "run", return_value=subprocess.CompletedProcess([], 0, json.dumps(response), "")) as policy:
+                self.assertIsNotNone(self.runner.start_crawl(root, {"freePageBudget": 4000, "crawlerBinary": "/reviewed/crawler"}, None, state, set()))
+            self.assertEqual(policy.call_args.args[0][1], "filter-seeds")
+            self.assertEqual((root / "crawls/batch-000/seeds.txt").read_text().splitlines(), ["https://newtutor.example/"])
+            self.assertEqual(state["crawlRoots"], ["https://newtutor.example/"])
+            self.assertEqual(state["crawlRejected"], urls)
+            launch.assert_called_once()
+
+    def test_entirely_rejected_seed_batch_is_saved_without_launching_crawler(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            url = "https://www.yell.com/s/tutoring-haddenham.html"
+            row = discovery.business_record({"name": "Tutor directory", "website": url}, {})
+            state = {"crawlRoots": [], "crawlNumber": 0}
+            response = {"permitted": [], "rejected": [{"url": url, "reason": "excluded_site"}]}
+            with patch.object(self.runner, "collect_records", return_value=[row]), patch.object(self.runner.subprocess, "Popen") as launch, patch.object(self.runner.subprocess, "run", return_value=subprocess.CompletedProcess([], 0, json.dumps(response), "")):
+                self.assertIsNone(self.runner.start_crawl(root, {"freePageBudget": 4000, "crawlerBinary": "/reviewed/crawler"}, None, state, set()))
+            launch.assert_not_called()
+            self.assertEqual(state["crawlNumber"], 0)
+            self.assertEqual(state["crawlRejected"], [url])
+            self.assertEqual(json.loads((root / "crawls/seed-filter-000.json").read_text()), response)
 
     def test_empty_search_is_not_treated_as_an_outage_or_retried(self):
         response = {"status_code": 20000, "tasks": [{"status_code": 40102}]}
@@ -425,6 +464,16 @@ class RunnerHealthTests(unittest.TestCase):
         health, issues = self.runner.monitor_health(value, now, False)
         self.assertEqual(health, "degraded")
         self.assertIn("five minutes", issues[0])
+
+    def test_crawler_failure_remains_visible_until_a_later_batch_succeeds(self):
+        now = discovery.parse_time("2026-10-11T13:20:00+00:00")
+        value = {"phase": "running", "processLive": True, "observedAt": now.isoformat(), "budget": {},
+                 "recentErrors": [{"at": "2026-10-11T13:18:46+00:00", "lane": "crawler", "error": "missing checkpoint"}]}
+        health, issues = self.runner.monitor_health(value, now, False)
+        self.assertEqual(health, "degraded")
+        self.assertEqual(issues, ["Crawler batch failed; no later successful checkpoint is recorded"])
+        value["lastCrawlerSuccessAt"] = "2026-10-11T13:19:00+00:00"
+        self.assertEqual(self.runner.monitor_health(value, now, False), ("healthy", []))
 
     def test_resuming_an_expired_job_never_extends_its_original_window(self):
         with tempfile.TemporaryDirectory() as temporary:

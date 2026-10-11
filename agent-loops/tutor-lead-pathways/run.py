@@ -127,6 +127,7 @@ def runner_snapshot(root, job, cache, state):
              "budget": cache.usage(), "queryStates": dict(statuses), "pathways": dict(lanes),
              "completedPlanEntries": len(state["completedQueries"]), "sdk": sdk,
              "exports": summary, "crawlBatches": state["crawlNumber"], "recentErrors": state["errors"][-8:]}
+    value["lastCrawlerSuccessAt"] = state.get("lastCrawlerSuccessAt")
     value["consecutivePathFailures"] = dict(state["pathFailures"])
     atomic_json(root / "status.json", value)
     return value
@@ -167,7 +168,7 @@ def seed_previous_urls(job):
 
 def start_crawl(root, job, cache, state, previous_urls):
     records = merge_businesses(collect_records(cache, root))
-    done = set(state["crawlRoots"])
+    done = set(state["crawlRoots"]) | set(state.get("crawlRejected", []))
     seeds = []
     source_count = 0
     for record in records:
@@ -185,13 +186,27 @@ def start_crawl(root, job, cache, state, previous_urls):
                 " ".join([record.get("name") or "", record.get("category") or "", url])):
             continue
         seeds.append(url)
-        if len(seeds) >= 10:
+        if len(seeds) >= 500:
             break
     total_pages = 0
     for path in (root / "crawls").glob("*/crawl.json"):
         total_pages += json.loads(path.read_text()).get("pages", 0)
     remaining = job["freePageBudget"] - total_pages
     if not seeds or remaining <= 0:
+        return None
+    # The reviewed Go binary owns URL/site admission. Reuse its policy without
+    # a network request instead of duplicating its social/directory deny list.
+    crawl_dir = root / "crawls"
+    crawl_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
+    seed_file = crawl_dir / "seed-candidates.txt"
+    seed_file.write_text("\n".join(seeds) + "\n")
+    result = subprocess.run([job["crawlerBinary"], "filter-seeds", "--seeds", str(seed_file)],
+                            capture_output=True, text=True, check=True, timeout=30, env=child_environment())
+    filtered = json.loads(result.stdout)
+    atomic_json(crawl_dir / f"seed-filter-{state['crawlNumber']:03d}.json", filtered)
+    state.setdefault("crawlRejected", []).extend(row["url"] for row in filtered["rejected"])
+    seeds = filtered["permitted"][:10]
+    if not seeds:
         return None
     folder = root / "crawls" / f"batch-{state['crawlNumber']:03d}"
     folder.mkdir(parents=True, exist_ok=True, mode=0o700)
@@ -259,6 +274,7 @@ def run(root):
             if crawl_child and crawl_child[0].poll() is not None:
                 try:
                     finish_crawl(job, crawl_child[1])
+                    state["lastCrawlerSuccessAt"] = now_iso()
                 except (OSError, ValueError, subprocess.SubprocessError) as error:
                     save_error(state, "crawler", error)
                 crawl_child = None
@@ -385,6 +401,10 @@ def monitor_health(value, now, stalled):
     for lane, failures in value.get("consecutivePathFailures", {}).items():
         if failures >= 3:
             issues.append(lane + " is cooling down after repeated provider failures")
+    last_crawl = value.get("lastCrawlerSuccessAt")
+    if any(error.get("lane") == "crawler" and (not last_crawl or parse_time(error["at"]) > parse_time(last_crawl))
+           for error in value.get("recentErrors", [])):
+        issues.append("Crawler batch failed; no later successful checkpoint is recorded")
     sdk = value.get("sdk") or {}
     if sdk.get("phase") == "failed":
         issues.append("SDK research turn failed; inspect its private events")

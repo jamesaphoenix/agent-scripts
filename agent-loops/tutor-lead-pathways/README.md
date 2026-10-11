@@ -50,6 +50,8 @@ Source review also confirmed franchise offerings from [Brain Up](https://www.bra
 
 Facebook profile IDs remain in business identity, including mobile URLs and numbered people/pages routes. Tracking parameters do not merge two distinct profiles or split one known profile. PMT Education profile and directory paths remain distinct and held for source review. Its general contact-page emails must not be merged into a named tutor merely through their shared hosting domain.
 
+Facebook groups and shared posts remain held discovery sources rather than named tutor businesses. Before launching a crawl batch, the controller calls the reviewed Go binary's offline `filter-seeds` command. This reuses the crawler's public URL and site admission rules. Rejected roots and reasons are saved separately; an entirely rejected batch does not launch a crawler or produce a missing-checkpoint failure. Permitted independent hosted sites still pass through the same site-identity rules.
+
 Verification:
 
 ```bash

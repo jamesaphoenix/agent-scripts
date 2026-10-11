@@ -26,6 +26,22 @@
   },
   "tasks": [
     {
+      "id": "bucks-private-tutors-20261011",
+      "name": "Private Bucks tutor profile discovery",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.bucks-private-tutors-20261011",
+      "schedule": "finite three-hour stage with checkpoint recovery",
+      "requiresOpServiceAccount": false,
+      "opServiceAccountSource": null,
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
+        "command": ["bash", "agent-loops/tutor-lead-pathways/install-directory-profiles.sh"]
+      },
+      "notes": "User authorised 11 October 2026: pursue at least one thousand private tutors in Buckinghamshire across subjects, excluding institutions. This stage collects public professional profiles without provider spending. Cache successful and failed GET observations by SHA256, obey source robots rules, retain tutor IDs and advertised tuition locality. Never equate directory headline totals with local people. No accounts, contact unlock purchases, outreach or tenant imports."
+    },
+    {
       "id": "freeagent-invoice-harvest",
       "name": "Daily FreeAgent invoice harvester",
       "enabled": true,

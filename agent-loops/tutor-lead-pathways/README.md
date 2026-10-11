@@ -1,5 +1,11 @@
 # Tutor lead discovery through five pathways
 
+The later one-thousand-tutor target covers private tutors across subjects, excluding institutions. `directory_profiles.py` adds a separate public-profile stage alongside the existing Go/Maps research. It follows observed county/town links and pagination on FindTutors and public Tutorperch profiles, obeys robots rules, spaces host requests, bounds pages and duration, and caches both successful and failed GET observations by SHA256. It reads the named tutor's advertised tuition locality, never the platform's registered office or the search heading.
+
+FindTutors adverts share their public platform tutor ID, so multiple subject adverts become one profile identity. Tutorperch uses its exact named profile path. The CSV retains source links, subjects and the evidence type. Advertised locality does not verify residence, current availability or consent. Cross-platform matches still require review; these counts must not be added to existing practice totals without deduplication. Institutions, chains and non-tuition lessons are held. The stage adds no provider charges, accounts, purchases, messages or tenant imports. All spending remains within the user's USD100 total cap.
+
+The finite three-hour stage is registered as `bucks-private-tutors-20261011`. Install it through the canonical registry-driven installer on Mac Studio. Private state lives in `state/bucks-private-tutors-20261011`; resuming keeps its original deadline and page allowance. A stage ending below the target does not complete the user's discovery goal. Focused checks are `python3 -m unittest discover -s tests -p test_directory_profiles.py`.
+
 Discovery improvements follow the bounded baseline/change/evaluate loop in [program.md](program.md). Offline seed experiments use frozen, SHA256-bound fetch outcomes and [evaluate-seeds.py](evaluate-seeds.py); private `results.tsv` files record kept, discarded and failed experiments. Queue efficiency and live candidate yield are reported separately.
 
 Six-hour research job for independent 11+ and primary tutor practices in Buckinghamshire, including Milton Keynes. MacBook is the authoring source; Mac Studio owns the registered runtime.

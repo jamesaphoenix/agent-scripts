@@ -1,6 +1,19 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { oauthEnvironment, researchSchema, recordUsage } from "./agentic.mjs";
+import { oauthEnvironment, researchSchema, recordUsage, researchThread, researchTowns } from "./agentic.mjs";
+
+test("isolated turns do not reload a growing previous conversation", () => {
+  const calls = [];
+  const codex = { startThread: () => calls.push("new"), resumeThread: (id) => calls.push(id) };
+  researchThread(codex, {}, { threadId: "previous" }, { codexThreadMode: "isolated" });
+  researchThread(codex, {}, { threadId: "previous" }, {});
+  assert.deepEqual(calls, ["new", "previous"]);
+  assert.throws(() => researchThread(codex, {}, {}, { codexThreadMode: "unknown" }));
+});
+
+test("town rotation wraps without silently shortening the research turn", () => {
+  assert.deepEqual(researchTowns({ towns: [0, 1, 2, 3, 4], sdkTownOffset: 3 }, 0), [3, 4, 0, 1]);
+});
 
 test("SDK children cannot inherit API keys or provider credentials", () => {
   const environment = oauthEnvironment({ HOME: "/user", PATH: "/bin", OPENAI_API_KEY: "secret", CODEX_API_KEY: "secret", ANTHROPIC_API_KEY: "secret", OP_SERVICE_ACCOUNT_TOKEN: "secret", DATAFORSEO_PASSWORD: "secret" });

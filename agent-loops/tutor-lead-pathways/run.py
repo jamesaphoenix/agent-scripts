@@ -14,13 +14,13 @@ import sqlite3
 import subprocess
 import time
 
+from configuration import launchd_settings
+
 from discovery import (UTC, PaidCache, atomic_json, collect_records, file_hash, hold_reason,
                        merge_businesses, now_iso, parse_time, provider_request,
                        public_url, request_key, validate_plan, website_key, write_exports)
 
 HERE = Path(__file__).resolve().parent
-RUN_LABEL = "com.jud.tutor-lead-pathways-20261011"
-WATCH_LABEL = "com.jud.tutor-lead-pathways-watch-20261011"
 INTERVALS = {"maps": 120, "business": 240, "organic": 240, "directories": 240}
 OFFSETS = {"maps": 0, "business": 25, "organic": 50, "directories": 75}
 
@@ -41,6 +41,7 @@ def initialize_job(root):
         raise ValueError("Original six-hour window changed")
     validate_plan(root, job)
     crawl_limits(job)
+    launchd_settings(job)
     return job
 
 
@@ -514,6 +515,7 @@ def monitor_health(value, now, stalled):
 def watch(root):
     value = status(root)
     job = json.loads((root / "job.json").read_text())
+    labels, interval = launchd_settings(job)
     now = datetime.datetime.now(UTC)
     expired = now >= parse_time(job["deadline"])
     terminal = value["phase"] == "complete"
@@ -528,18 +530,19 @@ def watch(root):
     stale_progress = (now - parse_time(last_progress)).total_seconds() > 1800
     health, issues = monitor_health(value, now, stale_progress)
     report = {"checkedAt": now.isoformat(), "health": health, "expired": expired, "snapshot": value, "action": "none",
-              "progress": progress, "lastProgressAt": last_progress, "recoveries": previous.get("recoveries", 0)}
+              "progress": progress, "lastProgressAt": last_progress, "recoveries": previous.get("recoveries", 0),
+              "monitorIntervalSeconds": interval, "launchdLabels": labels}
     report["issues"] = issues
     if not expired and not terminal and not value["processLive"] and report["recoveries"] < 3:
         # launchd owns restart policy. Kickstart only this registered job; never kill an owner or replay a paid request.
-        result = subprocess.run(["/bin/launchctl", "kickstart", f"gui/{os.getuid()}/{RUN_LABEL}"], capture_output=True, timeout=10)
+        result = subprocess.run(["/bin/launchctl", "kickstart", f"gui/{os.getuid()}/{labels['run']}"], capture_output=True, timeout=10)
         report["action"] = "restart_requested" if result.returncode == 0 else "registered_restart_unavailable"
         report["recoveries"] += 1
     atomic_json(root / "monitor/reports" / (now.strftime("%Y%m%dT%H%M%SZ") + ".json"), report)
     atomic_json(root / "monitor/latest.json", report)
     print(json.dumps(report))
     if terminal or expired:
-        subprocess.run(["/bin/launchctl", "bootout", f"gui/{os.getuid()}/{WATCH_LABEL}"], capture_output=True, timeout=10)
+        subprocess.run(["/bin/launchctl", "bootout", f"gui/{os.getuid()}/{labels['watch']}"], capture_output=True, timeout=10)
 
 
 if __name__ == "__main__":

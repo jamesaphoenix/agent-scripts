@@ -9,4 +9,4 @@ root_dir="${script_dir:h:h}"
 source "$root_dir/lib/op-service-account-env.sh"
 agent_scripts_export_op_service_account --required
 unset ANTHROPIC_API_KEY OPENAI_API_KEY CODEX_API_KEY
-exec python3 "$script_dir/launch.py"
+exec python3 "$script_dir/launch.py" "$@"

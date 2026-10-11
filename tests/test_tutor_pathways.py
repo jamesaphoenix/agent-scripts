@@ -12,6 +12,9 @@ MODULE = Path(__file__).parents[1] / "agent-loops/tutor-lead-pathways/discovery.
 spec = importlib.util.spec_from_file_location("tutor_pathways", MODULE)
 discovery = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(discovery)
+configuration_spec = importlib.util.spec_from_file_location("configuration", MODULE.with_name("configuration.py"))
+configuration = importlib.util.module_from_spec(configuration_spec)
+configuration_spec.loader.exec_module(configuration)
 
 
 class SecretLaunchTests(unittest.TestCase):
@@ -42,6 +45,36 @@ class SecretLaunchTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "1Password credential read failed") as error:
                 launcher.runner_environment({"OP_SERVICE_ACCOUNT_TOKEN": "test-token"})
             self.assertNotIn("sensitive-output", str(error.exception))
+
+    def test_launcher_uses_requested_run_directory(self):
+        launcher = self.load_launcher()
+        root = Path("/private/state/tutor-lead-pathways-evening")
+        command = launcher.runner_command(root)
+        self.assertEqual(command[-2:], ["--run-dir", str(root)])
+
+
+class RunConfigurationTests(unittest.TestCase):
+    def settings(self, manifest):
+        module_spec = importlib.util.spec_from_file_location("pathway_configuration", MODULE.with_name("configuration.py"))
+        configuration = importlib.util.module_from_spec(module_spec)
+        module_spec.loader.exec_module(configuration)
+        return configuration.launchd_settings(manifest)
+
+    def test_new_run_monitor_has_its_own_owner_and_fifteen_minute_schedule(self):
+        labels = {"run": "com.jud.tutor-lead-pathways-20261011-evening",
+                  "watch": "com.jud.tutor-lead-pathways-watch-20261011-evening"}
+        self.assertEqual(self.settings({"launchdLabels": labels, "monitorIntervalSeconds": 900}), (labels, 900))
+
+    def test_legacy_manifests_preserve_their_original_monitor(self):
+        labels, interval = self.settings({})
+        self.assertEqual(labels["run"], "com.jud.tutor-lead-pathways-20261011")
+        self.assertEqual(interval, 1800)
+
+    def test_cross_run_labels_and_invalid_intervals_are_rejected(self):
+        labels = {"run": "com.jud.tutor-lead-pathways-first", "watch": "com.jud.tutor-lead-pathways-watch-second"}
+        for manifest in [{"launchdLabels": labels}, {"monitorIntervalSeconds": True}, {"monitorIntervalSeconds": 0}]:
+            with self.subTest(manifest=manifest), self.assertRaises(ValueError):
+                self.settings(manifest)
 
 
 class PaidCacheTests(unittest.TestCase):
@@ -406,7 +439,7 @@ class CountyCleaningTests(unittest.TestCase):
     def setUp(self):
         module_spec = importlib.util.spec_from_file_location("county_clean", MODULE.with_name("clean.py"))
         self.clean = importlib.util.module_from_spec(module_spec)
-        with patch.dict(sys.modules, {"discovery": discovery}):
+        with patch.dict(sys.modules, {"discovery": discovery, "configuration": configuration}):
             module_spec.loader.exec_module(self.clean)
 
     def test_hp_prefix_alone_does_not_establish_buckinghamshire(self):
@@ -490,7 +523,7 @@ class SearchPlanTests(unittest.TestCase):
     def load_prepare(self):
         module_spec = importlib.util.spec_from_file_location("pathway_prepare", MODULE.with_name("prepare.py"))
         prepare = importlib.util.module_from_spec(module_spec)
-        with patch.dict(sys.modules, {"discovery": discovery}):
+        with patch.dict(sys.modules, {"discovery": discovery, "configuration": configuration}):
             module_spec.loader.exec_module(prepare)
         return prepare
 
@@ -586,7 +619,7 @@ class RunnerHealthTests(unittest.TestCase):
     def setUp(self):
         module_spec = importlib.util.spec_from_file_location("pathway_run", MODULE.with_name("run.py"))
         self.runner = importlib.util.module_from_spec(module_spec)
-        with patch.dict(sys.modules, {"discovery": discovery}):
+        with patch.dict(sys.modules, {"discovery": discovery, "configuration": configuration}):
             module_spec.loader.exec_module(self.runner)
 
     def cache_business_page(self, cache, offset, total, status=20000):

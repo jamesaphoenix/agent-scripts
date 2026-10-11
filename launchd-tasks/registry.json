@@ -363,7 +363,10 @@
       "install": {
         "kind": "command",
         "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
-        "command": ["bash", "agent-loops/tracelearn-tutor-watch/install-launchd.sh"]
+        "command": [
+          "bash",
+          "agent-loops/tracelearn-tutor-watch/install-launchd.sh"
+        ]
       },
       "notes": "User authorised 2026-10-10: check tutor discovery every thirty minutes for 6-8 hours. Save actual progress, budget and ownership reports for eight hours. Preserve paid uncertainty and intentional limits; at most three guarded graceful recovery attempts of the existing checkpoint. No provider calls or credentials in the watcher; unload at the saved monitoring deadline."
     },
@@ -406,6 +409,48 @@
         ]
       },
       "notes": "User authorised 2026-10-11: three to five lead pathways for four to six hours, including Codex SDK with OAuth. Four DataForSEO script paths share SHA256 cache and USD20 incremental budget within original USD100 cap. Preserve Maps records without websites. Source-attributed research and final deduplication, no outreach or purchases."
+    },
+    {
+      "id": "tutor-lead-pathways-20261011-evening",
+      "name": "Expanded six-hour Bucks tutor discovery",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.tutor-lead-pathways-20261011-evening",
+      "schedule": "finite six-hour run, RunAtLoad and original-checkpoint recovery",
+      "requiresOpServiceAccount": true,
+      "opServiceAccountSource": "profile-or-keychain",
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
+        "command": [
+          "bash",
+          "agent-loops/tutor-lead-pathways/install-launchd.sh",
+          "run",
+          "tutor-lead-pathways-20261011-evening"
+        ]
+      },
+      "notes": "User authorised another four to seven hours on 2026-10-11, with fifteen-minute monitoring and targeted script/runtime improvements. Six-hour immutable window; USD20 incremental ceiling within original USD100 cap. Reuse settled provider receipts and historical source evidence. Independent local tutors, no outreach or purchases. Codex uses existing ChatGPT OAuth only."
+    },
+    {
+      "id": "tutor-lead-pathways-watch-20261011-evening",
+      "name": "Fifteen-minute Bucks discovery monitoring",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.tutor-lead-pathways-watch-20261011-evening",
+      "schedule": "every fifteen minutes plus RunAtLoad until finite discovery completes",
+      "requiresOpServiceAccount": false,
+      "opServiceAccountSource": null,
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
+        "command": [
+          "bash",
+          "agent-loops/tutor-lead-pathways/install-launchd.sh",
+          "watch",
+          "tutor-lead-pathways-20261011-evening"
+        ]
+      },
+      "notes": "User authorised another four to seven hours on 2026-10-11, with fifteen-minute monitoring and targeted script/runtime improvements. Six-hour immutable window; USD20 incremental ceiling within original USD100 cap. Reuse settled provider receipts and historical source evidence. Independent local tutors, no outreach or purchases. Codex uses existing ChatGPT OAuth only."
     }
   ]
 }

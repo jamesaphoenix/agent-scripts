@@ -17,6 +17,19 @@ export function recordUsage(status, previous, usage) {
   status.providerCompletedTurns = (previous.providerCompletedTurns || 0) + 1;
 }
 
+export function researchThread(codex, options, previous, job) {
+  const mode = job.codexThreadMode || "resume";
+  if (!["resume", "isolated"].includes(mode)) throw new Error("Invalid research thread mode");
+  return mode === "resume" && previous.threadId
+    ? codex.resumeThread(previous.threadId, options) : codex.startThread(options);
+}
+
+export function researchTowns(job, slot) {
+  if (!job.towns.length) throw new Error("Research requires at least one town");
+  const start = ((job.sdkTownOffset || 0) + slot * 4) % job.towns.length;
+  return Array.from({ length: Math.min(4, job.towns.length) }, (_, index) => job.towns[(start + index) % job.towns.length]);
+}
+
 async function atomicJson(path, value) {
   await mkdir(join(path, ".."), { recursive: true, mode: 0o700 });
   await writeFile(path + ".tmp", JSON.stringify(value, null, 2) + "\n", { mode: 0o600 });
@@ -57,12 +70,12 @@ export async function main(runDirectory, slot, transport = "direct") {
   const options = { model: job.codexModel, modelReasoningEffort: "medium", sandboxMode: "read-only",
     approvalPolicy: "never", workingDirectory: runDirectory, skipGitRepoCheck: true,
     webSearchMode: "live", networkAccessEnabled: false };
-  const thread = previous.threadId ? codex.resumeThread(previous.threadId, options) : codex.startThread(options);
-  const towns = job.towns.slice((slot * 4) % job.towns.length, ((slot * 4) % job.towns.length) + 4);
+  const thread = researchThread(codex, options, previous, job);
+  const towns = researchTowns(job, slot);
   const prompt = `Research independent individual and small local 11 plus and primary tutors in Buckinghamshire, including Milton Keynes.
 This is slot ${slot + 1} of a finite six-hour research workflow. Prioritise these actual towns and nearby villages: ${towns.map((town) => town.name).join(", ")}.
 Use live web search creatively. Combine business websites, named professional registers, parish/community directories, venue announcements, council family directories and newsletter PDF advertisements. Find tutors without standalone websites as well.
-Use bounded rg searches against sdk/known-leads.tsv to check already-known names, domains and towns. Do not read the large exports/businesses.json file in full. Focus on new individual practices; retain additional evidence for known leads only when it resolves locality, actual teaching services or business identity.
+Use targeted rg searches with at most eight matches per search against sdk/known-leads.tsv to check already-known names, domains and towns. Do not read the complete index or the large exports/businesses.json file. Focus on new individual practices; retain additional evidence for known leads only when it resolves locality, actual teaching services or business identity.
 Return only professional/business contact details explicitly advertised for tuition. A search origin or generic town landing page does not establish actual locality. Do not invent email patterns, phone numbers, names, consent, independent ownership or 11 plus services. Exclude franchises, recruitment jobs, school institutions and directories themselves as contacts. Primary tutors are useful even without 11 plus specialisation.
 Use a practice's own website or its exact individual professional profile as website. Put community directories and newsletters in sourceUrls rather than using them as a shared business website.
 Open the source pages and distinguish their actual content from search snippets, older adverts, sold domains and inactive businesses. Each returned record needs exact public source URLs, the locality and service claim, and candid verification notes. If evidence is weak, say so. Never pad the list to a target count.
@@ -73,7 +86,8 @@ All DataForSEO spending is performed by separate scripts, not this session. Use 
   const timer = setTimeout(() => controller.abort(new Error("Finite research turn deadline")), maximumTime);
   const startedAt = new Date().toISOString();
   const status = { ...previous, authentication: "chatgpt_oauth", model: job.codexModel,
-    transport, slot, startedAt, updatedAt: startedAt, phase: "running", pid: process.pid, webSearches: 0 };
+    transport, threadMode: job.codexThreadMode || "resume", slot, startedAt, updatedAt: startedAt,
+    phase: "running", pid: process.pid, webSearches: 0 };
   await atomicJson(statePath, status);
   const eventsPath = join(runDirectory, `sdk/events/slot-${String(slot).padStart(2, "0")}.jsonl`);
   await mkdir(join(eventsPath, ".."), { recursive: true, mode: 0o700 });

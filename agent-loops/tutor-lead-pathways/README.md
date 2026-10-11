@@ -22,7 +22,9 @@ Unfinished frontiers resume their existing checkpoints before new roots, retaini
 
 Preparation also imports settled receipts from completed pathway and town-search runs, including failed searches, using their original semantic hashes. It verifies saved hashes, request/task identities and charges, refuses active or uncertain history, and carries previous exposure into the shared budget without charging imported receipts again. Cached entries are recorded as reused and do not consume another paced provider slot. Parallel and inherited exposure floors are retained. The completed 11 October run, its files and original limits remain unchanged.
 
-The watch task runs at startup and every thirty minutes. It checks the actual owner lock/PID, checkpoint age, meaningful progress, paid usage, SDK usage and runtime errors. A missing owner can request at most three registered launchd restarts without killing another process. It never calls a paid provider. The monitor saves its final report and unloads after completion or the original deadline.
+New manifests bind their owner and monitor labels to a unique run identity and use fifteen-minute checks. The installer and watcher share the same validated configuration, so recovery and terminal unloading address that run. Legacy manifests retain their saved thirty-minute interval and labels. Each check records the actual owner lock/PID, checkpoint age, meaningful progress, paid usage, SDK usage and runtime errors. A missing owner can request at most three registered launchd restarts without killing another process. The monitor never calls a paid provider, saves its final report and unloads after completion or the original deadline.
+
+New Codex research turns use isolated conversations and rotate four towns, wrapping the town list. This avoids reloading growing previous conversations. The shared, regenerated lead index supplies deduplication through targeted searches capped at eight matches. Existing jobs retain their saved thread mode. New jobs allow at most six turns with a one-million-token pre-start ceiling; a turn can exceed that ceiling, and recorded usage remains the authority. These limits do not imply subscription quota or a dollar price.
 
 The launcher resolves only the two DataForSEO references through the existing `lib/op-cli.sh` wrapper. Its twenty-second calls isolate the CLI from macOS desktop settings and bound the whole process group; one cache-disabled retry has a fifty-second outer bound. The launcher removes the service account and unrelated API keys before executing the runner. SDK and crawler children receive only ordinary host environment fields, never provider credentials. This avoids the observed launchd/TCC startup hang.
 
@@ -33,6 +35,8 @@ scripts/install-launchd-tasks.sh --task tutor-lead-pathways-20261011
 scripts/install-launchd-tasks.sh --task tutor-lead-pathways-watch-20261011
 python3 agent-loops/tutor-lead-pathways/run.py status --run-dir state/tutor-lead-pathways-20261011
 ```
+
+The separate evening run is registered as `tutor-lead-pathways-20261011-evening` and `tutor-lead-pathways-watch-20261011-evening`. Its installer receives the prepared folder name explicitly; it does not reuse the earlier job's window or artifacts.
 
 Private artifacts live under `state/tutor-lead-pathways-20261011`: native paid receipts and hashes, SDK events/results/token usage, Go checkpoints/evidence, monitor reports, deduplicated business JSON/CSV, a filtered research CSV and final `REPORT.md`. Business identities and establishment IDs are separate. Advertised location, independent ownership, current subjects, email validity and consent remain explicit verification fields; no heuristics grant outreach eligibility. Source directories, jobs, schools and recognised chains are held. No emails, domain purchases or tenant imports are part of this job.
 

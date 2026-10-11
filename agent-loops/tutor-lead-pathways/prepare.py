@@ -10,6 +10,7 @@ import sqlite3
 import tomllib
 
 from discovery import PaidCache, atomic_json, file_hash, request_key
+from configuration import launchd_settings
 
 
 def build_plan(towns):
@@ -104,9 +105,13 @@ def completed_paid_history(history_root, legacy_exposure, exclude=None):
     return max(largest_exposure, floor + sum(charges.values())), receipts
 
 
-def prepare(root, history_root, towns_file, codex_binary, crawler_binary, model):
+def prepare(root, history_root, towns_file, codex_binary, crawler_binary, model, monitor_seconds=900):
     if (root / "manifest.json").exists():
         raise ValueError("Prepared job already exists; preserve its original plan")
+    suffix = root.name.removeprefix("tutor-lead-pathways-")
+    labels = {"run": "com.jud.tutor-lead-pathways-" + suffix,
+              "watch": "com.jud.tutor-lead-pathways-watch-" + suffix}
+    launchd_settings({"launchdLabels": labels, "monitorIntervalSeconds": monitor_seconds})
     checkpoints = list(history_root.glob("tracelearn-tutors-*/discovery.json"))
     prior, receipts = 0, []
     for path in checkpoints:
@@ -146,17 +151,19 @@ def prepare(root, history_root, towns_file, codex_binary, crawler_binary, model)
     atomic_json(root / "plan.json", plan)
     config_path = Path.home() / ".codex/config.toml"
     config = tomllib.loads(config_path.read_text()) if config_path.exists() else {}
-    manifest = {"runId": "bucks-five-pathways-20261011", "hours": 6, "budgetCents": 2000, "priorExposureCents": prior,
+    manifest = {"runId": root.name, "hours": 6, "budgetCents": 2000, "priorExposureCents": prior,
                 "sharedCapCents": 10000, "planSha256": file_hash(root / "plan.json"), "towns": towns,
                 "codexBinary": str(codex_binary), "codexModel": model or config.get("model"),
                 "nodeBinary": shutil.which("node"),
                 "disabledMcpServers": list(config.get("mcp_servers", {})), "crawlerBinary": str(crawler_binary),
                 "historyRoot": str(history_root), "importedHistoricalReceipts": imported,
-                "maximumSdkTurns": 12, "sdkTokenCeiling": 2000000, "freePageBudget": 10000,
+                "maximumSdkTurns": 6, "sdkTokenCeiling": 1000000, "codexThreadMode": "isolated",
+                "sdkTownOffset": 12, "freePageBudget": 10000,
                 "crawlLimits": {"depth": 2, "branchSites": 15, "sites": 50, "batchPages": 400,
                                 "pagesPerSite": 8, "workers": 4, "rootsPerBatch": 10},
                 "pathways": ["maps", "business", "organic", "directories", "codex_oauth"],
-                "monitorIntervalSeconds": 1800, "delivery": "private research artifacts, no external outreach"}
+                "monitorIntervalSeconds": monitor_seconds, "launchdLabels": labels,
+                "delivery": "private research artifacts, no external outreach"}
     atomic_json(root / "manifest.json", manifest)
     shutil.copy2(towns_file, root / "towns.json")
     print(json.dumps({"planQueries": len(plan), "locations": len(towns), "importedReceipts": imported, "priorExposureCents": prior, "budgetCents": 2000}))
@@ -170,5 +177,6 @@ if __name__ == "__main__":
     parser.add_argument("--codex", type=Path, required=True)
     parser.add_argument("--crawler", type=Path, required=True)
     parser.add_argument("--model")
+    parser.add_argument("--monitor-seconds", type=int, default=900)
     args = parser.parse_args()
-    prepare(args.run_dir, args.history_root, args.towns, args.codex, args.crawler, args.model)
+    prepare(args.run_dir, args.history_root, args.towns, args.codex, args.crawler, args.model, args.monitor_seconds)

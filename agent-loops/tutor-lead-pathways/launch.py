@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Resolve only the required 1Password credentials with bounded CLI reads."""
+import argparse
 import os
 from pathlib import Path
 import subprocess
@@ -9,6 +10,10 @@ ALLOWED = {"PATH", "HOME", "USER", "LOGNAME", "LANG", "LC_ALL", "TMPDIR", "CODEX
 REFERENCES = {"DATAFORSEO_LOGIN": "op://api-keys/DataForSEO/login",
               "DATAFORSEO_PASSWORD": "op://api-keys/DataForSEO/password"}
 OP_HELPER = Path(__file__).resolve().parents[2] / "lib/op-cli.sh"
+
+
+def runner_command(run_directory):
+    return ["python3", str(Path(__file__).resolve().with_name("run.py")), "run", "--run-dir", str(run_directory)]
 
 
 def runner_environment(environment):
@@ -32,10 +37,12 @@ def runner_environment(environment):
 if __name__ == "__main__":
     scripts = Path(__file__).resolve().parent
     root = scripts.parent.parent
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--run-dir", type=Path, default=root / "state/tutor-lead-pathways-20261011")
+    args = parser.parse_args()
     try:
         environment = runner_environment(os.environ)
     except (RuntimeError, OSError, subprocess.TimeoutExpired) as error:
         print(str(error), file=sys.stderr)
         raise SystemExit(1)
-    os.execvpe("python3", ["python3", str(scripts / "run.py"), "run", "--run-dir",
-                           str(root / "state/tutor-lead-pathways-20261011")], environment)
+    os.execvpe("python3", runner_command(args.run_dir), environment)

@@ -30,12 +30,14 @@ NON_ACADEMIC_CATEGORIES = {
     "museum", "driving school", "martial arts school", "piano instructor",
     "art school", "life coach", "translation service",
     "personal trainer", "music teacher", "media company", "bag shop", "golf club",
+    "artist", "recruiter", "hypnotherapy service", "drama school",
 }
 SCHOOL_CATEGORIES = {
     "school", "independent school", "private school", "preparatory school",
     "boarding school", "grammar school", "high school", "sixth form college",
     "college", "university", "preschool", "montessori preschool", "nursery school",
     "special education school",
+    "teachers college", "pre-school",
 }
 SOURCE_HOSTS = {
     "11plusguide.com", "elevenplusexams.co.uk", "hometutorsdirectory.co.uk", "my-towns.co.uk",

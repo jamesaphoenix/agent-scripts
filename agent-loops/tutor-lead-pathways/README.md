@@ -52,6 +52,8 @@ Facebook profile IDs remain in business identity, including mobile URLs and numb
 
 Facebook groups and shared posts remain held discovery sources rather than named tutor businesses. Before launching a crawl batch, the controller calls the reviewed Go binary's offline `filter-seeds` command. This reuses the crawler's public URL and site admission rules. Rejected roots and reasons are saved separately; an entirely rejected batch does not launch a crawler or produce a missing-checkpoint failure. Permitted independent hosted sites still pass through the same site-identity rules.
 
+County review found watercolour artists, recruiters, hypnotherapy and drama-school listings among broad Maps matches. Those explicit categories are held outside academic tuition. Teacher-training colleges and the provider's `Pre-school` category remain institutions. `Educational institution` alone is not an exclusion because genuine primary maths tutors also use that category.
+
 Verification:
 
 ```bash

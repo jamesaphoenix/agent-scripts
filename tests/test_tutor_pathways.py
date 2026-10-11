@@ -183,6 +183,15 @@ class LeadCleaningTests(unittest.TestCase):
         for url in ["https://www.facebook.com/profile.php?id=123", "https://www.facebook.com/individualtutor/"]:
             self.assertIsNone(discovery.hold_reason({"name": "Independent Tutor", "website": url}))
 
+    def test_observed_non_tutor_county_categories_are_held(self):
+        for name, category in [("Joy Hawes Watercolours", "Artist"), ("Supply Tutoring Ltd", "Recruiter"),
+                               ("Apricot Therapies", "Hypnotherapy service"), ("Perform Amersham", "Drama school")]:
+            self.assertEqual(discovery.hold_reason({"name": name, "category": category}), "outside_academic_tuition_scope")
+        for name, category in [("Chepping View SCITT Primary Teacher Training", "Teachers college"),
+                               ("Acorn Montessori Nursery and Preschool", "Pre-school")]:
+            self.assertEqual(discovery.hold_reason({"name": name, "category": category}), "school_or_college")
+        self.assertIsNone(discovery.hold_reason({"name": "Marie Hayes Primary Maths Tuition", "category": "Educational institution"}))
+
     def test_pmt_profiles_and_directory_contacts_keep_separate_source_identities(self):
         rows = [discovery.business_record({"name": "Samuel W. Private Tutor", "website": "https://www.pmt.education/tutor/tutor-profile/samuel-w-226582"}, {}),
                 discovery.business_record({"name": "Another tutor", "website": "https://www.pmt.education/tutor/tutor-profile/another-tutor-123456"}, {}),

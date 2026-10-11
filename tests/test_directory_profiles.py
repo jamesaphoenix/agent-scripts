@@ -13,6 +13,48 @@ spec.loader.exec_module(directory)
 
 
 class ProfileTests(unittest.TestCase):
+    def test_childcare_extracts_tutor_header_subjects_without_trusting_county_breadcrumbs(self):
+        html = '''<div class="profile-header--info-wrapper"><h1>Jane Example</h1>
+          <h3>Private Tutor in Chiltern (also available for babysitting)</h3></div>
+          <div class="tag positive maths-tutor"><span>Maths Tutor</span></div>
+          <div class="tag positive 11-plus"><span>11 Plus</span></div>
+          <div class="tag positive dbs-check"><span>DBS Check</span></div>
+          <script type="application/ld+json">[{"@type":"BreadcrumbList","itemListElement":[
+            {"name":"Private Tutors in Buckinghamshire","item":"https://www.childcare.co.uk/search/Private-Tutors/Buckinghamshire"}]}]</script>
+          <script type="application/ld+json">{"@type":"Organization","name":"Childcare Limited","address":"London"}</script>'''
+        row = directory.profile_record(html, "https://www.childcare.co.uk/profile/123")
+        self.assertEqual(row["name"], "Jane Example")
+        self.assertEqual(row["personId"], "123")
+        self.assertEqual(row["localityClaim"], "Chiltern")
+        self.assertEqual(row["directoryCountyCategory"], "Buckinghamshire")
+        self.assertEqual(row["services"], ["Maths Tutor", "11 Plus"])
+        self.assertFalse(row["outreachEligible"])
+        self.assertEqual(directory.profile_locality_status(row), "advertised_bucks_locality")
+        outside = directory.profile_record(html.replace("in Chiltern", "in Edinburgh"), "https://www.childcare.co.uk/profile/123")
+        self.assertEqual(directory.profile_locality_status(outside), "outside_or_unresolved")
+        unknown = directory.profile_record(html.replace("in Chiltern", "in Unknown Place"), "https://www.childcare.co.uk/profile/123")
+        self.assertEqual(directory.profile_locality_status(unknown), "outside_or_unresolved")
+        self.assertEqual(directory.locality_status("Chiltern"), "outside_or_unresolved")
+        self.assertIsNone(directory.profile_record(html.replace("Private Tutor in", "Parent in"), "https://www.childcare.co.uk/profile/123"))
+        self.assertIsNone(directory.profile_record(html, "https://www.childcare.co.uk/search/Private-Tutors/Buckinghamshire"))
+
+    def test_childcare_directory_cannot_supply_county_proof_for_a_person(self):
+        html = '''<div class="search-result" data-screenname="Jane" data-user-id="123">
+          <div class="distance"><span>Private Tutor in Edinburgh</span></div></div>
+          <div class="search-result" data-screenname="Jo" data-user-id="124">
+          <div class="distance"><span>Private Tutor in Milton Keynes</span></div></div>'''
+        url = "https://www.childcare.co.uk/search/Private-Tutors/Buckinghamshire"
+        rows = directory.listing_records(html, url)
+        self.assertEqual(len(rows), 2)
+        self.assertEqual(rows[0]["localityClaim"], "Edinburgh")
+        self.assertEqual(directory.profile_locality_status(rows[0]), "outside_or_unresolved")
+        self.assertNotIn("countyClaim", rows[0])
+        self.assertTrue(directory.local_directory_link(url + "/2", url))
+        self.assertFalse(directory.local_directory_link(url + "/Maths-Tutor", url))
+        self.assertFalse(directory.local_directory_link("https://www.childcare.co.uk/search/Private-Tutors/London/2", url))
+        for path in ["/profile/123/reviews/456", "/login?ret=/profile/123", "/search/Parents/Buckinghamshire", "/message/123"]:
+            self.assertIsNone(directory.admitted_url("https://www.childcare.co.uk" + path))
+
     def test_county_search_does_not_make_online_or_neighbouring_tutors_local(self):
         cards = """
         <div class="itemv3" data-link="/tutors-aylesbury/maths-123">

@@ -16,7 +16,7 @@ import urllib.parse
 import urllib.request
 import urllib.robotparser
 
-HOSTS = {"www.findtutors.co.uk", "tutorperch.com"}
+HOSTS = {"www.findtutors.co.uk", "tutorperch.com", "www.childcare.co.uk"}
 AGENT = "TutorResearch/1.0"
 BUCKS = {
     "amersham", "amersham on the hill", "aylesbury", "beaconsfield", "bierton", "buckingham",
@@ -31,7 +31,9 @@ BUCKS = {
     "pitstone", "ivinghoe", "aston clinton", "great kingshill", "little kingshill", "longwick",
     "broughton buckinghamshire", "broughton (buckinghamshire)", "bishopstone (buckinghamshire)",
     "bourton", "bourton meadow", "bourne end buckinghamshire", "bourne end (buckinghamshire)",
+    "wavendon", "upper weald", "holmer green",
 }
+CHILDCARE_DISTRICTS = {"aylesbury vale", "chiltern", "south bucks", "wycombe"}
 NON_TUITION = re.compile(r"\b(?:yoga|football|fitness|personal training|swimming|pilates|driving)\b", re.I)
 INSTITUTION = re.compile(r"\b(?:academy|university|college|grammar school|tuition centre|learning centre|kumon|mathnasium|explore learning)\b", re.I)
 ACADEMIC = re.compile(r"math|english|science|biology|chemistry|physics|history|geography|language|french|spanish|german|italian|arabic|mandarin|chinese|japanese|russian|latin|greek|portuguese|hindi|urdu|economics|business|accounting|comput|programming|coding|philosophy|psychology|sociology|law|statistics|primary|11\+|11.plus|eleven.plus|gcse|a.level|sat|reading|writing|literacy|phonics|dyslexia|study skills|special needs|send|efl|esol|ielts|piano|violin|guitar|singing|music|drum|flute", re.I)
@@ -57,7 +59,10 @@ def admitted_url(value):
         p = urllib.parse.urlsplit(value)
         if p.scheme != "https" or p.hostname not in HOSTS or p.port not in (None, 443) or p.username or p.password:
             return None
-        if p.hostname == "tutorperch.com":
+        if p.hostname == "www.childcare.co.uk":
+            profile = bool(re.fullmatch(r"/profile/\d+", p.path))
+            allowed = profile or p.path == "/robots.txt" or bool(re.fullmatch(r"/search/Private-Tutors/Buckinghamshire(?:/\d+)?", p.path))
+        elif p.hostname == "tutorperch.com":
             profile = bool(re.fullmatch(r"/t/[a-z0-9]+(?:-[a-z0-9]+)+/?", p.path))
             allowed = profile or p.path in ("/find/results", "/robots.txt")
         else:
@@ -128,6 +133,14 @@ def locality_status(value):
     return "unresolved" if not primary or primary in ("online", "online lessons") else "outside_or_unresolved"
 
 
+def profile_locality_status(row):
+    # These are the former Bucks district names used in Childcare's tutor header.
+    # Its county breadcrumb can contradict that header and never supplies proof.
+    if row.get("platform") == "childcare.co.uk" and row.get("evidenceKind") == "public_person_profile" and row.get("localityClaim", "").strip().lower() in CHILDCARE_DISTRICTS:
+        return "advertised_bucks_locality"
+    return locality_status(row.get("localityClaim", ""))
+
+
 def exclusion_reason(row):
     if row.get("institution") or INSTITUTION.search(row.get("name", "")):
         return "institution_or_chain"
@@ -143,6 +156,15 @@ def listing_records(text, url):
     document = Document(text).root
     rows = []
     for card in document.walk():
+        if urllib.parse.urlsplit(url).hostname == "www.childcare.co.uk" and card.has_class("search-result"):
+            person_id, name = card.attrs.get("data-user-id", ""), card.attrs.get("data-screenname", "")
+            if person_id.isdigit() and name:
+                location = class_text(card, "distance")
+                match = re.fullmatch(r"Private Tutor in (.+)", location)
+                rows.append({"name": name, "personId": person_id, "platform": "childcare.co.uk",
+                             "sourceUrls": ["https://www.childcare.co.uk/profile/" + person_id], "listingUrl": url,
+                             "localityClaim": match.group(1) if match else "", "services": [],
+                             "evidenceKind": "directory_listing", "outreachEligible": False})
         if urllib.parse.urlsplit(url).hostname == "tutorperch.com" and card.attrs.get("data-slot") == "card":
             link = card.first(lambda n: n.tag == "a" and n.has_class("card-overlay-link"))
             location = card.first(lambda n: n.tag == "span" and n.first(lambda child: child.tag == "svg" and child.has_class("lucide-map-pin")) is not None)
@@ -172,7 +194,35 @@ def profile_record(text, url):
         return None
     p = urllib.parse.urlsplit(url)
     document = Document(text).root
-    if p.hostname == "tutorperch.com":
+    if p.hostname == "www.childcare.co.uk":
+        if not re.fullmatch(r"/profile/\d+", p.path):
+            return None
+        header = document.first(lambda n: n.has_class("profile-header--info-wrapper"))
+        name = header.first(lambda n: n.tag == "h1") if header else None
+        role = header.first(lambda n: n.tag == "h3") if header else None
+        location = re.fullmatch(r"Private Tutor in (.+?)(?: \(also available[^)]*\))?", role.text()) if role else None
+        if not name or not name.text() or not location:
+            return None
+        services = [n.text() for n in document.walk() if n.has_class("tag") and n.has_class("positive")
+                    and (ACADEMIC.search(n.text()) or NON_TUITION.search(n.text()))]
+        county_claim = None
+        for script in document.walk():
+            if script.tag != "script" or script.attrs.get("type") != "application/ld+json":
+                continue
+            try:
+                data = json.loads("".join(c for c in script.children if isinstance(c, str)))
+            except (ValueError, TypeError):
+                continue
+            for item in data if isinstance(data, list) else [data]:
+                if not isinstance(item, dict) or item.get("@type") != "BreadcrumbList" or not isinstance(item.get("itemListElement"), list):
+                    continue
+                for crumb in item["itemListElement"]:
+                    if isinstance(crumb, dict) and crumb.get("name") == "Private Tutors in Buckinghamshire" and crumb.get("item") == "https://www.childcare.co.uk/search/Private-Tutors/Buckinghamshire":
+                        county_claim = "Buckinghamshire"
+        return {"name": name.text(), "personId": p.path.split("/")[-1], "platform": "childcare.co.uk", "sourceUrls": [url],
+                "localityClaim": location.group(1), "directoryCountyCategory": county_claim, "services": services,
+                "evidenceKind": "public_person_profile", "outreachEligible": False, "institution": False}
+    elif p.hostname == "tutorperch.com":
         if not p.path.startswith("/t/"):
             return None
         for script in document.walk():
@@ -302,6 +352,8 @@ def local_directory_link(value, source):
     parsed, origin = urllib.parse.urlsplit(value), urllib.parse.urlsplit(source)
     if parsed.hostname != origin.hostname:
         return False
+    if parsed.hostname == "www.childcare.co.uk":
+        return bool(re.fullmatch(r"/search/Private-Tutors/Buckinghamshire(?:/\d+)?", parsed.path))
     if parsed.hostname == "tutorperch.com":
         origin_filters = dict(urllib.parse.parse_qsl(origin.query))
         filters = dict(urllib.parse.parse_qsl(parsed.query))
@@ -397,7 +449,7 @@ def run(root, seeds, hours, page_limit, target):
                     else:
                         cards = listing_records(text, url)
                         # Prefer actual local profiles, then pagination and linked local directories.
-                        local_urls = [r["sourceUrls"][0] for r in cards if locality_status(r["localityClaim"]) == "advertised_bucks_locality" and not exclusion_reason(r)]
+                        local_urls = [r["sourceUrls"][0] for r in cards if host == "www.childcare.co.uk" or (locality_status(r["localityClaim"]) == "advertised_bucks_locality" and not exclusion_reason(r))]
                         links = linked_pages(text, url)
                         links = [link for link in links if local_directory_link(link, url)]
                         if host == "www.findtutors.co.uk":
@@ -409,7 +461,7 @@ def run(root, seeds, hours, page_limit, target):
             except (OSError, ValueError, KeyError, TypeError) as error:
                 state["errors"].append({"url": url, "reason": type(error).__name__})
             profiles = merge_profiles(state["records"])
-            qualified = [r for r in profiles if locality_status(r["localityClaim"]) == "advertised_bucks_locality" and not r.get("locationConflict") and not exclusion_reason(r)]
+            qualified = [r for r in profiles if profile_locality_status(r) == "advertised_bucks_locality" and not r.get("locationConflict") and not exclusion_reason(r)]
             save(root / "profiles.json", profiles)
             save(root / "bucks-private-tutors.json", qualified)
             export_csv(root, qualified)

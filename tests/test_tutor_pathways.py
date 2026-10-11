@@ -936,7 +936,8 @@ class RunnerHealthTests(unittest.TestCase):
             root = Path(temporary)
             (root / "plan.json").write_text("[]")
             manifest = {"runId": "old-run", "planSha256": discovery.file_hash(root / "plan.json")}
-            job = dict(manifest, startedAt="2020-01-01T00:00:00+00:00", deadline="2020-01-01T06:00:00+00:00")
+            job = dict(manifest, startedAt="2020-01-01T00:00:00+00:00", deadline="2020-01-01T06:00:00+00:00",
+                       discoveryDeadline="2020-01-01T05:45:00+00:00")
             discovery.atomic_json(root / "manifest.json", manifest)
             discovery.atomic_json(root / "job.json", job)
             self.assertEqual(self.runner.initialize_job(root), job)

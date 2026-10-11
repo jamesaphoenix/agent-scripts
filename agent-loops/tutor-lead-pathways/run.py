@@ -200,6 +200,12 @@ def status(root):
     cache.db.close()
     if (root / "sdk/status.json").exists():
         value["sdk"] = json.loads((root / "sdk/status.json").read_text())
+    runtime_path = root / "runtime.json"
+    if runtime_path.exists():
+        completed = set(json.loads(runtime_path.read_text())["completedQueries"])
+        remaining = collections.Counter(item["lane"] for item in json.loads((root / "plan.json").read_text())
+                                        if item["key"] not in completed)
+        value["remainingPlanQueries"] = {lane: remaining[lane] for lane in INTERVALS}
     lock_path = root / "run.lock"
     with lock_path.open("a") as lock:
         try:
@@ -526,7 +532,10 @@ def monitor_health(value, now, stalled):
         issues.append("Paid response charges remain uncertain; identities are held")
     for lane, failures in value.get("consecutivePathFailures", {}).items():
         if failures >= 3:
-            issues.append(lane + " is cooling down after repeated provider failures")
+            if value.get("remainingPlanQueries", {}).get(lane) == 0:
+                issues.append(lane + " has no new planned searches; provider failures remain recorded")
+            else:
+                issues.append(lane + " is cooling down after repeated provider failures")
     last_crawl = value.get("lastCrawlerSuccessAt")
     if any(error.get("lane") == "crawler" and (not last_crawl or parse_time(error["at"]) > parse_time(last_crawl))
            for error in value.get("recentErrors", [])):

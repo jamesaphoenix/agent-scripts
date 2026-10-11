@@ -949,6 +949,30 @@ class RunnerHealthTests(unittest.TestCase):
         self.assertEqual(health, "degraded")
         self.assertEqual(len(issues), 2)
 
+    def test_monitor_distinguishes_exhausted_queries_from_a_retry_cooldown_without_hiding_failures(self):
+        now = discovery.parse_time("2026-10-11T10:00:00+00:00")
+        for completed, expected in [([], "directories is cooling down after repeated provider failures"),
+                                    (["directory-query"], "directories has no new planned searches; provider failures remain recorded")]:
+            with self.subTest(completed=completed), tempfile.TemporaryDirectory() as temporary:
+                root = Path(temporary)
+                discovery.atomic_json(root / "plan.json", [{"lane": "directories", "key": "directory-query"},
+                                                           {"lane": "maps", "key": "map-query"}])
+                discovery.atomic_json(root / "job.json", {"budgetCents": 100, "priorExposureCents": 0,
+                                                          "planSha256": discovery.file_hash(root / "plan.json")})
+                discovery.atomic_json(root / "runtime.json", {"completedQueries": completed})
+                discovery.atomic_json(root / "status.json", {"phase": "running", "pid": 123,
+                                                             "observedAt": now.isoformat(),
+                                                             "consecutivePathFailures": {"directories": 3}})
+                owner = subprocess.CompletedProcess([], 0, str(self.runner.HERE / "run.py") + " run --run-dir " + str(root), "")
+                with patch.object(self.runner.fcntl, "flock", side_effect=BlockingIOError), patch.object(self.runner.subprocess, "run", return_value=owner):
+                    value = self.runner.status(root)
+                health, issues = self.runner.monitor_health(value, now, False)
+                self.assertEqual(health, "degraded")
+                self.assertEqual(issues, [expected])
+                self.assertEqual(value["consecutivePathFailures"]["directories"], 3)
+                self.assertEqual(value["remainingPlanQueries"]["maps"], 1)
+                self.assertEqual(json.loads((root / "runtime.json").read_text()), {"completedQueries": completed})
+
     def test_sdk_startup_stall_is_detected_while_other_paths_progress(self):
         now = discovery.parse_time("2026-10-11T10:06:00+00:00")
         value = {"phase": "running", "processLive": True, "observedAt": now.isoformat(),

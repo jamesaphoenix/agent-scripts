@@ -457,7 +457,7 @@ def clean_emails(values):
     out = []
     for email in candidates:
         domain = email.split("@", 1)[1]
-        if domain in ("learnworlds.com", "wix.com", "squarespace.com", "example.com", "sentry.io", "mysite.com"):
+        if domain in ("learnworlds.com", "wix.com", "squarespace.com", "example.com", "sentry.io", "mysite.com", "edublink.com"):
             continue
         malformed = any(email != other and email.endswith(other) and
                         (email[:-len(other)].isdigit() or email[:-len(other)] in ("email", "e-mail", "tel", "phone"))

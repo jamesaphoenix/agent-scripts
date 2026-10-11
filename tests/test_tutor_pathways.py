@@ -102,6 +102,9 @@ class LeadCleaningTests(unittest.TestCase):
         self.assertEqual(discovery.clean_emails(["info@mrsptutoring.co.uk", "emailinfo@mrsptutoring.co.uk", "084380contact@cleverclogsacademy.com", "contact@cleverclogsacademy.com", "support@learnworlds.com"]),
                          ["contact@cleverclogsacademy.com", "info@mrsptutoring.co.uk"])
 
+    def test_natalie_frith_template_address_does_not_replace_her_business_contact(self):
+        self.assertEqual(discovery.clean_emails(["info@edublink.com", "natfrith@icloud.com"]), ["natfrith@icloud.com"])
+
     def test_maps_business_survives_without_a_website(self):
         record = discovery.business_record({"title": "Primary Target Tutoring", "place_id": "place-one", "address": "High Wycombe HP13 6UJ", "phone": "+447780000000", "category": "Tutor"}, {"lane": "maps", "town": "High Wycombe"})
         self.assertIsNone(record["website"])

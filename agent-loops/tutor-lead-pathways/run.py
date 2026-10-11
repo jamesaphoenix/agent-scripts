@@ -125,6 +125,11 @@ def next_query(lane, plan, cache, state):
     for item in plan:
         if item["lane"] != lane or item["key"] in completed:
             continue
+        saved = cache.get(item["key"])
+        if saved:
+            state["completedQueries"].append(item["key"])
+            state.setdefault("reusedQueries", []).append({"key": item["key"], "status": saved["status"]})
+            continue
         if finished_query(item, cache):
             state["completedQueries"].append(item["key"])
             state.setdefault("skippedQueries", []).append({"key": item["key"], "reason": "Previous page did not establish further results"})

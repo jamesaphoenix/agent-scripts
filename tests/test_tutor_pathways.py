@@ -641,6 +641,22 @@ class RunnerHealthTests(unittest.TestCase):
             self.assertEqual(state["skippedQueries"][0]["key"], skipped["key"])
             self.assertIsNone(cache.get(skipped["key"]))
 
+    def test_reused_successful_and_failed_searches_do_not_consume_new_paid_slots(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            cache = discovery.PaidCache(Path(temporary), 200, 0)
+            self.addCleanup(cache.db.close)
+            plan = []
+            for keyword, status in [('known', 20000), ('failed', 40101), ('new', None)]:
+                payload = {'keyword': keyword}
+                key = discovery.request_key('organic', payload)
+                plan.append({'lane': 'organic', 'key': key, 'payload': payload})
+                if status is not None:
+                    cache.reserve(key, 'organic', payload, 100)
+                    cache.settle(key, {'status_code': 20000, 'cost': 0.002, 'tasks': [{'id': keyword, 'cost': 0.002, 'status_code': status}]})
+            state = {'completedQueries': []}
+            self.assertEqual(self.runner.next_query('organic', plan, cache, state), plan[2])
+            self.assertEqual(state['completedQueries'], [plan[0]['key'], plan[1]['key']])
+
     def test_crawler_enriches_tutor_categories_and_subject_urls_without_name_keywords(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

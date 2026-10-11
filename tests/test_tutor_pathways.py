@@ -184,6 +184,15 @@ class LeadCleaningTests(unittest.TestCase):
             with self.subTest(row=row):
                 self.assertEqual(discovery.hold_reason(row), "recognised_chain")
 
+    def test_verified_brain_up_and_clara_james_franchise_brands_are_held(self):
+        for row in [{"name": "Brain Up Abacus Mental Maths Academy", "category": "Corporate office"},
+                    {"name": "Mental maths", "website": "https://www.brainup.uk/"},
+                    {"name": "Mental maths", "website": "https://www.brainupabacus.co.uk/"},
+                    {"name": "Clara James Tutoring", "category": "Tutor"},
+                    {"name": "Private tutor", "website": "https://clarajamestutoring.co.uk/"}]:
+            with self.subTest(row=row):
+                self.assertEqual(discovery.hold_reason(row), "recognised_chain")
+
     def test_non_academic_maps_categories_do_not_pad_tutor_counts(self):
         for name, category in [("Cowper and Newton Museum", "Museum"),
                                ("Rapid Book Test", "Driving school"),

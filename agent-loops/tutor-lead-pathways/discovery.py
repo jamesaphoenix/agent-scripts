@@ -21,7 +21,10 @@ ENDPOINTS = {
     "directories": "/v3/serp/google/organic/live/advanced",
     "business": "/v3/business_data/business_listings/search/live",
 }
-CHAINS = re.compile(r"\b(kumon|explore learning|first class learning|mathnasium|tutor doctor|teachers to your home|bright young things|kip\s*mcgrath|number\s*works\s*['’]?\s*n\s*words)\b", re.I)
+CHAINS = re.compile(
+    r"\b(?:kumon|explore learning|first class learning|mathnasium|tutor doctor|teachers to your home|"
+    r"bright young things|kip\s*mcgrath|number\s*works\s*['’]?\s*n\s*words|"
+    r"brain\s*up(?:\s*abacus)?|clara\s*james(?:\s*tutoring)?)\b", re.I)
 ELEVEN_PLUS = re.compile(r"\b(?:11\s*\+|11[\s-]*plus\b|eleven[\s-]*plus\b)", re.I)
 NON_ACADEMIC_CATEGORIES = {
     "museum", "driving school", "martial arts school", "piano instructor",

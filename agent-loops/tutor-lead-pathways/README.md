@@ -46,6 +46,8 @@ The 11+ shortlist requires explicit 11+, 11-plus or eleven-plus wording in the s
 
 Crawler seeds consider the listing category and website as well as the name. A business categorised as a tutor is not skipped merely because its brand name has no tutoring keyword. Independent schools, colleges and preschools remain institutions rather than tutor leads. Personal trainers, music teachers, media companies, bag shops and golf clubs are held outside the academic scope. These filters do not discard an individual whose business name says primary school tutor.
 
+Source review also confirmed franchise offerings from [Brain Up](https://www.brainup.uk/ukfranchise) and [Clara James Tutoring](https://clarajamestutoring.co.uk/tutoring-franchise/). Their names and known domains are held as recognised chains. A college word in a brand name alone is not an exclusion: [The Rye College](https://www.theryecollege.co.uk/) advertises private 11+ and primary tuition and is categorised as a tutor.
+
 Verification:
 
 ```bash

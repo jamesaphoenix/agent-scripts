@@ -434,6 +434,28 @@ def merge_businesses(records):
     return [g for g in groups if g is not None]
 
 
+def research_record(lead, source):
+    urls = [url for value in lead.get("sourceUrls", []) if (url := public_url(value))]
+    if not urls:
+        return None
+    record = business_record({"title": lead["name"], "website": lead.get("website"), "phone": lead.get("phone"),
+                              "address": lead.get("advertisedAddress")},
+                             dict(source, sourceUrls=urls, notes=lead.get("notes"),
+                                  localityClaim=lead.get("localityClaim"), servicesClaim=lead.get("services")))
+    record["sourceUrl"] = urls[0]
+    record["emailClaim"] = lead.get("email")
+    # A directory/agent claim is distinct from fetched business-page extraction.
+    for email in clean_emails([lead.get("email")]):
+        record["contactClaims"].append({"type": "mail", "value": email, "providerSource": source["lane"], "sourceUrl": urls[0], "verified": False})
+    if source["lane"] == "manual_source_review":
+        services = " ".join(lead.get("services") or [])
+        record["siteEvidence"] = [{"url": urls[0], "sourceKind": "manual_source_review",
+                                   "elevenPlusHint": bool(ELEVEN_PLUS.search(services)),
+                                   "primaryHint": bool(re.search(r"\bprimary\b", services, re.I)),
+                                   "verified": False}]
+    return record
+
+
 def collect_records(cache, run_dir):
     records = []
     for row in cache.db.execute("SELECT * FROM requests WHERE receipt IS NOT NULL AND status='succeeded'").fetchall():
@@ -443,18 +465,16 @@ def collect_records(cache, run_dir):
     for path in sorted((run_dir / "sdk/results").glob("*.json")):
         result = json.loads(path.read_text())
         for lead in result.get("leads", []):
-            urls = [url for value in lead.get("sourceUrls", []) if (url := public_url(value))]
-            if not urls:
-                continue
-            record = business_record({"title": lead["name"], "website": lead.get("website"), "phone": lead.get("phone")},
-                                     {"lane": "codex_oauth", "turn": path.name, "sourceUrls": urls, "notes": lead.get("notes"),
-                                      "localityClaim": lead.get("localityClaim"), "servicesClaim": lead.get("services")})
-            record["sourceUrl"] = urls[0]
-            # Agent-reported emails remain claims until seen on a fetched business page.
-            record["emailClaim"] = lead.get("email")
-            for email in clean_emails([lead.get("email")]):
-                record["contactClaims"].append({"type": "mail", "value": email, "providerSource": "codex_oauth", "sourceUrl": urls[0], "verified": False})
-            records.append(record)
+            record = research_record(lead, {"lane": "codex_oauth", "turn": path.name})
+            if record:
+                records.append(record)
+    for path in sorted((run_dir / "review/candidates").glob("*.json")):
+        result = json.loads(path.read_text())
+        for lead in result.get("leads", []):
+            record = research_record(lead, {"lane": "manual_source_review", "artifact": path.name,
+                                           "artifactSha256": file_hash(path), "observedAt": result.get("observedAt")})
+            if record:
+                records.append(record)
     # Reuse prior Go page evidence, then add this run's fetched pages. No website refetch is required.
     manifest = json.loads((run_dir / "manifest.json").read_text()) if (run_dir / "manifest.json").exists() else {}
     historical = list(Path(manifest["historyRoot"]).glob("tracelearn-tutors-*/discovery.json")) if manifest.get("historyRoot") else []

@@ -54,6 +54,8 @@ Facebook groups and shared posts remain held discovery sources rather than named
 
 County review found watercolour artists, recruiters, hypnotherapy and drama-school listings among broad Maps matches. Those explicit categories are held outside academic tuition. Teacher-training colleges and the provider's `Pre-school` category remain institutions. `Educational institution` alone is not an exclusion because genuine primary maths tutors also use that category.
 
+Named candidates found during manual source review live in private `review/candidates/*.json` files with the same lead fields as SDK results, plus an optional exact advertised address. They pass through the same business merging and cleaning. A shared directory URL stays in source attribution, never substitutes for a missing business website, so separate named tutors do not merge into one directory. Advertised emails remain unverified claims. Manual service wording can supply a subject hint, but never grants locality, independence, current activity or outreach eligibility. Historical adverts retain their dates in notes.
+
 Verification:
 
 ```bash

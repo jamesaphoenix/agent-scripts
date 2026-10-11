@@ -192,6 +192,51 @@ class LeadCleaningTests(unittest.TestCase):
             self.assertEqual(discovery.hold_reason({"name": name, "category": category}), "school_or_college")
         self.assertIsNone(discovery.hold_reason({"name": "Marie Hayes Primary Maths Tuition", "category": "Educational institution"}))
 
+    def test_manual_named_candidates_do_not_inherit_shared_directory_identity_or_email_verification(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            cache = discovery.PaidCache(root, 200, 0)
+            self.addCleanup(cache.db.close)
+            folder = root / "review/candidates"
+            folder.mkdir(parents=True)
+            source = "https://community.example/services.html"
+            data = {"observedAt": "2026-10-11T13:40:00+00:00", "leads": [
+                {"name": "First Tutor", "website": None, "phone": "07958627536", "email": "first@example.org",
+                 "sourceUrls": [source], "localityClaim": "Dinton", "services": ["11 Plus tuition"], "notes": "Advert from 2018."},
+                {"name": "Second Tutor", "website": None, "phone": "07585579677", "email": "second@example.org",
+                 "sourceUrls": [source], "localityClaim": "Address unstated", "services": ["Year 3 mathematics and 11+"], "notes": "Directory claim."}]}
+            (folder / "community.json").write_text(json.dumps(data))
+            merged = discovery.merge_businesses(discovery.collect_records(cache, root))
+            self.assertEqual(len(merged), 2)
+            for row in merged:
+                self.assertIsNone(row["website"])
+                self.assertEqual(row["sourceUrl"], source)
+                self.assertEqual(row["emails"], [])
+                self.assertFalse(row["contactClaims"][0]["verified"])
+                self.assertFalse(row["outreachEligible"])
+                self.assertEqual(row["provenance"][0]["lane"], "manual_source_review")
+                self.assertEqual(discovery.subject_hint(row), "11_plus_hint")
+
+    def test_manual_address_and_source_notes_reach_county_cleaning_without_approving_contact(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            cache = discovery.PaidCache(root, 200, 0)
+            self.addCleanup(cache.db.close)
+            folder = root / "review/candidates"
+            folder.mkdir(parents=True)
+            data = {"observedAt": "2026-10-11T13:40:00+00:00", "leads": [
+                {"name": "Known Tutor", "website": "https://tutor.example/", "phone": None, "email": None,
+                 "advertisedAddress": "Named venue, Haddenham HP17 8AJ", "sourceUrls": ["https://tutor.example/locations/"],
+                 "localityClaim": "Haddenham venue", "services": ["11+ groups"], "notes": "Venue claim, no current booking check."}]}
+            (folder / "venues.json").write_text(json.dumps(data))
+            discovery.write_exports(root, cache)
+            rows=json.loads((root / "exports/businesses.json").read_text())
+            self.assertEqual(rows[0]["advertisedAddress"], "Named venue, Haddenham HP17 8AJ")
+            self.assertEqual(rows[0]["provenance"][0]["notes"], data["leads"][0]["notes"])
+            self.assertFalse(rows[0]["reviewed"])
+            self.assertFalse(rows[0]["independentVerified"])
+            self.assertEqual(rows[0]["subjectEvidence"], "11_plus_hint")
+
     def test_pmt_profiles_and_directory_contacts_keep_separate_source_identities(self):
         rows = [discovery.business_record({"name": "Samuel W. Private Tutor", "website": "https://www.pmt.education/tutor/tutor-profile/samuel-w-226582"}, {}),
                 discovery.business_record({"name": "Another tutor", "website": "https://www.pmt.education/tutor/tutor-profile/another-tutor-123456"}, {}),

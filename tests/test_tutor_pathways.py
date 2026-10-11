@@ -657,6 +657,49 @@ class RunnerHealthTests(unittest.TestCase):
             self.assertEqual(report["monitorIntervalSeconds"], 900)
             self.assertFalse((root / "job.json").exists())
 
+    def test_larger_new_run_can_revisit_history_without_resetting_its_own_lineage(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            history = Path(temporary)
+            discovery.atomic_json(history / "tracelearn-tutors-old/discovery.json", {"crawl": {"results": [
+                {"node": {"url": "https://knowntutor.co.uk/"}, "evidence": {"title": "Tutor"}}]}})
+            legacy = {"historyRoot": str(history)}
+            self.assertEqual(self.runner.seed_previous_urls(legacy), {"https://knowntutor.co.uk/"})
+            expanded = dict(legacy, historicalEvidenceRoots=[str(history / "completed")],
+                            crawlLimits={"pagesPerSite": 8})
+            self.assertEqual(self.runner.seed_previous_urls(expanded), set())
+
+    def test_recorded_county_practices_precede_unknown_and_outside_seed_records(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            old = Path(temporary)
+            (old / "exports").mkdir()
+            (old / "exports/bucks-listings-research.csv").write_text("name,website\nLocal tutor,https://localtutor.co.uk/\n")
+            (old / "exports/outside-recorded-area.csv").write_text("name,website\nOther tutor,https://othertutor.co.uk/\n")
+            records = [{"name": "Other tutor", "website": "https://othertutor.co.uk/"},
+                       {"name": "Unknown tutor", "website": "https://unknowntutor.co.uk/"},
+                       {"name": "Local tutor", "website": "https://localtutor.co.uk/about"}]
+            ordered = self.runner.prioritise_seed_records(records, {"historicalEvidenceRoots": [str(old)]})
+            self.assertEqual([row["name"] for row in ordered], ["Local tutor", "Unknown tutor", "Other tutor"])
+            self.assertEqual(len(ordered), 3)
+            self.assertNotIn("localVerified", ordered[0])
+
+    def test_paid_admission_checks_the_deadline_at_each_primary_or_fallback_call(self):
+        with patch.object(self.runner.time, "time", return_value=100), patch.object(self.runner, "provider_request", return_value={"status_code": 20000}) as request:
+            self.assertEqual(self.runner.request_before_deadline(None, "directories", {"keyword": "first"}, 101), {"status_code": 20000})
+            self.assertIsNone(self.runner.request_before_deadline(None, "directories", {"keyword": "fallback"}, 100))
+            request.assert_called_once_with(None, "directories", {"keyword": "first"})
+
+    def test_resume_rejects_a_changed_paid_cutoff_even_when_final_window_is_unchanged(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            discovery.atomic_json(root / "plan.json", [])
+            manifest = {"planSha256": discovery.file_hash(root / "plan.json")}
+            discovery.atomic_json(root / "manifest.json", manifest)
+            discovery.atomic_json(root / "job.json", dict(manifest,
+                startedAt="2026-10-11T10:00:00Z", deadline="2026-10-11T16:00:00Z",
+                discoveryDeadline="2026-10-11T16:00:00Z"))
+            with self.assertRaisesRegex(ValueError, "paid research cutoff"):
+                self.runner.initialize_job(root)
+
     def cache_business_page(self, cache, offset, total, status=20000):
         payload = {"categories": ["private_tutor"], "location_coordinate": "51.572,-0.497,12", "limit": 100, "offset": offset}
         key = discovery.request_key("business", payload)

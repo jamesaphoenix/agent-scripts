@@ -2,6 +2,7 @@
 """Run and observe five finite research paths, then clean their saved evidence."""
 import argparse
 import collections
+import csv
 import datetime
 import fcntl
 import json
@@ -39,6 +40,8 @@ def initialize_job(root):
         atomic_json(root / "job.json", job)
     if parse_time(job["deadline"]) - parse_time(job["startedAt"]) != datetime.timedelta(hours=6):
         raise ValueError("Original six-hour window changed")
+    if parse_time(job["discoveryDeadline"]) - parse_time(job["startedAt"]) != datetime.timedelta(hours=5, minutes=45):
+        raise ValueError("Original paid research cutoff changed")
     validate_plan(root, job)
     crawl_limits(job)
     launchd_settings(job)
@@ -160,6 +163,14 @@ def directory_fallback(item, response):
     return dict(item["payload"], keyword=simplified) if simplified != keyword else None
 
 
+def request_before_deadline(cache, lane, payload, deadline):
+    # A primary request can finish after the paid cutoff. Its different-query
+    # fallback must check admission again rather than inherit an earlier check.
+    if time.time() >= deadline:
+        return None
+    return provider_request(cache, lane, payload)
+
+
 def runner_snapshot(root, job, cache, state):
     statuses = collections.Counter()
     lanes = collections.defaultdict(collections.Counter)
@@ -203,6 +214,11 @@ def status(root):
 
 
 def seed_previous_urls(job):
+    # This newly authorised job has a larger per-site allowance. Historical
+    # evidence stays available, but does not suppress revisiting those sites.
+    # start_crawl independently preserves this job's fetched-site lineage.
+    if job.get("historicalEvidenceRoots") and crawl_limits(job)["pagesPerSite"] > 4:
+        return set()
     visited = set()
     history = Path(job["historyRoot"])
     for path in history.glob("tracelearn-tutors-*/discovery.json"):
@@ -211,6 +227,21 @@ def seed_previous_urls(job):
             if result.get("evidence"):
                 visited.add(result["node"]["url"])
     return visited
+
+
+def prioritise_seed_records(records, job):
+    local, outside = set(), set()
+    for folder in job.get("historicalEvidenceRoots", []):
+        for filename, target in [("bucks-listings-research.csv", local), ("outside-recorded-area.csv", outside)]:
+            path = Path(folder) / "exports" / filename
+            if path.exists():
+                with path.open(newline="") as stream:
+                    target.update(key for row in csv.DictReader(stream) if (key := website_key(row.get("website"))))
+    def priority(record):
+        key = website_key(record.get("website"))
+        return 0 if key in local else 2 if key in outside else 1
+    # A recorded address prioritises research; it never grants qualification.
+    return sorted(records, key=priority)
 
 
 def crawl_limits(job):
@@ -259,7 +290,7 @@ def start_crawl(root, job, cache, state, previous_urls):
             url = (result.get("evidence") or {}).get("url") or result.get("node", {}).get("url")
             if url:
                 visited_sites.add(website_key(url))
-    records = merge_businesses(collect_records(cache, root))
+    records = prioritise_seed_records(merge_businesses(collect_records(cache, root)), job)
     done = set(state["crawlRoots"]) | set(state.get("crawlRejected", []))
     seeds = []
     source_count = 0
@@ -402,14 +433,14 @@ def run(root):
                     atomic_json(root / "runtime.json", state)
                     try:
                         if not finished_query(item, cache):
-                            response = provider_request(cache, lane, item["payload"])
+                            response = request_before_deadline(cache, lane, item["payload"], paid_deadline)
                             row = cache.get(item["key"])
                             fallback = directory_fallback(item, response)
-                            if fallback:
+                            if fallback and time.time() < paid_deadline:
                                 fallback_key = request_key(lane, fallback)
                                 state.setdefault("supplementaryQueries", []).append({"parentKey": item["key"], "key": fallback_key})
                                 atomic_json(root / "runtime.json", state)
-                                response = provider_request(cache, lane, fallback)
+                                response = request_before_deadline(cache, lane, fallback, paid_deadline)
                                 row = cache.get(fallback_key)
                             failed = provider_is_failure(response, row)
                             state["pathFailures"][lane] = state["pathFailures"].get(lane, 0) + 1 if failed else 0

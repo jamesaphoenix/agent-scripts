@@ -26,6 +26,38 @@
   },
   "tasks": [
     {
+      "id": "bucks-private-tutors-20261011-extension-1",
+      "name": "Additional private tutor discovery after identity review",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.bucks-private-tutors-20261011-extension-1",
+      "schedule": "separate finite two-hour stage, at most two thousand additional attempts",
+      "requiresOpServiceAccount": false,
+      "opServiceAccountSource": null,
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
+        "command": ["bash", "agent-loops/tutor-lead-pathways/install-directory-profiles.sh", "run", "bucks-private-tutors-20261011-extension-1"]
+      },
+      "notes": "Prepare only after the original profile stage is terminal. Preserve its immutable job, limits and evidence. Reuse hash-verified cached successful and failed GET observations in the new stage. Pursue the user's one-thousand-person goal after holding possible duplicates and ambiguous localities. No provider spending, contact unlocks, accounts, messages, purchases or tenant imports."
+    },
+    {
+      "id": "bucks-private-tutors-20261011-extension-1-watch",
+      "name": "Fifteen-minute follow-on profile checks",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.bucks-private-tutors-20261011-extension-1-watch",
+      "schedule": "every fifteen minutes until the finite follow-on stage ends",
+      "requiresOpServiceAccount": false,
+      "opServiceAccountSource": null,
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
+        "command": ["bash", "agent-loops/tutor-lead-pathways/install-directory-profiles.sh", "watch", "bucks-private-tutors-20261011-extension-1"]
+      },
+      "notes": "Same read-only process and checkpoint checks as the original profile stage, at most three registered recovery requests without killing owners. No paid calls. A raw source-profile target does not complete the user's distinct private-tutor goal."
+    },
+    {
       "id": "bucks-private-tutors-watch-20261011",
       "name": "Fifteen-minute private tutor profile checks",
       "enabled": true,

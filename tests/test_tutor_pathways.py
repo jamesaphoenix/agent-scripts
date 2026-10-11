@@ -486,6 +486,102 @@ class CountyCleaningTests(unittest.TestCase):
             self.assertIn("unavailable", rows[1]["verificationNotes"])
 
 
+class SearchPlanTests(unittest.TestCase):
+    def load_prepare(self):
+        module_spec = importlib.util.spec_from_file_location("pathway_prepare", MODULE.with_name("prepare.py"))
+        prepare = importlib.util.module_from_spec(module_spec)
+        with patch.dict(sys.modules, {"discovery": discovery}):
+            module_spec.loader.exec_module(prepare)
+        return prepare
+
+    def test_plain_town_searches_feed_both_maps_and_organic_without_narrow_operators(self):
+        prepare = self.load_prepare()
+        towns = [{"name": "High Wycombe", "coordinate": "51.629,-0.749"},
+                 {"name": "Amersham", "coordinate": "51.677,-0.607"}]
+        plan = prepare.build_plan(towns)
+        self.assertEqual(len({item["key"] for item in plan}), len(plan))
+        for town in towns:
+            for lane in ("maps", "organic"):
+                for prefix in ("tutor", "11%2B tutor"):
+                    matches = [item for item in plan if item["lane"] == lane and item["town"] == town["name"]
+                               and item["payload"]["keyword"] == f"{prefix} {town['name']} Buckinghamshire"]
+                    self.assertEqual(len(matches), 1)
+                    self.assertEqual(matches[0]["payload"]["depth"], 100 if lane == "maps" else 20)
+        self.assertTrue(all("+" not in item["payload"].get("keyword", "") for item in plan))
+
+    def test_completed_ledgers_reuse_receipts_and_charge_prior_spend_once(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            history = Path(temporary)
+            payload = {"keyword": "tutor High Wycombe Buckinghamshire", "depth": 20}
+            envelope = {"status_code": 20000, "cost": 0.048, "tasks": [{"id": "original-task", "cost": 0.048, "status_code": 20000}]}
+            first = discovery.PaidCache(history / "tutor-lead-pathways-first", 2000, 228)
+            self.addCleanup(first.db.close)
+            key = discovery.request_key("organic", payload)
+            first.reserve(key, "organic", payload, 100)
+            first.settle(key, envelope)
+            (first.root / "runtime.json").write_text(json.dumps({"phase": "complete"}))
+            second = discovery.PaidCache(history / "tutor-lead-pathways-second", 2000, 233)
+            self.addCleanup(second.db.close)
+            second.import_receipt("organic", payload, envelope)
+            (second.root / "runtime.json").write_text(json.dumps({"phase": "complete"}))
+            prior, receipts = self.load_prepare().completed_paid_history(history, 0)
+            self.assertEqual(prior, 233)
+            target = discovery.PaidCache(history / "target", 2000, prior)
+            self.addCleanup(target.db.close)
+            for lane, saved_payload, response in receipts:
+                target.import_receipt(lane, saved_payload, response)
+            self.assertEqual(target.usage()["importedReceipts"], 1)
+            self.assertFalse(target.reserve(key, "organic", payload, 100))
+
+    def test_active_uncertain_or_tampered_history_is_not_silently_rebought(self):
+        for state in ("running", "uncertain", "tampered"):
+            with self.subTest(state=state), tempfile.TemporaryDirectory() as temporary:
+                history = Path(temporary)
+                cache = discovery.PaidCache(history / "tutor-lead-pathways-source", 2000, 228)
+                self.addCleanup(cache.db.close)
+                payload = {"keyword": "tutor Amersham"}
+                key = discovery.request_key("organic", payload)
+                cache.reserve(key, "organic", payload, 100)
+                if state == "uncertain":
+                    cache.mark_uncertain(key, "unverified response")
+                else:
+                    cache.settle(key, {"status_code": 20000, "cost": 0.002, "tasks": [{"id": "task", "cost": 0.002, "status_code": 20000}]})
+                (cache.root / "runtime.json").write_text(json.dumps({"phase": "running" if state == "running" else "complete"}))
+                if state == "tampered":
+                    Path(cache.get(key)["receipt"]).write_text("{}")
+                with self.assertRaises(ValueError):
+                    self.load_prepare().completed_paid_history(history, 0)
+
+    def test_prior_exposure_rejects_a_ledger_charge_that_disagrees_with_its_receipt(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            history = Path(temporary)
+            cache = discovery.PaidCache(history / "tutor-lead-pathways-source", 2000, 228)
+            self.addCleanup(cache.db.close)
+            payload = {"keyword": "tutor High Wycombe"}
+            key = discovery.request_key("organic", payload)
+            cache.reserve(key, "organic", payload, 100)
+            cache.settle(key, {"status_code": 20000, "cost": 0.048, "tasks": [{"id": "task", "cost": 0.048, "status_code": 20000}]})
+            (cache.root / "runtime.json").write_text(json.dumps({"phase": "complete"}))
+            cache.db.execute("UPDATE requests SET cost_cents=0 WHERE key=?", (key,))
+            cache.db.commit()
+            with self.assertRaises(ValueError):
+                self.load_prepare().completed_paid_history(history, 0)
+
+    def test_parallel_completed_runs_keep_the_inherited_floor_and_both_new_charges(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            history = Path(temporary)
+            for name, cost in [("first", 0.048), ("second", 0.071)]:
+                cache = discovery.PaidCache(history / ("tutor-lead-pathways-" + name), 2000, 228)
+                self.addCleanup(cache.db.close)
+                payload = {"keyword": name}
+                key = discovery.request_key("organic", payload)
+                cache.reserve(key, "organic", payload, 100)
+                cache.settle(key, {"status_code": 20000, "cost": cost, "tasks": [{"id": name, "cost": cost, "status_code": 20000}]})
+                (cache.root / "runtime.json").write_text(json.dumps({"phase": "complete"}))
+            prior, _ = self.load_prepare().completed_paid_history(history, 0)
+            self.assertEqual(prior, 228 + 5 + 8)
+
+
 class RunnerHealthTests(unittest.TestCase):
     def setUp(self):
         module_spec = importlib.util.spec_from_file_location("pathway_run", MODULE.with_name("run.py"))
@@ -592,6 +688,80 @@ class RunnerHealthTests(unittest.TestCase):
             self.assertEqual(state["crawlNumber"], 0)
             self.assertEqual(state["crawlRejected"], [url])
             self.assertEqual(json.loads((root / "crawls/seed-filter-000.json").read_text()), response)
+
+    def test_new_run_uses_its_expanded_limits_and_old_manifest_keeps_original_limits(self):
+        expanded = {"depth": 2, "branchSites": 15, "sites": 50, "batchPages": 400,
+                    "pagesPerSite": 8, "workers": 4, "rootsPerBatch": 10}
+        for limits, expected in [(expanded, {"--depth": "2", "--pages": "400", "--pages-per-site": "8"}),
+                                 (None, {"--depth": "1", "--pages": "200", "--pages-per-site": "4"})]:
+            with self.subTest(limits=limits), tempfile.TemporaryDirectory() as temporary:
+                root = Path(temporary)
+                row = discovery.business_record({"name": "Tutor", "website": "https://new-tutor.example/"}, {})
+                job = {"freePageBudget": 10000, "crawlerBinary": "/reviewed/crawler"}
+                if limits is not None:
+                    job["crawlLimits"] = limits
+                with patch.object(self.runner, "collect_records", return_value=[row]), patch.object(self.runner.subprocess, "Popen") as launch, patch.object(self.runner.subprocess, "run", return_value=subprocess.CompletedProcess([], 0, json.dumps({"permitted": [row["website"]], "rejected": []}), "")):
+                    self.runner.start_crawl(root, job, None, {"crawlRoots": [], "crawlNumber": 0}, set())
+                command = launch.call_args.args[0]
+                for flag, value in expected.items():
+                    self.assertEqual(command[command.index(flag) + 1], value)
+                self.assertEqual(command[command.index("--branch-sites") + 1], "15")
+
+    def test_saved_town_serp_result_becomes_a_crawler_seed_without_another_search(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            cache = discovery.PaidCache(root, 200, 0)
+            self.addCleanup(cache.db.close)
+            url = "https://local-tutor.example/11-plus"
+            payload = {"keyword": "11%2B tutor High Wycombe Buckinghamshire", "depth": 20}
+            envelope = {"status_code": 20000, "cost": 0.002, "tasks": [{"id": "serp-task", "cost": 0.002, "status_code": 20000,
+                         "result": [{"items": [{"type": "organic", "title": "Local Eleven Plus Tuition", "url": url}]}]}]}
+            cache.import_receipt("organic", payload, envelope)
+            with patch.object(self.runner.subprocess, "Popen"), patch.object(self.runner.subprocess, "run", return_value=subprocess.CompletedProcess([], 0, json.dumps({"permitted": [url], "rejected": []}), "")), patch.object(discovery, "provider_request") as provider:
+                self.runner.start_crawl(root, {"freePageBudget": 10000, "crawlerBinary": "/reviewed/crawler"}, cache, {"crawlRoots": [], "crawlNumber": 0}, set())
+            self.assertEqual((root / "crawls/batch-000/seeds.txt").read_text().splitlines(), [url])
+            provider.assert_not_called()
+            self.assertEqual(cache.usage()["reportedCostUsd"], 0)
+
+    def test_fetched_external_site_is_not_reintroduced_as_a_new_root_with_reset_depth(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            folder = root / "crawls/batch-000"
+            folder.mkdir(parents=True)
+            (folder / "crawl.json").write_text(json.dumps({"pages": 1, "results": [{"node": {"url": "https://linked-tutor.example/about"}, "evidence": {"url": "https://linked-tutor.example/about"}}]}))
+            rows = [discovery.business_record({"name": "Linked Tutor", "website": "https://linked-tutor.example/"}, {}),
+                    discovery.business_record({"name": "Fresh Tutor", "website": "https://fresh-tutor.example/"}, {})]
+            with patch.object(self.runner, "collect_records", return_value=rows), patch.object(self.runner.subprocess, "Popen"), patch.object(self.runner.subprocess, "run", return_value=subprocess.CompletedProcess([], 0, json.dumps({"permitted": [rows[1]["website"]], "rejected": []}), "")):
+                self.runner.start_crawl(root, {"freePageBudget": 4000, "crawlerBinary": "/reviewed/crawler"}, None, {"crawlRoots": [], "crawlNumber": 1}, set())
+            self.assertEqual((root / "crawls/seed-candidates.txt").read_text().splitlines(), [rows[1]["website"]])
+
+    def test_pending_frontier_resumes_its_checkpoint_with_preserved_topology_before_new_roots(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            folder = root / "crawls/batch-000"
+            folder.mkdir(parents=True)
+            (folder / "crawl.json").write_text(json.dumps({"pages": 20, "frontier": [{"url": "https://tutor.example/contact"}],
+                                                        "config": {"maxPages": 200}, "results": []}))
+            state = {"crawlRoots": ["https://tutor.example/"], "crawlNumber": 1}
+            with patch.object(self.runner, "collect_records", return_value=[]), patch.object(self.runner.subprocess, "Popen") as launch, patch.object(self.runner.subprocess, "run") as policy:
+                result = self.runner.start_crawl(root, {"freePageBudget": 25, "crawlerBinary": "/reviewed/crawler"}, None, state, set())
+            self.assertIsNotNone(result)
+            command = launch.call_args.args[0]
+            self.assertIn("--resume", command)
+            self.assertNotIn("--depth", command)
+            self.assertNotIn("--seeds", command)
+            self.assertEqual(command[command.index("--pages") + 1], "25")
+            self.assertEqual(state["crawlNumber"], 1)
+            policy.assert_not_called()
+
+    def test_expansion_cannot_disable_existing_hard_bounds_or_exceed_remaining_pages(self):
+        for limits in ({"depth": 3}, {"branchSites": 16}, {"pagesPerSite": 9}, {"batchPages": 1001},
+                       {"sites": 501}, {"workers": 5}, {"rootsPerBatch": 0}, {"depth": True}, {"unknown": 1}):
+            with self.subTest(limits=limits), tempfile.TemporaryDirectory() as temporary:
+                with patch.object(self.runner, "collect_records", return_value=[]), patch.object(self.runner.subprocess, "Popen") as launch:
+                    with self.assertRaises(ValueError):
+                        self.runner.start_crawl(Path(temporary), {"freePageBudget": 4000, "crawlerBinary": "/reviewed/crawler", "crawlLimits": limits}, None, {"crawlRoots": [], "crawlNumber": 0}, set())
+                launch.assert_not_called()
 
     def test_empty_search_is_not_treated_as_an_outage_or_retried(self):
         response = {"status_code": 20000, "tasks": [{"status_code": 40102}]}

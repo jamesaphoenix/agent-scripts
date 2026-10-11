@@ -40,6 +40,7 @@ def initialize_job(root):
     if parse_time(job["deadline"]) - parse_time(job["startedAt"]) != datetime.timedelta(hours=6):
         raise ValueError("Original six-hour window changed")
     validate_plan(root, job)
+    crawl_limits(job)
     return job
 
 
@@ -206,14 +207,59 @@ def seed_previous_urls(job):
     return visited
 
 
+def crawl_limits(job):
+    # Manifests without this field retain the completed run's original limits.
+    limits = {"depth": 1, "branchSites": 15, "sites": 50, "batchPages": 200,
+              "pagesPerSite": 4, "workers": 4, "rootsPerBatch": 10}
+    supplied = job.get("crawlLimits", {})
+    if not isinstance(supplied, dict) or set(supplied) - set(limits):
+        raise ValueError("Unknown crawl limits")
+    limits.update(supplied)
+    bounds = {"depth": (0, 2), "branchSites": (0, 15), "sites": (1, 500), "batchPages": (1, 1000),
+              "pagesPerSite": (1, 8), "workers": (1, 4), "rootsPerBatch": (1, 50)}
+    for name, (minimum, maximum) in bounds.items():
+        if type(limits[name]) is not int or not minimum <= limits[name] <= maximum:
+            raise ValueError("Crawl limit outside reviewed bounds: " + name)
+    return limits
+
+
+def launch_crawl(job, folder, arguments):
+    with (folder / "stdout.log").open("a") as stdout, (folder / "stderr.log").open("a") as stderr:
+        process = subprocess.Popen([job["crawlerBinary"], "run", "--state", str(folder / "crawl.json"), *arguments],
+                                   stdout=stdout, stderr=stderr, env=child_environment(), start_new_session=True)
+    return process, folder
+
+
 def start_crawl(root, job, cache, state, previous_urls):
+    limits = crawl_limits(job)
+    checkpoints = [(path, json.loads(path.read_text())) for path in sorted((root / "crawls").glob("*/crawl.json"))]
+    remaining = job["freePageBudget"] - sum(saved.get("pages", 0) for _, saved in checkpoints)
+    if remaining <= 0:
+        return None
+    # Resume queued work before marking additional roots as owned. Saved topology
+    # and lineage remain unchanged; only its attempted-page allowance increases.
+    for path, saved in checkpoints:
+        if not saved.get("frontier") and not saved.get("inFlight"):
+            continue
+        pages = saved.get("pages", 0)
+        ceiling = min(1000, pages + min(limits["batchPages"], remaining))
+        if ceiling > pages:
+            return launch_crawl(job, path.parent, ["--resume", "--pages", str(ceiling)])
+    # A site fetched as an external descendant must not become a new root in a
+    # later batch. Otherwise its depth and branch counters would reset forever.
+    visited_sites = {website_key(url) for url in previous_urls}
+    for _, saved in checkpoints:
+        for result in saved.get("results", []):
+            url = (result.get("evidence") or {}).get("url") or result.get("node", {}).get("url")
+            if url:
+                visited_sites.add(website_key(url))
     records = merge_businesses(collect_records(cache, root))
     done = set(state["crawlRoots"]) | set(state.get("crawlRejected", []))
     seeds = []
     source_count = 0
     for record in records:
         url = public_url(record.get("website"))
-        if not url or url in done or url in previous_urls:
+        if not url or url in done or website_key(url) in visited_sites:
             continue
         if record.get("holdReason") and record["holdReason"] != "source_directory_or_job_page":
             continue
@@ -228,11 +274,7 @@ def start_crawl(root, job, cache, state, previous_urls):
         seeds.append(url)
         if len(seeds) >= 500:
             break
-    total_pages = 0
-    for path in (root / "crawls").glob("*/crawl.json"):
-        total_pages += json.loads(path.read_text()).get("pages", 0)
-    remaining = job["freePageBudget"] - total_pages
-    if not seeds or remaining <= 0:
+    if not seeds:
         return None
     # The reviewed Go binary owns URL/site admission. Reuse its policy without
     # a network request instead of duplicating its social/directory deny list.
@@ -245,20 +287,19 @@ def start_crawl(root, job, cache, state, previous_urls):
     filtered = json.loads(result.stdout)
     atomic_json(crawl_dir / f"seed-filter-{state['crawlNumber']:03d}.json", filtered)
     state.setdefault("crawlRejected", []).extend(row["url"] for row in filtered["rejected"])
-    seeds = filtered["permitted"][:10]
+    seeds = filtered["permitted"][:limits["rootsPerBatch"]]
     if not seeds:
         return None
     folder = root / "crawls" / f"batch-{state['crawlNumber']:03d}"
     folder.mkdir(parents=True, exist_ok=True, mode=0o700)
     (folder / "seeds.txt").write_text("\n".join(seeds) + "\n")
-    with (folder / "stdout.log").open("a") as stdout, (folder / "stderr.log").open("a") as stderr:
-        process = subprocess.Popen([job["crawlerBinary"], "run", "--seeds", str(folder / "seeds.txt"),
-                                    "--state", str(folder / "crawl.json"), "--depth", "1", "--branch-sites", "15",
-                                    "--sites", "50", "--pages", str(min(200, remaining)), "--pages-per-site", "4", "--workers", "4"],
-                                   stdout=stdout, stderr=stderr, env=child_environment(), start_new_session=True)
+    result = launch_crawl(job, folder, ["--seeds", str(folder / "seeds.txt"), "--depth", str(limits["depth"]),
+                                      "--branch-sites", str(limits["branchSites"]), "--sites", str(limits["sites"]),
+                                      "--pages", str(min(limits["batchPages"], remaining)),
+                                      "--pages-per-site", str(limits["pagesPerSite"]), "--workers", str(limits["workers"])])
     state["crawlNumber"] += 1
     state["crawlRoots"].extend(seeds)
-    return process, folder
+    return result
 
 
 def finish_crawl(job, folder):

@@ -102,7 +102,7 @@ def county_evidence(record, geography):
 
 
 def write_csv(path, rows):
-    fields = ["name", "website", "phone", "email", "emailClaims", "localAddress", "advertisedAddress", "category",
+    fields = ["name", "website", "phone", "email", "emailClaims", "localAddress", "advertisedAddress", "category", "status",
               "subjectEvidence", "servicesClaim", "localityClaim", "verificationNotes", "currentActivityVerified",
               "countyStatus", "newInThisRun", "sourceUrl", "holdReason", "reviewed", "independentVerified", "outreachEligible"]
     temporary = path.with_suffix(path.suffix + ".tmp")
@@ -117,7 +117,7 @@ def clean_exports(root, deadline=None):
     records = json.loads((root / "exports/businesses.json").read_text())
     postcodes = [match[0] for row in records for address in listed_addresses(row) for match in POSTCODE.finditer(address)]
     geography = lookup_postcodes(root, postcodes, deadline)
-    local, subject, unresolved, outside, held = [], [], [], [], []
+    local, subject, unresolved, outside, held, agent = [], [], [], [], [], []
     for record in records:
         reason = hold_reason(record)
         if reason:
@@ -133,6 +133,8 @@ def clean_exports(root, deadline=None):
         record["localAddress"] = "; ".join(record["countyEvidence"]["localAddresses"])
         record["newInThisRun"] = not any(source.get("historical") for source in record.get("provenance", []))
         record["emailClaims"] = "; ".join(sorted({c["value"] for c in record.get("contactClaims", []) if c.get("type") == "mail"}))
+        if any(source.get("lane") == "codex_oauth" for source in sources):
+            agent.append(record)
         if record.get("status") == "held" or record.get("sourceOnly"):
             held.append(record)
         elif record["countyStatus"] == "has_bucks_listing":
@@ -146,7 +148,8 @@ def clean_exports(root, deadline=None):
     output = root / "exports"
     atomic_json(output / "cleaned-businesses.json", records)
     for name, rows in [("bucks-listings-research", local), ("local-11-plus-primary-research", subject),
-                       ("needs-location-review", unresolved), ("outside-recorded-area", outside), ("held", held)]:
+                       ("needs-location-review", unresolved), ("outside-recorded-area", outside), ("held", held),
+                       ("agent-researched-candidates", agent)]:
         write_csv(output / (name + ".csv"), rows)
     summary = {"observedAt": now_iso(), "businessIdentities": len(records), "countyListingsResearch": len(local),
                "localSubjectHints": len(subject), "needsLocationReview": len(unresolved), "outsideRecordedArea": len(outside),
@@ -155,6 +158,7 @@ def clean_exports(root, deadline=None):
                "postcodeLookupFailures": sum(bool(r.get("error")) for r in geography.values()),
                "countyStatusCounts": dict(collections.Counter(r["countyStatus"] for r in records)),
                "heldReasonCounts": dict(collections.Counter(r.get("holdReason") or "source_only" for r in held)),
+               "agentCandidateIdentities": len(agent), "agentCandidatesHeld": sum(r.get("status") == "held" for r in agent),
                "qualification": "Research candidates only. County listing and subject hints do not verify independence, current services, contacts or consent."}
     atomic_json(output / "cleaning-summary.json", summary)
     return summary

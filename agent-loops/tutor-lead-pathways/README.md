@@ -30,6 +30,8 @@ Private artifacts live under `state/tutor-lead-pathways-20261011`: native paid r
 
 Final cleaning uses free cached Postcodes.io lookups for actual advertised establishment addresses. Buckinghamshire and Milton Keynes district codes determine listed county membership; HP/MK prefixes and search origins do not. A shared business with a Bucks branch survives even if its first listed address is in Berkshire. The exports separate county listings, local 11+/primary hints, unresolved locations, recorded outside addresses and held sources. Unverified provider email claims are retained separately from fetched-page email extraction. These lists remain research, with ownership and current tuition services requiring review.
 
+`agent-researched-candidates.csv` gives a focused view of the SDK candidates, including professional profiles with no public postcode. It preserves locality/service claims, source links, activity caveats and held statuses. It does not add a location claim to the postcode-based county total or approve a candidate for outreach. Counts include previously known practices that received additional agent evidence.
+
 Shared directory hosts retain their complete profile path as identity. Recognised individual Childcare.co.uk profiles remain research contacts; its generic search pages remain sources. Two independent profiles on one platform must not collapse into one business.
 
 Bark profiles also retain their individual path. They stay held for source review, including the three profiles whose opened pages say the professional is currently unavailable. Their names, contact claims and verification notes remain separate.

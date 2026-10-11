@@ -270,6 +270,29 @@ class CountyCleaningTests(unittest.TestCase):
             self.assertEqual(row["currentActivityVerified"], "False")
             self.assertEqual(row["servicesClaim"], "11+ tuition")
 
+    def test_agent_profiles_without_postcodes_are_exported_with_unverified_claims_and_holds(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / "exports").mkdir()
+            records = [{"name": "Wendy", "website": "https://www.childcare.co.uk/profile/3678407", "status": "research",
+                        "provenance": [{"lane": "codex_oauth", "localityClaim": "Bourne End", "servicesClaim": ["11+ tuition"], "notes": "Individual professional profile."}]},
+                       {"name": "Actualize Tutoring", "website": "https://www.bark.com/en/gb/company/actualize-tutoring/lpbYY/", "status": "research",
+                        "provenance": [{"lane": "codex_oauth", "localityClaim": "Chesham", "notes": "Professional reported unavailable."}]}]
+            (root / "exports/businesses.json").write_text(json.dumps(records))
+            with patch.object(self.clean, "lookup_postcodes", return_value={}):
+                summary = self.clean.clean_exports(root)
+            self.assertEqual(summary["countyListingsResearch"], 0)
+            self.assertEqual(summary["agentCandidateIdentities"], 2)
+            self.assertEqual(summary["agentCandidatesHeld"], 1)
+            import csv
+            with (root / "exports/agent-researched-candidates.csv").open() as stream:
+                rows = list(csv.DictReader(stream))
+            self.assertEqual(rows[0]["localityClaim"], "Bourne End")
+            self.assertEqual(rows[0]["countyStatus"], "needs_location_review")
+            self.assertEqual(rows[0]["currentActivityVerified"], "False")
+            self.assertEqual(rows[1]["status"], "held")
+            self.assertIn("unavailable", rows[1]["verificationNotes"])
+
 
 class RunnerHealthTests(unittest.TestCase):
     def setUp(self):

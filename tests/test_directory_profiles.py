@@ -1,4 +1,6 @@
 import importlib.util
+import hashlib
+import json
 from pathlib import Path
 import tempfile
 import unittest
@@ -114,3 +116,22 @@ class ProfileTests(unittest.TestCase):
                          ["advertised_bucks_locality", "outside_or_unresolved"])
         self.assertFalse(directory.local_directory_link("https://tutorperch.com/find/results", url))
         self.assertTrue(directory.local_directory_link(url + "&page=2", url))
+
+    def test_source_batches_are_hash_bound_deduplicated_and_read_only(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            inbox = root / "seed-batches"
+            inbox.mkdir()
+            url = "https://tutorperch.com/t/jo-rutw"
+            body = json.dumps({"urls": [url, url, "https://tutorperch.com/messages/new"]}).encode()
+            digest = hashlib.sha256(body).hexdigest()
+            (inbox / (digest + ".json")).write_bytes(body)
+            state = {"queue": [], "seen": []}
+            directory.import_seed_batches(root, state)
+            directory.import_seed_batches(root, state)
+            self.assertEqual(state["queue"], [url])
+            self.assertEqual(state["importedSeedBatches"], [digest])
+            wrong = inbox / ("a" * 64 + ".json")
+            wrong.write_bytes(body)
+            with self.assertRaisesRegex(ValueError, "Seed batch hash changed"):
+                directory.import_seed_batches(root, state)

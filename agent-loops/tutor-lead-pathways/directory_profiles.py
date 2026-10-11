@@ -211,7 +211,7 @@ def profile_record(text, url):
         return {"name": name.text(), "personId": person_id, "platform": "findtutors.co.uk", "sourceUrls": [url],
                 "localityClaim": location.text() if location else crumbs[2] if len(crumbs) >= 3 else "", "services": [subject.text() if subject else ""],
                 "evidenceKind": "public_advert_person", "outreachEligible": False,
-                "institution": bool(academy and not academy.has_class("non-academy"))}
+                "institution": not academy or not academy.has_class("non-academy")}
     return None
 
 
@@ -323,6 +323,28 @@ def export_csv(root, rows):
     temporary.replace(path)
 
 
+def import_seed_batches(root, state):
+    imported = state.setdefault("importedSeedBatches", [])
+    rejected = state.setdefault("rejectedSeedBatches", [])
+    for path in sorted((root / "seed-batches").glob("*.json")):
+        if path.stem in imported or path.name in rejected:
+            continue
+        raw = path.read_bytes()
+        if len(raw) > 2 * 1024 * 1024 or hashlib.sha256(raw).hexdigest() != path.stem:
+            rejected.append(path.name)
+            raise ValueError("Seed batch hash changed or exceeded its bound")
+        value = json.loads(raw)
+        urls = value.get("urls") if isinstance(value, dict) else None
+        if not isinstance(urls, list) or len(urls) > 5000:
+            rejected.append(path.name)
+            raise ValueError("Seed batch must contain bounded source URLs")
+        for candidate in urls:
+            url = admitted_url(candidate)
+            if url and url not in state["seen"] and url not in state["queue"] and len(state["queue"]) < 20000:
+                state["queue"].append(url)
+        imported.append(path.stem)
+
+
 def run(root, seeds, hours, page_limit, target):
     root.mkdir(parents=True, exist_ok=True, mode=0o700)
     with (root / "owner.lock").open("a") as lock:
@@ -340,7 +362,13 @@ def run(root, seeds, hours, page_limit, target):
             save(job_path, job)
         state = json.loads(state_path.read_text()) if state_path.exists() else {"queue": job["seeds"], "seen": [], "records": [], "attempts": 0, "errors": [], "phase": "running"}
         cache, robots = PageCache(root), {}
-        while state["queue"] and state["attempts"] < job["pageLimit"] and time.time() < job["deadlineUnix"]:
+        while state["attempts"] < job["pageLimit"] and time.time() < job["deadlineUnix"]:
+            try:
+                import_seed_batches(root, state)
+            except (OSError, ValueError, TypeError) as error:
+                state["errors"].append({"reason": "seed_batch_rejected", "type": type(error).__name__})
+            if not state["queue"]:
+                break
             url = state["queue"].pop(0)
             if url in state["seen"]:
                 continue

@@ -10,7 +10,7 @@ import shutil
 import tempfile
 import time
 
-from directory_profiles import admitted_url, export_csv, merge_profiles, now, profile_locality_status, exclusion_reason, save
+from directory_profiles import admitted_url, decode_page, export_csv, merge_profiles, now, profile_locality_status, exclusion_reason, profile_record, save
 
 
 def digest(path):
@@ -44,6 +44,17 @@ def prepare(parent, output, hours, new_pages, target):
             receipts.append((path, body if not receipt.get("error") else None))
         provenance = {"runDir": str(parent), "jobSha256": digest(parent / "job.json"),
                       "stateSha256": digest(parent / "state.json"), "statusSha256": digest(parent / "status.json")}
+        replayed = []
+        for row in state["records"]:
+            url = row["sourceUrls"][0]
+            key = hashlib.sha256(url.encode()).hexdigest()
+            receipt = json.loads((parent / "receipts" / (key + ".json")).read_text())
+            parsed = profile_record(decode_page((parent / "pages" / (key + ".html")).read_bytes(), receipt.get("contentType", "")), url)
+            if not parsed or parsed["personId"] != row["personId"] or parsed["platform"] != row["platform"]:
+                raise ValueError("Parent profile does not match its cached person evidence")
+            parsed["pageEvidence"] = row["pageEvidence"]
+            replayed.append(parsed)
+        state["records"] = replayed
         output.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
         temporary = Path(tempfile.mkdtemp(prefix="." + output.name + "-prepare-", dir=output.parent))
         try:
@@ -77,6 +88,7 @@ def prepare(parent, output, hours, new_pages, target):
                 "attempts": state["attempts"], "queue": len(state["queue"]), "bucksPrivateProfiles": len(qualified), "paidCostUsd": 0})
             result = {"phase": "prepared", "at": now(), "parentStage": provenance,
                       "newStageJobSha256": digest(temporary / "job.json"), "cachedReceiptsReused": len(receipts),
+                      "parentRowsReplayed": len(replayed),
                       "paidCalls": 0, "originalParentDeadlineRetained": True}
             save(temporary / "preparation.json", result)
             temporary.rename(output)

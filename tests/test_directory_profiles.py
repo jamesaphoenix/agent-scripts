@@ -13,6 +13,28 @@ spec.loader.exec_module(directory)
 
 
 class ProfileTests(unittest.TestCase):
+    def test_declared_legacy_html_charset_preserves_professional_names(self):
+        body = b'<meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1"><h1>Ren\xe9e\x92s tuition</h1>'
+        self.assertIn("Renée’s tuition", directory.decode_page(body))
+        self.assertIn("Renée", directory.decode_page("<h1>Renée</h1>".encode(), "text/html; charset=utf-8"))
+
+    def test_uktutors_requires_own_profile_header_and_subjects(self):
+        html = '''<nav><a>Maths</a></nav><h1>Iqbal - <span>Aylesbury tutor</span></h1>
+          <h2>Information About Iqbal:</h2><b>Personal Description:</b>I am a part-time tutor.
+          <div id="profile_subjects"><h2>Subjects Taught:</h2><ul><li><strong><a>Physics</a></strong></li>
+          <li><a>11+ (secondary)</a></li><li><strong><a>Maths</a></strong></li></ul></div>'''
+        url = "https://www.uktutors.com/tutor/1312398958/aylesbury-maths-tutor"
+        row = directory.profile_record(html, url)
+        self.assertEqual((row["name"], row["personId"], row["localityClaim"]), ("Iqbal", "1312398958", "Aylesbury"))
+        self.assertEqual(row["services"], ["Physics", "Maths"])
+        self.assertNotIn("11+ (secondary)", row["services"])
+        self.assertFalse(row["outreachEligible"])
+        outside = directory.profile_record(html.replace("Aylesbury", "Worthing"), url)
+        self.assertEqual(directory.profile_locality_status(outside), "outside_or_unresolved")
+        self.assertIsNone(directory.profile_record(html.replace("Information About Iqbal:", "Directory results"), url))
+        self.assertIsNone(directory.admitted_url("https://www.uktutors.com/cgi-bin/search_tutors.cgi"))
+        self.assertFalse(directory.local_directory_link("https://www.uktutors.com/town/london-tutors/", "https://www.uktutors.com/county/buckinghamshire-tutors/"))
+
     def test_online_breadcrumb_subject_does_not_supply_a_tutor_location(self):
         html = '''<section id="sectionaddetail"><div class="info"><span class="user-name">Jane</span>
           <span class="subject">Maths Lessons</span></div><div id="logo_academy_link_profile" class="non-academy"></div>

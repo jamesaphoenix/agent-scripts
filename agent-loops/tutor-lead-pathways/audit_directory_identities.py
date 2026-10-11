@@ -9,7 +9,7 @@ from pathlib import Path
 import re
 import urllib.parse
 
-from directory_profiles import Document, admitted_url, exclusion_reason, merge_profiles, now, profile_locality_status, profile_record, save
+from directory_profiles import Document, admitted_url, decode_page, exclusion_reason, merge_profiles, now, profile_locality_status, profile_record, save
 
 AMBIGUOUS_UK_PLACES = {"burnham", "haddenham", "penn", "sands", "bourton", "denham"}
 ELEVEN_PLUS = re.compile(r"\b11\s*\+|\b(?:11|eleven)[ -]+plus\b", re.I)
@@ -57,12 +57,13 @@ def audit_rows(root, rows):
             body = (root / "pages" / (cache_key + ".html")).read_bytes()
             if receipt.get("url") != url or receipt.get("sha256") != item["sha256"] or hashlib.sha256(body).hexdigest() != item["sha256"]:
                 raise ValueError("Page evidence hash mismatch: " + key)
-            parsed = profile_record(body.decode("utf-8", errors="replace"), url)
+            text = decode_page(body, receipt.get("contentType", ""))
+            parsed = profile_record(text, url)
             if not parsed or parsed["personId"] != row["personId"] or parsed["platform"] != row["platform"]:
                 raise ValueError("Public person identity does not match its page: " + key)
             replayed.append(parsed)
             if row["platform"] == "findtutors.co.uk":
-                doc = Document(body.decode("utf-8", errors="replace")).root
+                doc = Document(text).root
                 section = doc.first(lambda n: n.attrs.get("id") == "sectionaddetail")
                 info = section.first(lambda n: n.has_class("info")) if section else None
                 link = info.first(lambda n: n.attrs.get("id") == "lnkProfile") if info else None

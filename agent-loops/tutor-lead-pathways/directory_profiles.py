@@ -16,7 +16,7 @@ import urllib.parse
 import urllib.request
 import urllib.robotparser
 
-HOSTS = {"www.findtutors.co.uk", "tutorperch.com", "www.childcare.co.uk", "tutordex.net", "tutorextra.co.uk"}
+HOSTS = {"www.findtutors.co.uk", "tutorperch.com", "www.childcare.co.uk", "tutordex.net", "tutorextra.co.uk", "www.uktutors.com"}
 AGENT = "TutorResearch/1.0"
 BUCKS = {
     "amersham", "amersham on the hill", "aylesbury", "beaconsfield", "bierton", "buckingham",
@@ -47,6 +47,19 @@ def now():
     return datetime.datetime.now(datetime.timezone.utc).isoformat()
 
 
+def decode_page(body, content_type=""):
+    declared = re.search(r"charset\s*=\s*[\"']?([a-z0-9._-]+)", content_type, re.I)
+    if not declared:
+        declared = re.search(r"<meta\b[^>]*charset\s*=\s*[\"']?([a-z0-9._-]+)", body[:4096].decode("ascii", errors="ignore"), re.I)
+    encoding = declared.group(1).casefold() if declared else "utf-8"
+    # HTML treats these legacy labels as Windows-1252, including smart punctuation.
+    if encoding in {"iso-8859-1", "iso8859-1", "latin1", "windows-1252", "cp1252"}:
+        encoding = "cp1252"
+    else:
+        encoding = "utf-8"
+    return body.decode(encoding, errors="replace")
+
+
 def save(path, value):
     path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
     temporary = path.with_suffix(path.suffix + ".tmp")
@@ -62,7 +75,10 @@ def admitted_url(value):
         p = urllib.parse.urlsplit(value)
         if p.scheme != "https" or p.hostname not in HOSTS or p.port not in (None, 443) or p.username or p.password:
             return None
-        if p.hostname == "tutordex.net":
+        if p.hostname == "www.uktutors.com":
+            profile = bool(re.fullmatch(r"/tutor/\d+/[a-z0-9-]+", p.path))
+            allowed = profile or p.path in ("/robots.txt", "/county/buckinghamshire-tutors/") or bool(re.fullmatch(r"/town/[a-z0-9-]+-tutors/", p.path))
+        elif p.hostname == "tutordex.net":
             profile = bool(re.fullmatch(r"/tutor/\d+/[a-z0-9-]+", p.path))
             allowed = profile or p.path == "/robots.txt" or bool(re.fullmatch(r"/uk/academic/town/[a-z0-9-]+(?:/[a-z0-9-]+){0,2}", p.path))
         elif p.hostname == "tutorextra.co.uk":
@@ -200,6 +216,17 @@ def listing_records(text, url):
     host = urllib.parse.urlsplit(url).hostname
     rows = []
     for card in document.walk():
+        if host == "www.uktutors.com" and card.has_class("searchresult"):
+            title = card.first(lambda n: n.has_class("top_bars"))
+            link = title.first(lambda n: n.tag == "a") if title else None
+            source = admitted_url(urllib.parse.urljoin(url, link.attrs.get("href", ""))) if link else None
+            info = card.first(lambda n: n.has_class("searchresult_tutor_info"))
+            subjects = [n.text() for n in info.walk() if n.tag == "a" and "/subject/" in n.attrs.get("href", "")] if info else []
+            if source:
+                slug = urllib.parse.urlsplit(source).path.rsplit("/", 1)[-1]
+                town = next((t for t in sorted(BUCKS, key=len, reverse=True) if slug.startswith(t.replace(" ", "-") + "-")), "")
+                row = public_person(host, urllib.parse.urlsplit(source).path.split("/")[2], link.text(), town, subjects, source)
+                rows.append(dict(row, evidenceKind="directory_listing", localityEvidence="profile_url_hint_only", listingUrl=url))
         if host == "tutordex.net" and card.has_class("lg:col-span-2"):
             name = card.first(lambda n: n.tag == "h2")
             role = card.first(lambda n: n.tag == "p" and n.has_class("uppercase"))
@@ -257,7 +284,29 @@ def profile_record(text, url):
         return None
     p = urllib.parse.urlsplit(url)
     document = Document(text).root
-    if p.hostname == "tutordex.net":
+    if p.hostname == "www.uktutors.com":
+        if not re.fullmatch(r"/tutor/\d+/[a-z0-9-]+", p.path):
+            return None
+        header = document.first(lambda n: n.tag == "h1" and re.fullmatch(r"(.+?) - (.+) tutor", n.text()))
+        claim = re.fullmatch(r"(.+?) - (.+) tutor", header.text()) if header else None
+        info = document.first(lambda n: n.tag == "h2" and claim and n.text() == "Information About " + claim.group(1) + ":")
+        table = document.first(lambda n: n.attrs.get("id") == "profile_subjects")
+        if not claim or not info or not table:
+            return None
+        subjects = [n.text() for n in table.walk() if n.tag == "strong"]
+        # Level labels such as '11+ (secondary)' describe ages, not entrance exams.
+        row = public_person(p.hostname, p.path.split("/")[2], claim.group(1), claim.group(2), subjects, url)
+        about = document.first(lambda n: any(isinstance(c, Node) and c.tag == "b" and c.text() == "Personal Description:" for c in n.children))
+        parts, collecting = [], False
+        for child in about.children if about else []:
+            if isinstance(child, Node) and child.tag == "b":
+                if collecting:
+                    break
+                collecting = child.text() == "Personal Description:"
+            elif collecting:
+                parts.append(child.text() if isinstance(child, Node) else child)
+        return annotate_advert(row, description=" ".join(" ".join(parts).split()))
+    elif p.hostname == "tutordex.net":
         if not re.fullmatch(r"/tutor/\d+/[a-z0-9-]+", p.path):
             return None
         header = document.first(lambda n: any(isinstance(c, Node) and c.tag == "h1" for c in n.children)
@@ -439,7 +488,7 @@ class PageCache:
             body = self.body_path(url).read_bytes()
             if hashlib.sha256(body).hexdigest() != saved["sha256"]:
                 raise ValueError("Cached page hash changed")
-            return body.decode("utf-8", errors="replace")
+            return decode_page(body, saved.get("contentType", ""))
         try:
             body, content_type, status = self.download(url)
             if "html" not in content_type and "text/plain" not in content_type:
@@ -448,8 +497,8 @@ class PageCache:
             path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
             path.write_bytes(body)
             path.chmod(0o600)
-            save(receipt, {"url": url, "sha256": hashlib.sha256(body).hexdigest(), "status": status, "observedAt": now()})
-            return body.decode("utf-8", errors="replace")
+            save(receipt, {"url": url, "sha256": hashlib.sha256(body).hexdigest(), "status": status, "observedAt": now(), "contentType": content_type})
+            return decode_page(body, content_type)
         except (OSError, ValueError) as error:
             save(receipt, {"url": url, "error": type(error).__name__, "observedAt": now()})
             return None
@@ -468,6 +517,11 @@ def local_directory_link(value, source):
     parsed, origin = urllib.parse.urlsplit(value), urllib.parse.urlsplit(source)
     if parsed.hostname != origin.hostname:
         return False
+    if parsed.hostname == "www.uktutors.com":
+        if parsed.path == "/county/buckinghamshire-tutors/":
+            return True
+        match = re.fullmatch(r"/town/([a-z0-9-]+)-tutors/", parsed.path)
+        return bool(match and locality_status(match.group(1).replace("-", " ")) == "advertised_bucks_locality")
     if parsed.hostname == "tutordex.net":
         match = re.fullmatch(r"/uk/academic/town/([a-z0-9-]+)(?:/[a-z0-9-]+){0,2}", parsed.path)
         return bool(match and locality_status(match.group(1).replace("-", " ")) == "advertised_bucks_locality")

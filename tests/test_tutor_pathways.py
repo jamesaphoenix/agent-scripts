@@ -442,6 +442,58 @@ class RunnerHealthTests(unittest.TestCase):
         with patch.dict(sys.modules, {"discovery": discovery}):
             module_spec.loader.exec_module(self.runner)
 
+    def cache_business_page(self, cache, offset, total, status=20000):
+        payload = {"categories": ["private_tutor"], "location_coordinate": "51.572,-0.497,12", "limit": 100, "offset": offset}
+        key = discovery.request_key("business", payload)
+        self.assertTrue(cache.reserve(key, "business", payload, 100))
+        cache.settle(key, {"status_code": 20000, "cost": 0.048, "tasks": [{"id": "page-" + str(offset), "cost": 0.048,
+                           "status_code": status, "result": [{"total_count": total, "items": [{"type": "business_listing"}]}]}]})
+        return key, payload
+
+    def test_business_pagination_continues_only_from_a_saved_successful_page(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            cache = discovery.PaidCache(Path(temporary), 200, 0)
+            self.addCleanup(cache.db.close)
+            parent, payload = self.cache_business_page(cache, 100, 432)
+            state = {"completedQueries": []}
+            item = self.runner.next_business_supplement(cache, state)
+            self.assertEqual(item["parentKey"], parent)
+            self.assertEqual(item["payload"], dict(payload, offset=200))
+            self.assertEqual(item["key"], discovery.request_key("business", dict(payload, offset=200)))
+            self.assertIsNone(cache.get(item["key"]))
+            state["businessSupplementaryQueries"] = [{"parentKey": parent, "key": item["key"]}]
+            self.assertIsNone(self.runner.next_business_supplement(cache, state))
+
+    def test_business_extra_pages_never_replay_failed_requests_or_exceed_bounds(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            cache = discovery.PaidCache(Path(temporary), 200, 0)
+            self.addCleanup(cache.db.close)
+            self.cache_business_page(cache, 100, 432)
+            self.cache_business_page(cache, 200, 432, status=40101)
+            self.cache_business_page(cache, 400, 999)
+            self.assertIsNone(self.runner.next_business_supplement(cache, {}))
+        with tempfile.TemporaryDirectory() as temporary:
+            cache = discovery.PaidCache(Path(temporary), 200, 0)
+            self.addCleanup(cache.db.close)
+            self.cache_business_page(cache, 100, 432)
+            self.assertIsNone(self.runner.next_business_supplement(cache, {"businessSupplementaryQueries": [{}] * 20}))
+
+    def test_exhausted_business_pages_do_not_consume_another_paced_query_slot(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            cache = discovery.PaidCache(Path(temporary), 200, 0)
+            self.addCleanup(cache.db.close)
+            first, payload = self.cache_business_page(cache, 0, 80)
+            skipped_payload = dict(payload, offset=100)
+            skipped = {"lane": "business", "key": discovery.request_key("business", skipped_payload), "payload": skipped_payload}
+            fresh_payload = dict(payload, location_coordinate="51.800,-0.600,12")
+            fresh = {"lane": "business", "key": discovery.request_key("business", fresh_payload), "payload": fresh_payload}
+            state = {"completedQueries": [first]}
+            selected = self.runner.next_query("business", [skipped, fresh], cache, state)
+            self.assertEqual(selected, fresh)
+            self.assertIn(skipped["key"], state["completedQueries"])
+            self.assertEqual(state["skippedQueries"][0]["key"], skipped["key"])
+            self.assertIsNone(cache.get(skipped["key"]))
+
     def test_crawler_enriches_tutor_categories_and_subject_urls_without_name_keywords(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

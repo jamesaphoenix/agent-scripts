@@ -92,6 +92,46 @@ def finished_query(item, cache):
     return not results or results[0].get("total_count", 0) <= payload["offset"]
 
 
+def next_business_supplement(cache, state):
+    # Dense regions actually exceed the two pages in the immutable base plan.
+    # Expand only from a successful, hashed receipt: at most five hundred
+    # businesses per region and twenty supplementary pages for this window.
+    claimed = {item["key"] for item in state.get("businessSupplementaryQueries", []) if "key" in item}
+    if len(state.get("businessSupplementaryQueries", [])) >= 20:
+        return None
+    rows = cache.db.execute("SELECT * FROM requests WHERE lane='business' AND imported=0 AND status='succeeded'").fetchall()
+    for row in sorted(rows, key=lambda row: json.loads(row["payload"]).get("offset", 0)):
+        payload = json.loads(row["payload"])
+        offset = payload.get("offset", 0)
+        if payload.get("limit") != 100 or not 100 <= offset < 400:
+            continue
+        results = cache.receipt(row)["tasks"][0].get("result") or []
+        if not results or not results[0].get("items") or results[0].get("total_count", 0) <= offset + 100:
+            continue
+        next_payload = dict(payload, offset=offset + 100)
+        key = request_key("business", next_payload)
+        if key not in claimed and not cache.get(key):
+            return {"lane": "business", "key": key, "payload": next_payload, "parentKey": row["key"]}
+    return None
+
+
+def next_query(lane, plan, cache, state):
+    if lane == "business":
+        supplementary = next_business_supplement(cache, state)
+        if supplementary:
+            return supplementary
+    completed = set(state["completedQueries"])
+    for item in plan:
+        if item["lane"] != lane or item["key"] in completed:
+            continue
+        if finished_query(item, cache):
+            state["completedQueries"].append(item["key"])
+            state.setdefault("skippedQueries", []).append({"key": item["key"], "reason": "Previous page did not establish further results"})
+            continue
+        return item
+    return None
+
+
 def provider_is_failure(response, row):
     if not row or row["status"] not in ("failed", "uncertain"):
         return False
@@ -295,14 +335,22 @@ def run(root):
                     crawl_child = start_crawl(root, job, cache, state, previous_urls)
                 except (OSError, ValueError, subprocess.SubprocessError) as error:
                     save_error(state, "crawler", error)
-            completed = set(state["completedQueries"])
             due = [lane for lane in INTERVALS if current >= state["nextDue"][lane]]
             if due:
                 lane = min(due, key=lambda name: state["nextDue"][name])
-                item = next((i for i in plan if i["lane"] == lane and i["key"] not in completed), None)
+                selection_failed = False
+                try:
+                    item = next_query(lane, plan, cache, state)
+                except (OSError, ValueError, sqlite3.Error) as error:
+                    save_error(state, lane, error)
+                    state["nextDue"][lane] = time.time() + 900
+                    selection_failed, item = True, None
                 if item:
                     # Reserve ownership of the plan entry before sending. The cache owns paid uncertainty.
-                    state["completedQueries"].append(item["key"])
+                    if item.get("parentKey"):
+                        state.setdefault("businessSupplementaryQueries", []).append({"parentKey": item["parentKey"], "key": item["key"]})
+                    else:
+                        state["completedQueries"].append(item["key"])
                     state["nextDue"][lane] = current + INTERVALS[lane]
                     atomic_json(root / "runtime.json", state)
                     try:
@@ -323,7 +371,7 @@ def run(root):
                     except (OSError, ValueError, sqlite3.Error) as error:
                         save_error(state, lane, error)
                         state["nextDue"][lane] = time.time() + 900
-                else:
+                elif not selection_failed:
                     state["nextDue"][lane] = paid_deadline
             state["updatedAt"] = now_iso()
             atomic_json(root / "runtime.json", state)

@@ -32,7 +32,7 @@ SOURCE_HOSTS = {
     "studysmarter.co.uk", "womenforhire.com", "tutorful.co.uk", "superprof.co.uk", "tutorhunt.com",
     "firsttutors.com", "bdadyslexia.org.uk", "haddenham.net", "chilternchatter.com",
     "directory.familyinfo.buckinghamshire.gov.uk", "findtutors.co.uk", "uk.indeed.com",
-    "childcare.co.uk",
+    "childcare.co.uk", "bark.com",
 }
 PROFILE_PATHS = {"childcare.co.uk": re.compile(r"^/profile/\d+/?$")}
 MERGED_LISTS = ("aliases", "placeIds", "provenance", "emails", "identifiers", "siteEvidence", "establishments", "contactClaims")

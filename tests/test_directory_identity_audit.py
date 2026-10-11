@@ -14,6 +14,14 @@ spec.loader.exec_module(audit)
 
 
 class IdentityTests(unittest.TestCase):
+    def test_ambiguous_uk_places_need_explicit_county_context(self):
+        self.assertTrue(audit.ambiguous_county("Burnham"))
+        self.assertTrue(audit.ambiguous_county("Sands"))
+        self.assertTrue(audit.ambiguous_county("Bourton"))
+        self.assertFalse(audit.ambiguous_county("Burnham, Buckinghamshire"))
+        self.assertFalse(audit.ambiguous_county("Denham (Buckinghamshire)"))
+        self.assertFalse(audit.ambiguous_county("Bancroft"))
+
     def test_the_count_requires_hash_verified_person_and_qualification_evidence(self):
         url = "https://www.findtutors.co.uk/tutors-aylesbury/maths-123"
         body = b'''<section id="sectionaddetail"><div class="info"><span class="user-name">Jane</span>
@@ -76,4 +84,7 @@ class IdentityTests(unittest.TestCase):
         self.assertEqual(audit.normalize_name("Dr. Margaret Thomas"), "margaret thomas")
         self.assertEqual(audit.professional_name("https://www.findtutors.co.uk/tutor/margaret-thomas6226261.htm"), "margaret thomas")
         self.assertIsNone(audit.professional_name("https://www.findtutors.co.uk/tutor/jane-123.htm"))
+        for claim in ["11+ Maths", "11 Plus", "Eleven-plus English"]:
+            self.assertIsNotNone(audit.ELEVEN_PLUS.search(claim))
+        self.assertIsNone(audit.ELEVEN_PLUS.search("Primary up to 11 years"))
 

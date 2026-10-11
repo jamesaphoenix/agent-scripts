@@ -11,6 +11,15 @@ import urllib.parse
 
 from directory_profiles import Document, admitted_url, exclusion_reason, merge_profiles, now, profile_locality_status, profile_record, save
 
+AMBIGUOUS_UK_PLACES = {"burnham", "haddenham", "penn", "sands", "bourton", "denham"}
+ELEVEN_PLUS = re.compile(r"\b11\s*\+|\b(?:11|eleven)[ -]+plus\b", re.I)
+
+
+def ambiguous_county(value):
+    # Exact OS Open Names matches include places outside Bucks, or no Bucks match.
+    # A county search heading cannot disambiguate the person's own bare place name.
+    return value.split(",", 1)[0].strip().casefold() in AMBIGUOUS_UK_PLACES and not re.search(r"\b(?:buckinghamshire|bucks)\b", value, re.I)
+
 
 def normalize_name(value):
     value = re.sub(r"^(?:(?:mr|mrs|ms|miss|dr|prof)\.?\s+)+", "", value.strip(), flags=re.I)
@@ -38,6 +47,7 @@ def audit_rows(root, rows):
             raise ValueError("Missing source evidence: " + key)
         hints = set()
         replayed = []
+        eleven_plus = any(ELEVEN_PLUS.search(service) for service in row["services"])
         for item in evidence:
             url = item["url"]
             if admitted_url(url) != url:
@@ -56,6 +66,8 @@ def audit_rows(root, rows):
                 section = doc.first(lambda n: n.attrs.get("id") == "sectionaddetail")
                 info = section.first(lambda n: n.has_class("info")) if section else None
                 link = info.first(lambda n: n.attrs.get("id") == "lnkProfile") if info else None
+                title = section.first(lambda n: n.tag == "h1") if section else None
+                eleven_plus = bool(eleven_plus or (title and ELEVEN_PLUS.search(title.text()) and not re.search(r"\b(?:passed|sat|took)\b", title.text(), re.I)))
                 hint = professional_name(urllib.parse.urljoin(url, link.attrs.get("href", ""))) if link else None
                 if hint:
                     hints.add(hint)
@@ -64,7 +76,7 @@ def audit_rows(root, rows):
         own = merge_profiles(replayed)[0]
         if own.get("locationConflict") or exclusion_reason(own) or profile_locality_status(own) != "advertised_bucks_locality" or own["name"] != row["name"] or set(own["services"]) != set(row["services"]):
             raise ValueError("Qualified profile does not match replayed page evidence: " + key)
-        result.append(dict(row, key=key, professionalNameHint=next(iter(hints), None)))
+        result.append(dict(row, key=key, professionalNameHint=next(iter(hints), None), elevenPlusServiceClaim=eleven_plus))
     return result
 
 
@@ -100,6 +112,7 @@ def reconcile(rows, decisions):
         identity["pageEvidence"] = list({(e["url"], e["sha256"]): e for m in members for e in m["pageEvidence"]}.values())
         identity["sourceUrls"] = sorted({u for m in members for u in m.get("sourceUrls", [])})
         identity["services"] = sorted({v for m in members for v in m.get("services", [])})
+        identity["elevenPlusServiceClaim"] = any(m.get("elevenPlusServiceClaim", False) for m in members)
         identity["aliases"] = sorted({normalize_name(m["name"]) for m in members} | {m["professionalNameHint"] for m in members if m.get("professionalNameHint")})
         identity["aliases"] = sorted(set(identity["aliases"]) | {alias.split()[0] for alias in identity["aliases"] if alias})
         identities.append(identity)
@@ -144,19 +157,23 @@ def run(root, output, decisions_path):
     raw = path.read_bytes()
     rows = audit_rows(root, json.loads(raw))
     decisions = json.loads(decisions_path.read_text()) if decisions_path else {"merges": []}
-    accepted, held, groups = reconcile(rows, decisions)
+    scope_held = [dict(r, reason="ambiguous_county_place_requires_review") for r in rows if ambiguous_county(r["localityClaim"])]
+    accepted, held, groups = reconcile([r for r in rows if not ambiguous_county(r["localityClaim"])], decisions)
     save(output / "tutors.json", accepted)
     save(output / "held-possible-duplicates.json", held)
+    save(output / "held-ambiguous-locations.json", scope_held)
     save(output / "possible-duplicate-groups.json", groups)
     save(output / "audit.json", {"at": now(), "inputSha256": hashlib.sha256(raw).hexdigest(),
         "decisionsSha256": hashlib.sha256(decisions_path.read_bytes()).hexdigest() if decisions_path else None,
-        "sourceProfiles": len(rows), "reviewedMergeReduction": len(rows) - len(accepted) - len(held),
+        "sourceProfiles": len(rows), "reviewedMergeReduction": len(rows) - len(accepted) - len(held) - len(scope_held),
         "acceptedIdentities": len(accepted), "heldPossibleDuplicates": len(held), "possibleDuplicateGroups": len(groups),
+        "heldAmbiguousLocations": len(scope_held),
+        "withExplicitElevenPlusServiceClaim": sum(r["elevenPlusServiceClaim"] for r in accepted),
         "pageEvidenceVerified": sum(len(r["pageEvidence"]) for r in rows), "paidCalls": 0, "outreachApproved": 0,
         "qualification": "Public advertised local private-tutor profiles. Uncertain matching names held; locality, availability and consent are not independently verified."})
     with (output / "tutors.csv").open("w", newline="") as stream:
         (output / "tutors.csv").chmod(0o600)
-        fields = ["canonicalId", "name", "localityClaim", "services", "sourceUrls", "memberKeys", "outreachEligible"]
+        fields = ["canonicalId", "name", "localityClaim", "services", "sourceUrls", "memberKeys", "elevenPlusServiceClaim", "outreachEligible"]
         writer = csv.DictWriter(stream, fieldnames=fields, extrasaction="ignore")
         writer.writeheader()
         writer.writerows(dict(r, **{f: "; ".join(r.get(f, [])) for f in ["services", "sourceUrls", "memberKeys"]}) for r in accepted)

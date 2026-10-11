@@ -35,11 +35,16 @@ BUCKS = {
     "flackwell heath", "bledlow ridge", "hughenden valley", "little kimble", "long crendon",
     "stewkley", "stokenchurch", "woburn sands",
     "cheddington", "far bletchley", "new bradwell", "bow brickhill", "little marlow",
+    "hodge lea", "fishermead", "newton leys", "walnut tree", "kents hill", "great holm", "fullers slade",
+    "wavendon gate", "tattenhoe", "hanslope", "lavendon", "emberton", "north crawley", "shenley lodge",
+    "edlesborough", "wingrave", "seer green", "weedon", "west wycombe", "naphill", "turville", "medmenham",
+    "little horwood", "great horwood", "soulbury", "stoke hammond", "steeple claydon", "calvert", "gawcott",
+    "haversham", "grange farm",
 }
 CHILDCARE_DISTRICTS = {"aylesbury vale", "chiltern", "south bucks", "wycombe"}
 NON_TUITION = re.compile(r"\b(?:yoga|football|fitness|personal training|swimming|pilates|driving)\b", re.I)
 INSTITUTION = re.compile(r"\b(?:academy|university|college|grammar school|tuition centre|learning centre|kumon|mathnasium|explore learning)\b", re.I)
-ACADEMIC = re.compile(r"math|english|science|biology|chemistry|physics|history|geography|language|french|spanish|german|italian|arabic|mandarin|chinese|japanese|russian|latin|greek|portuguese|hindi|urdu|economics|business|accounting|comput|programming|coding|philosophy|psychology|sociology|law|statistics|primary|11\+|11.plus|eleven.plus|gcse|a.level|sat|reading|writing|literacy|phonics|dyslexia|study skills|special needs|send|efl|esol|ielts|piano|violin|guitar|singing|music|drum|flute", re.I)
+ACADEMIC = re.compile(r"math|english|science|biology|chemistry|physics|history|geography|language|french|spanish|german|italian|arabic|mandarin|chinese|japanese|russian|latin|greek|portuguese|hindi|urdu|economics|business|accounting|comput|programming|coding|philosophy|psychology|sociology|law|statistics|primary|11\+|11.plus|eleven.plus|gcse|a.level|sat|reading|writing|literacy|phonics|dyslexia|study skills|special needs|send|efl|esol|ielts|piano|violin|guitar|singing|music|drum|flute|\b(?:art|anatomy|theology|polish|after[ -]school tuition|secondary school)\b", re.I)
 VOID = {"area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "param", "source", "track", "wbr"}
 
 

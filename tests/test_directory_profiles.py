@@ -82,6 +82,22 @@ class ProfileTests(unittest.TestCase):
         for town in ["Bourne End", "Lane End", "St Albans", "Reading", "Halton", "Wing", "Calverton"]:
             self.assertEqual(directory.locality_status(town), "outside_or_unresolved")
 
+    def test_verified_milton_keynes_neighbourhoods_and_bucks_villages_are_local(self):
+        for town in ["Hodge Lea", "Fishermead", "Newton Leys", "Walnut Tree", "Kents Hill", "Great Holm",
+                     "Fullers Slade", "Wavendon Gate", "Tattenhoe", "Hanslope", "Lavendon", "Emberton",
+                     "North Crawley", "Shenley Lodge", "Edlesborough", "Wingrave", "Seer Green", "Weedon",
+                     "West Wycombe", "Naphill", "Turville", "Medmenham", "Little Horwood", "Great Horwood",
+                     "Soulbury", "Stoke Hammond", "Steeple Claydon", "Calvert", "Gawcott", "Haversham", "Grange Farm"]:
+            self.assertEqual(directory.locality_status(town), "advertised_bucks_locality")
+        for town in ["Westcroft", "Crownhill", "Brill", "Walters Ash", "Old Haversham"]:
+            self.assertEqual(directory.locality_status(town), "outside_or_unresolved")
+
+    def test_academic_subject_categories_include_art_and_school_tuition(self):
+        for subject in ["Contemporary Art", "After-school tuition", "Secondary school", "Theology", "Anatomy", "Polish"]:
+            self.assertIsNone(directory.exclusion_reason({"name": "Jane Example", "services": [subject]}))
+        for subject in ["Martial arts", "Artificial flowers", "Emotional intelligence", "Life coaching"]:
+            self.assertIsNotNone(directory.exclusion_reason({"name": "Jane Example", "services": [subject]}))
+
     def test_tutordex_uses_the_private_tutor_header_and_numeric_identity(self):
         html = '''<h1>Tutor Profile</h1><div><h1>Catherine</h1><p class="uppercase">Private
           <a href="/uk/academic/subject/english">English</a> Tutor in

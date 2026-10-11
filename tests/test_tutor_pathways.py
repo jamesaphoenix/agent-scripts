@@ -199,7 +199,7 @@ class LeadCleaningTests(unittest.TestCase):
             self.addCleanup(cache.db.close)
             folder = root / "review/candidates"
             folder.mkdir(parents=True)
-            source = "https://community.example/services.html"
+            source = "https://www.haddenham.net/services-page-6.html"
             data = {"observedAt": "2026-10-11T13:40:00+00:00", "leads": [
                 {"name": "First Tutor", "website": None, "phone": "07958627536", "email": "first@example.org",
                  "sourceUrls": [source], "localityClaim": "Dinton", "services": ["11 Plus tuition"], "notes": "Advert from 2018."},
@@ -214,8 +214,10 @@ class LeadCleaningTests(unittest.TestCase):
                 self.assertEqual(row["emails"], [])
                 self.assertFalse(row["contactClaims"][0]["verified"])
                 self.assertFalse(row["outreachEligible"])
+                self.assertIsNone(discovery.hold_reason(row))
                 self.assertEqual(row["provenance"][0]["lane"], "manual_source_review")
                 self.assertEqual(discovery.subject_hint(row), "11_plus_hint")
+            self.assertEqual(discovery.hold_reason({"name": "Community directory", "website": source}), "source_directory_or_job_page")
 
     def test_manual_address_and_source_notes_reach_county_cleaning_without_approving_contact(self):
         with tempfile.TemporaryDirectory() as temporary:

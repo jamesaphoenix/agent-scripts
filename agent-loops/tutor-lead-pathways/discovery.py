@@ -316,9 +316,11 @@ def hold_reason(record):
     category = (record.get("category") or "").strip().lower()
     if CHAINS.search(name + " " + host.replace(".", " ")):
         return "recognised_chain"
-    if (host == "facebook.com" or host.endswith(".facebook.com")) and urllib.parse.urlsplit(url).path.strip("/").split("/")[0] in ("groups", "share"):
+    named_source_claim = not record.get("website") and any(
+        source.get("lane") in ("codex_oauth", "manual_source_review") for source in record.get("provenance", []))
+    if not named_source_claim and (host == "facebook.com" or host.endswith(".facebook.com")) and urllib.parse.urlsplit(url).path.strip("/").split("/")[0] in ("groups", "share"):
         return "source_directory_or_job_page"
-    if source_host(host) and not professional_profile(url):
+    if not named_source_claim and source_host(host) and not professional_profile(url):
         return "source_directory_or_job_page"
     if category in NON_ACADEMIC_CATEGORIES:
         return "outside_academic_tuition_scope"

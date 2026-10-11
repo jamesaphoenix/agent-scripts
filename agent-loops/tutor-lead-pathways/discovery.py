@@ -32,7 +32,8 @@ SOURCE_HOSTS = {
     "studysmarter.co.uk", "womenforhire.com", "tutorful.co.uk", "superprof.co.uk", "tutorhunt.com",
     "firsttutors.com", "bdadyslexia.org.uk", "haddenham.net", "chilternchatter.com",
     "directory.familyinfo.buckinghamshire.gov.uk", "findtutors.co.uk", "uk.indeed.com",
-    "childcare.co.uk", "bark.com",
+    "childcare.co.uk", "bark.com", "yell.com", "schoolguide.co.uk", "cylex-uk.co.uk",
+    "yelp.com", "yelp.co.uk", "yelp.ca",
 }
 PROFILE_PATHS = {"childcare.co.uk": re.compile(r"^/profile/\d+/?$")}
 MERGED_LISTS = ("aliases", "placeIds", "provenance", "emails", "identifiers", "siteEvidence", "establishments", "contactClaims")
@@ -254,13 +255,17 @@ def website_key(value):
         return None
     p = urllib.parse.urlsplit(value)
     host = p.hostname.lower().removeprefix("www.")
-    if host in SOURCE_HOSTS:
+    if source_host(host):
         # Individual profiles and directory pages cannot share a business identity.
         return host + (p.path.rstrip("/") or "/")
     if host in ("facebook.com", "instagram.com", "linktr.ee") or host.endswith(".wixsite.com"):
         return host + "/" + p.path.strip("/").split("/")[0]
     # A tenant subdomain remains part of its identity.
     return host
+
+
+def source_host(host):
+    return any(host == known or host.endswith("." + known) for known in SOURCE_HOSTS)
 
 
 def professional_profile(value):
@@ -287,7 +292,7 @@ def hold_reason(record):
     host = urllib.parse.urlsplit(url).hostname or ""
     if CHAINS.search(name + " " + host.replace(".", " ")):
         return "recognised_chain"
-    if any(host == h or host.endswith("." + h) for h in SOURCE_HOSTS) and not professional_profile(url):
+    if source_host(host) and not professional_profile(url):
         return "source_directory_or_job_page"
     if (record.get("category") or "").strip().lower() in NON_ACADEMIC_CATEGORIES:
         return "outside_academic_tuition_scope"

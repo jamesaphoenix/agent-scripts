@@ -154,6 +154,17 @@ class LeadCleaningTests(unittest.TestCase):
         for row in rows:
             self.assertEqual(discovery.hold_reason(row), "source_directory_or_job_page")
 
+    def test_directory_host_families_keep_distinct_paths_and_hold_generic_sources(self):
+        rows = [{"name": "Tops Tuition", "website": "https://beaconsfield.cylex-uk.co.uk/company/tops-tuition-27065012.html"},
+                {"name": "Another listing", "website": "https://beaconsfield.cylex-uk.co.uk/company/another-listing-12345678.html"}]
+        self.assertEqual(len(discovery.merge_businesses(rows)), 2)
+        for row in rows + [{"name": "Directory", "website": "https://www.yell.com/s/tutoring-chalfont+st+peter.html"},
+                           {"name": "Directory", "website": "https://www.schoolguide.co.uk/tutordirectory/regional?search=farnham-common"},
+                           {"name": "Directory", "website": "https://m.yelp.com/search?cflt=tutoring"}]:
+            with self.subTest(website=row["website"]):
+                self.assertEqual(discovery.hold_reason(row), "source_directory_or_job_page")
+        self.assertEqual(discovery.website_key("https://my-independent-tutor.example/about"), "my-independent-tutor.example")
+
     def test_phone_merges_branches_and_preserves_all_places(self):
         rows = [{"name": "Tuition", "phone": "+447400000000", "placeId": "a", "provenance": ["a"]}, {"name": "Tuition", "phone": "07400 000000", "placeId": "b", "provenance": ["b"]}]
         merged = discovery.merge_businesses(rows)

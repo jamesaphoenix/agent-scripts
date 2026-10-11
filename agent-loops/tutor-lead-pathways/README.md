@@ -34,6 +34,8 @@ Shared directory hosts retain their complete profile path as identity. Recognise
 
 Bark profiles also retain their individual path. They stay held for source review, including the three profiles whose opened pages say the professional is currently unavailable. Their names, contact claims and verification notes remain separate.
 
+Source-host matching also covers directory subdomains, including Cylex's town hosts and mobile Yelp. Yell, School Guide, Cylex and Yelp pages retain distinct paths and stay held for source review. Generic town search pages are not tutor businesses.
+
 Email cleaning excludes known platform and template addresses. A checked example is [Natalie Frith Tutorials](https://nataliefrithtutorials.co.uk/): its home page includes `info@edublink.com` beside the tutor's own contact. The export retains the advertised tutor address, with its exact page attribution, while raw evidence still preserves the original page extraction.
 
 Cleaning rechecks franchise and service scope even on earlier exports. Recognised franchises include [Kip McGrath](https://www.kipmcgrath.com/global/) and [NumberWorks'nWords](https://numberworksnwords.com/uk/own-a-business/franchise-opportunities). Listings explicitly categorised as museums, driving schools, martial arts, piano instruction, art schools, life coaching or translation services are held outside academic tuition scope. Primary school tutors and academic educational consultants remain available for review. CSV exports retain agent service/locality claims and verification notes, including historical adverts, parked domains and conflicting addresses. Current activity remains unverified.

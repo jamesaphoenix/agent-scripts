@@ -10,7 +10,7 @@ import re
 import time
 import urllib.request
 
-from discovery import NoRedirect, atomic_json, hold_reason, now_iso, parse_time
+from discovery import NoRedirect, atomic_json, hold_reason, now_iso, parse_time, subject_hint
 
 POSTCODES_URL = "https://api.postcodes.io/postcodes"
 DISTRICTS = {"E06000060", "E06000042"}  # Buckinghamshire and Milton Keynes.
@@ -128,6 +128,7 @@ def clean_exports(root, deadline=None):
         record["servicesClaim"] = "; ".join(sorted({v for s in sources for v in (s.get("servicesClaim") or []) if isinstance(v, str)}))
         # Fetch time, a Maps listing and an agent's claim do not prove current activity.
         record["currentActivityVerified"] = False
+        record["subjectEvidence"] = subject_hint(record)
         record["countyEvidence"] = county_evidence(record, geography)
         record["countyStatus"] = record["countyEvidence"]["status"]
         record["localAddress"] = "; ".join(record["countyEvidence"]["localAddresses"])
@@ -139,7 +140,7 @@ def clean_exports(root, deadline=None):
             held.append(record)
         elif record["countyStatus"] == "has_bucks_listing":
             local.append(record)
-            if record.get("subjectEvidence") in ("11_plus_hint", "primary_hint") or re.search(r"(?i)11\s*(?:\+|plus)|eleven.?plus|primary", record["name"]):
+            if record["subjectEvidence"] in ("11_plus_hint", "primary_hint"):
                 subject.append(record)
         elif record["countyStatus"] == "outside_recorded_listings":
             outside.append(record)

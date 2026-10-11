@@ -209,6 +209,45 @@ class LeadCleaningTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 discovery.validate_plan(root, job)
 
+    def test_grammar_school_references_do_not_label_a_gcse_tutor_as_eleven_plus(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            cache = discovery.PaidCache(root, 2000, 0)
+            self.addCleanup(cache.db.close)
+            folder = root / "crawls/batch-000"
+            folder.mkdir(parents=True)
+            url = "https://gcse-tutor.example/meet-your-tutor"
+            evidence = {"url": url, "title": "GCSE Maths Tutor", "text": "Maths tuition for Years 7 to 11. Students attend local grammar schools.",
+                        "elevenPlus": True, "primary": False, "contentHash": "saved-page-hash"}
+            (folder / "crawl.json").write_text(json.dumps({"results": [{"node": {"url": url}, "evidence": evidence}]}))
+            discovery.write_exports(root, cache)
+            row = json.loads((root / "exports/businesses.json").read_text())[0]
+            self.assertEqual(row["subjectEvidence"], "needs_subject_verification")
+            self.assertFalse(row["siteEvidence"][0]["elevenPlusHint"])
+            self.assertTrue(row["siteEvidence"][0]["admissionsHint"])
+            self.assertEqual(row["siteEvidence"][0]["contentHash"], "saved-page-hash")
+            self.assertFalse(row["outreachEligible"])
+
+    def test_explicit_eleven_plus_page_text_remains_a_hint_without_provider_flag(self):
+        for phrase in ("11+", "11 +", "11-plus", "11 plus", "eleven-plus", "elevenplus"):
+            with self.subTest(phrase=phrase), tempfile.TemporaryDirectory() as temporary:
+                root = Path(temporary)
+                cache = discovery.PaidCache(root, 2000, 0)
+                try:
+                    folder = root / "crawls/batch-000"
+                    folder.mkdir(parents=True)
+                    url = "https://individual-tutor.example/"
+                    evidence = {"url": url, "title": "Individual tutor", "text": f"Private tutor offering {phrase} tuition.",
+                                "elevenPlus": False, "primary": False}
+                    (folder / "crawl.json").write_text(json.dumps({"results": [{"node": {"url": url}, "evidence": evidence}]}))
+                    discovery.write_exports(root, cache)
+                    row = json.loads((root / "exports/businesses.json").read_text())[0]
+                    self.assertEqual(row["subjectEvidence"], "11_plus_hint")
+                    self.assertFalse(row["elevenPlusVerified"])
+                    self.assertFalse(row["outreachEligible"])
+                finally:
+                    cache.db.close()
+
 
 class CountyCleaningTests(unittest.TestCase):
     def setUp(self):

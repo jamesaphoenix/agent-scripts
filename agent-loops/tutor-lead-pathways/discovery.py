@@ -22,6 +22,7 @@ ENDPOINTS = {
     "business": "/v3/business_data/business_listings/search/live",
 }
 CHAINS = re.compile(r"\b(kumon|explore learning|first class learning|mathnasium|tutor doctor|teachers to your home|bright young things|kip\s*mcgrath|number\s*works\s*['’]?\s*n\s*words)\b", re.I)
+ELEVEN_PLUS = re.compile(r"\b(?:11\s*\+|11[\s-]*plus\b|eleven[\s-]*plus\b)", re.I)
 NON_ACADEMIC_CATEGORIES = {
     "museum", "driving school", "martial arts school", "piano instructor",
     "art school", "life coach", "translation service",
@@ -449,7 +450,12 @@ def collect_records(cache, run_dir):
                                       "historical": path in historical, "observedAt": result.get("fetchedAt")})
             record["sourceUrl"] = url
             record["emails"] = [{"email": email, "sourceUrl": url, "verified": False, "extraction": "go_page_evidence"} for email in emails]
-            record["siteEvidence"] = [{"url": url, "title": evidence.get("title"), "elevenPlusHint": bool(evidence.get("elevenPlus")),
+            # The native crawler also flags generic grammar-school and entrance-exam
+            # mentions. Keep that observation, but require explicit 11+ wording for
+            # the subject shortlist. Missing text leaves the subject unverified.
+            record["siteEvidence"] = [{"url": url, "title": evidence.get("title"),
+                                       "elevenPlusHint": bool(ELEVEN_PLUS.search(text + "\n" + (evidence.get("title") or ""))),
+                                       "admissionsHint": bool(evidence.get("elevenPlus")),
                                        "primaryHint": bool(evidence.get("primary")), "independentHint": bool(evidence.get("independentHint")),
                                        "postcodes": evidence.get("postcodes", []), "contentHash": evidence.get("contentHash")}]
             records.append(record)
@@ -472,6 +478,15 @@ def clean_emails(values):
     return out
 
 
+def subject_hint(record):
+    evidence = record.get("siteEvidence", [])
+    if ELEVEN_PLUS.search(record.get("name") or "") or any(e.get("elevenPlusHint") for e in evidence):
+        return "11_plus_hint"
+    if re.search(r"\bprimary\b", record.get("name") or "", re.I) or any(e.get("primaryHint") for e in evidence):
+        return "primary_hint"
+    return "needs_subject_verification"
+
+
 def write_exports(run_dir, cache, final=False):
     records = collect_records(cache, run_dir)
     merged = merge_businesses(records)
@@ -484,7 +499,7 @@ def write_exports(run_dir, cache, final=False):
         record["newInThisRun"] = not any(source.get("historical") for source in record["provenance"])
         # No heuristic promotes consent, locality, ownership or outreach eligibility.
         record["reviewed"] = record["localVerified"] = record["independentVerified"] = record["elevenPlusVerified"] = record["outreachEligible"] = False
-        record["subjectEvidence"] = "11_plus_hint" if any(e["elevenPlusHint"] for e in record["siteEvidence"]) else "primary_hint" if any(e["primaryHint"] for e in record["siteEvidence"]) else "needs_subject_verification"
+        record["subjectEvidence"] = subject_hint(record)
     output = run_dir / "exports"
     atomic_json(output / "businesses.json", merged)
     output.mkdir(exist_ok=True)

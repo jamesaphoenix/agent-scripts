@@ -26,6 +26,22 @@
   },
   "tasks": [
     {
+      "id": "bucks-private-tutors-watch-20261011",
+      "name": "Fifteen-minute private tutor profile checks",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.bucks-private-tutors-watch-20261011",
+      "schedule": "every fifteen minutes until the finite profile stage ends",
+      "requiresOpServiceAccount": false,
+      "opServiceAccountSource": null,
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
+        "command": ["bash", "agent-loops/tutor-lead-pathways/install-directory-profiles.sh", "watch"]
+      },
+      "notes": "User requested fifteen-minute monitoring. Read-only progress and actual process checks, at most three registered recovery requests without killing owners. No paid calls. A stage ending below one thousand does not complete the discovery goal."
+    },
+    {
       "id": "bucks-private-tutors-20261011",
       "name": "Private Bucks tutor profile discovery",
       "enabled": true,

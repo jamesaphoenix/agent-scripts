@@ -44,7 +44,7 @@ SOURCE_HOSTS = {
     "firsttutors.com", "bdadyslexia.org.uk", "haddenham.net", "chilternchatter.com",
     "directory.familyinfo.buckinghamshire.gov.uk", "findtutors.co.uk", "uk.indeed.com",
     "childcare.co.uk", "bark.com", "yell.com", "schoolguide.co.uk", "cylex-uk.co.uk",
-    "yelp.com", "yelp.co.uk", "yelp.ca",
+    "yelp.com", "yelp.co.uk", "yelp.ca", "pmt.education",
 }
 PROFILE_PATHS = {"childcare.co.uk": re.compile(r"^/profile/\d+/?$")}
 MERGED_LISTS = ("aliases", "placeIds", "provenance", "emails", "identifiers", "siteEvidence", "establishments", "contactClaims")
@@ -269,7 +269,17 @@ def website_key(value):
     if source_host(host):
         # Individual profiles and directory pages cannot share a business identity.
         return host + (p.path.rstrip("/") or "/")
-    if host in ("facebook.com", "instagram.com", "linktr.ee") or host.endswith(".wixsite.com"):
+    if host == "facebook.com" or host.endswith(".facebook.com"):
+        parts = p.path.strip("/").split("/")
+        if parts[0] == "profile.php":
+            ids = urllib.parse.parse_qs(p.query).get("id", [])
+            return "facebook.com/profile.php?id=" + ids[0] if len(ids) == 1 and ids[0].isdigit() else None
+        if parts[0] in ("people", "pages") and len(parts) >= 3 and parts[2].isdigit():
+            return "facebook.com/profile.php?id=" + parts[2]
+        if parts[0] in ("people", "pages", "groups", "share"):
+            return "facebook.com/" + p.path.strip("/")
+        return "facebook.com/" + parts[0] if parts[0] else None
+    if host in ("instagram.com", "linktr.ee") or host.endswith(".wixsite.com"):
         return host + "/" + p.path.strip("/").split("/")[0]
     # A tenant subdomain remains part of its identity.
     return host

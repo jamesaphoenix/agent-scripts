@@ -165,6 +165,24 @@ class LeadCleaningTests(unittest.TestCase):
                 self.assertEqual(discovery.hold_reason(row), "source_directory_or_job_page")
         self.assertEqual(discovery.website_key("https://my-independent-tutor.example/about"), "my-independent-tutor.example")
 
+    def test_facebook_profile_ids_do_not_merge_different_tutors(self):
+        rows = [discovery.business_record({"name": "Tutored by Tara", "category": "Tutor", "place_id": "tara-place",
+                                          "website": "https://www.facebook.com/profile.php?id=123456789&ref=page_internal"}, {}),
+                discovery.business_record({"name": "French with RB", "category": "Tutor", "place_id": "rb-place",
+                                          "website": "https://www.facebook.com/profile.php?id=987654321"}, {})]
+        self.assertEqual(len(discovery.merge_businesses(rows)), 2)
+        self.assertEqual(discovery.website_key(rows[0]["website"]),
+                         discovery.website_key("https://m.facebook.com/profile.php?id=123456789"))
+        self.assertNotEqual(discovery.website_key("https://www.facebook.com/people/First-Tutor/123456789/"),
+                            discovery.website_key("https://www.facebook.com/people/Second-Tutor/987654321/"))
+
+    def test_pmt_profiles_and_directory_contacts_keep_separate_source_identities(self):
+        rows = [discovery.business_record({"name": "Samuel W. Private Tutor", "website": "https://www.pmt.education/tutor/tutor-profile/samuel-w-226582"}, {}),
+                discovery.business_record({"name": "Another tutor", "website": "https://www.pmt.education/tutor/tutor-profile/another-tutor-123456"}, {}),
+                discovery.business_record({"name": "About PMT", "website": "https://www.pmt.education/about-us"}, {})]
+        self.assertEqual(len(discovery.merge_businesses(rows)), 3)
+        self.assertTrue(all(r["status"] == "held" and r["holdReason"] == "source_directory_or_job_page" for r in rows))
+
     def test_phone_merges_branches_and_preserves_all_places(self):
         rows = [{"name": "Tuition", "phone": "+447400000000", "placeId": "a", "provenance": ["a"]}, {"name": "Tuition", "phone": "07400 000000", "placeId": "b", "provenance": ["b"]}]
         merged = discovery.merge_businesses(rows)

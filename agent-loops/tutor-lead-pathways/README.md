@@ -48,6 +48,8 @@ Crawler seeds consider the listing category and website as well as the name. A b
 
 Source review also confirmed franchise offerings from [Brain Up](https://www.brainup.uk/ukfranchise) and [Clara James Tutoring](https://clarajamestutoring.co.uk/tutoring-franchise/). Their names and known domains are held as recognised chains. A college word in a brand name alone is not an exclusion: [The Rye College](https://www.theryecollege.co.uk/) advertises private 11+ and primary tuition and is categorised as a tutor.
 
+Facebook profile IDs remain in business identity, including mobile URLs and numbered people/pages routes. Tracking parameters do not merge two distinct profiles or split one known profile. PMT Education profile and directory paths remain distinct and held for source review. Its general contact-page emails must not be merged into a named tutor merely through their shared hosting domain.
+
 Verification:
 
 ```bash

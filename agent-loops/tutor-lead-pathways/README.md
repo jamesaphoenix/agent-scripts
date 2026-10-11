@@ -1,0 +1,36 @@
+# Tutor lead discovery through five pathways
+
+Six-hour research job for independent 11+ and primary tutor practices in Buckinghamshire, including Milton Keynes. MacBook is the authoring source; Mac Studio owns the registered runtime.
+
+The paths are Google Maps searches, Business Listings category searches, targeted organic search, community/professional directory and newsletter search, and a Codex TypeScript SDK session using existing ChatGPT OAuth. The SDK uses live web search, a read-only sandbox and structured source-attributed results. It cannot inherit provider/API credentials or enabled MCP servers. OAuth token usage is recorded; no dollar cost or remaining subscription allowance is inferred from token counts.
+
+SDK turns execute through existing loopback SSH authentication on Studio, with strict host-key verification against the installed public host key. This avoids observed native file-open stalls when launchd reads Desktop-linked global instructions and skills. OAuth remains in the existing Codex credential store. No authentication settings or authorised SSH keys are changed.
+
+All DataForSEO paths share one SQLite paid-request ledger. SHA256 identity includes endpoint and complete semantic payload but excludes the tracking tag. Existing provider receipts are imported before launch. Submitting requests become uncertain after a crash unless their durable receipt proves settlement. Failed and uncertain requests are never reposted. Receipt cost must agree between task and envelope. Request reservations and cent-rounded charges share a USD20 incremental ceiling, within the original USD100 discovery cap. A new depth-100 Maps query differs from an old depth-10 query and expands the result set intentionally.
+
+`prepare.py` writes the immutable plan and manifest. The first actual runtime creates one fixed six-hour start/deadline; paid research stops fifteen minutes before the deadline to allow final cleaning. Resuming retains that window, budget and plan digest. The four script paths are interleaved and paced independently. Repeated provider failures cool down the affected path rather than replaying a request.
+
+The existing reviewed Go crawler enriches new website seeds in bounded batches: external depth one, fifteen sites per root branch, four pages per site, fifty sites and two hundred pages per batch, four workers. The new window has a total four-thousand-page ceiling. Historical page evidence is reused; no-website business listings remain available for later enrichment.
+
+The watch task runs at startup and every thirty minutes. It checks the actual owner lock/PID, checkpoint age, meaningful progress, paid usage, SDK usage and runtime errors. A missing owner can request at most three registered launchd restarts without killing another process. It never calls a paid provider. The monitor saves its final report and unloads after completion or the original deadline.
+
+The launcher resolves only the two DataForSEO references through the existing `lib/op-cli.sh` wrapper. Its twenty-second calls isolate the CLI from macOS desktop settings and bound the whole process group; one cache-disabled retry has a fifty-second outer bound. The launcher removes the service account and unrelated API keys before executing the runner. SDK and crawler children receive only ordinary host environment fields, never provider credentials. This avoids the observed launchd/TCC startup hang.
+
+Install only through the canonical registry-driven installer on Mac Studio:
+
+```bash
+scripts/install-launchd-tasks.sh --task tutor-lead-pathways-20261011
+scripts/install-launchd-tasks.sh --task tutor-lead-pathways-watch-20261011
+python3 agent-loops/tutor-lead-pathways/run.py status --run-dir state/tutor-lead-pathways-20261011
+```
+
+Private artifacts live under `state/tutor-lead-pathways-20261011`: native paid receipts and hashes, SDK events/results/token usage, Go checkpoints/evidence, monitor reports, deduplicated business JSON/CSV, a filtered research CSV and final `REPORT.md`. Business identities and establishment IDs are separate. Advertised location, independent ownership, current subjects, email validity and consent remain explicit verification fields; no heuristics grant outreach eligibility. Source directories, jobs, schools and recognised chains are held. No emails, domain purchases or tenant imports are part of this job.
+
+Final cleaning uses free cached Postcodes.io lookups for actual advertised establishment addresses. Buckinghamshire and Milton Keynes district codes determine listed county membership; HP/MK prefixes and search origins do not. A shared business with a Bucks branch survives even if its first listed address is in Berkshire. The exports separate county listings, local 11+/primary hints, unresolved locations, recorded outside addresses and held sources. Unverified provider email claims are retained separately from fetched-page email extraction. These lists remain research, with ownership and current tuition services requiring review.
+
+Verification:
+
+```bash
+python3 -m unittest discover -s tests -p test_tutor_pathways.py
+node --test agent-loops/tutor-lead-pathways/agentic.test.mjs
+```

@@ -1,0 +1,39 @@
+#!/bin/bash
+set -euo pipefail
+[[ "$(id -un)" == "jamesphoenix" ]] || { echo "Install this task on the Mac Studio only." >&2; exit 1; }
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
+RUN_DIR="$ROOT_DIR/state/tutor-lead-pathways-20261011"
+MODE="${1:-run}"
+[[ -f "$RUN_DIR/manifest.json" ]] || { echo "Prepare the immutable discovery plan first." >&2; exit 1; }
+[[ -f "$SCRIPT_DIR/node_modules/@openai/codex-sdk/package.json" ]] || { echo "Install the pinned SDK first." >&2; exit 1; }
+LABEL="com.jud.tutor-lead-pathways-20261011"
+[[ "$MODE" == watch ]] && LABEL="com.jud.tutor-lead-pathways-watch-20261011"
+[[ "$MODE" == run || "$MODE" == watch ]] || { echo "Choose run or watch." >&2; exit 1; }
+PLIST_PATH="$HOME/Library/LaunchAgents/$LABEL.plist"
+mkdir -p "$RUN_DIR" "$HOME/Library/LaunchAgents"
+chmod 700 "$RUN_DIR"
+python3 - "$PLIST_PATH" "$SCRIPT_DIR" "$RUN_DIR" "$LABEL" "$MODE" <<'PY'
+import plistlib,sys
+path,scripts,state,label,mode=sys.argv[1:]
+args=["/bin/zsh",scripts+"/run.zsh"] if mode=="run" else ["/opt/homebrew/bin/python3",scripts+"/run.py","watch","--run-dir",state]
+value={"Label":label,"ProgramArguments":args,"RunAtLoad":True,"ProcessType":"Background",
+       "StandardOutPath":state+("/stdout.log" if mode=="run" else "/monitor-stdout.log"),
+       "StandardErrorPath":state+("/stderr.log" if mode=="run" else "/monitor-stderr.log")}
+if mode=="run":value.update(KeepAlive={"SuccessfulExit":False},ThrottleInterval=120)
+else:value["StartInterval"]=1800
+with open(path,"wb") as stream:plistlib.dump(value,stream)
+PY
+chmod 600 "$PLIST_PATH"
+launchctl bootout "gui/$(id -u)/$LABEL" 2>/dev/null || true
+for ((attempt=1;attempt<=15;attempt++)); do
+  if launchctl bootstrap "gui/$(id -u)" "$PLIST_PATH"; then
+    echo "Installed $LABEL with the original finite deadline."
+    exit 0
+  else
+    code=$?
+  fi
+  [[ "$code" == 5 ]] || exit "$code"
+  [[ "$attempt" == 15 ]] || sleep 2
+done
+exit 5

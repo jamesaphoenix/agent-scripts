@@ -34,6 +34,7 @@ BUCKS = {
     "wavendon", "upper weald", "holmer green",
     "flackwell heath", "bledlow ridge", "hughenden valley", "little kimble", "long crendon",
     "stewkley", "stokenchurch", "woburn sands",
+    "cheddington", "far bletchley", "new bradwell", "bow brickhill", "little marlow",
 }
 CHILDCARE_DISTRICTS = {"aylesbury vale", "chiltern", "south bucks", "wycombe"}
 NON_TUITION = re.compile(r"\b(?:yoga|football|fitness|personal training|swimming|pilates|driving)\b", re.I)
@@ -152,6 +153,10 @@ def profile_locality_status(row):
 def exclusion_reason(row):
     if row.get("institution") or INSTITUTION.search(row.get("name", "")):
         return "institution_or_chain"
+    if row.get("nonTuitionAdvert"):
+        return "non_tuition_advert"
+    if row.get("hasQualifyingTutorAdvert") is False:
+        return "non_tuition_or_unreviewed_adverts"
     services = " ".join(row.get("services", []))
     if NON_TUITION.search(services) and not ACADEMIC.search(services):
         return "non_tuition_lessons"
@@ -164,6 +169,30 @@ def public_person(platform, person_id, name, location, services, url):
     return {"name": name, "personId": person_id, "platform": platform, "sourceUrls": [url],
             "localityClaim": location, "services": services, "evidenceKind": "public_person_profile",
             "outreachEligible": False, "institution": False}
+
+
+def annotate_advert(row, title="", description=""):
+    non_tuition = r"\b(?:anxiety coaching|life coaching|therapy|psychotherapy|counselling|personal training|fitness|yoga|pilates|swimming|driving)\b"
+    teaching = r"\b(?:tutor|tuition|lessons?|teaching|teacher|gcse|a[ -]level|exams?)\b|11\+"
+    row["nonTuitionAdvert"] = bool(re.search(non_tuition, title, re.I) and not re.search(teaching, title, re.I))
+    personal = r"\bI(?:\s+am|'m|’m)\s+(?:currently\s+)?(?:resident|based|living|located|residing)\s+(?:in|at)\s+|\bI\s+(?:currently\s+)?(?:live|reside)\s+in\s+"
+    implicit = r"\bcurrently\s+(?:resident|based|living|located|residing)\s+(?:(?:in|at)\s+)?"
+    declarations = []
+    for text, cue in [(title, implicit), (title, personal), (description, personal), (description, r"^" + implicit)]:
+        for match in re.finditer("(?:" + cue + r")([^,.!?;|:\n<>]{1,80})", text, re.I):
+            place = re.split(r"\b(?:and|but|where|offering|teaching|providing|with)\b", match.group(1), maxsplit=1, flags=re.I)[0].strip()
+            if place:
+                declarations.append(place)
+    row["currentLocalityDeclarations"] = list(dict.fromkeys(declarations))
+    broader = {"uk", "the uk", "united kingdom", "the united kingdom", "england", "great britain", "south east england"}
+    known = {*BUCKS, "buckinghamshire", "bucks", *CHILDCARE_DISTRICTS}
+    for place in declarations:
+        value = place.casefold()
+        local = value in broader or any(re.fullmatch(re.escape(town) + r"(?:\s+(?:in\s+)?(?:buckinghamshire|bucks|england|uk))?", value) for town in known)
+        if not local:
+            row["locationConflict"] = True
+            row["currentLocationNeedsReview"] = True
+    return row
 
 
 def listing_records(text, url):
@@ -241,7 +270,9 @@ def profile_record(text, url):
         subjects = [n.text() for n in role.walk() if n.tag == "a" and n.attrs.get("href", "").startswith("/uk/academic/subject/")]
         if not location or not name.text():
             return None
-        return public_person(p.hostname, p.path.split("/")[2], name.text(), location.text(), subjects, url)
+        summary = document.first(lambda n: n.tag == "meta" and n.attrs.get("name") == "description")
+        return annotate_advert(public_person(p.hostname, p.path.split("/")[2], name.text(), location.text(), subjects, url),
+                               description=summary.attrs.get("content", "") if summary else "")
     elif p.hostname == "tutorextra.co.uk":
         if not re.fullmatch(r"/profile/[a-z0-9-]+/\d+-\d+", p.path):
             return None
@@ -267,7 +298,7 @@ def profile_record(text, url):
             row["locationConflict"] = True
         title = document.first(lambda n: n.tag == "h1")
         row["institution"] = bool(title and re.search(r"\b(?:education company|tuition centre|learning centre)\b", title.text(), re.I))
-        return row
+        return annotate_advert(row, title.text() if title else "")
     elif p.hostname == "www.childcare.co.uk":
         if not re.fullmatch(r"/profile/\d+", p.path):
             return None
@@ -293,9 +324,11 @@ def profile_record(text, url):
                 for crumb in item["itemListElement"]:
                     if isinstance(crumb, dict) and crumb.get("name") == "Private Tutors in Buckinghamshire" and crumb.get("item") == "https://www.childcare.co.uk/search/Private-Tutors/Buckinghamshire":
                         county_claim = "Buckinghamshire"
-        return {"name": name.text(), "personId": p.path.split("/")[-1], "platform": "childcare.co.uk", "sourceUrls": [url],
+        about = document.first(lambda n: any(isinstance(c, Node) and c.tag == "h3" and c.text() == "About Me" for c in n.children))
+        description = " ".join(c.text() for c in about.children if isinstance(c, Node) and c.tag == "p") if about else ""
+        return annotate_advert({"name": name.text(), "personId": p.path.split("/")[-1], "platform": "childcare.co.uk", "sourceUrls": [url],
                 "localityClaim": location.group(1), "directoryCountyCategory": county_claim, "services": services,
-                "evidenceKind": "public_person_profile", "outreachEligible": False, "institution": False}
+                "evidenceKind": "public_person_profile", "outreachEligible": False, "institution": False}, description=description)
     elif p.hostname == "tutorperch.com":
         if not p.path.startswith("/t/"):
             return None
@@ -332,10 +365,13 @@ def profile_record(text, url):
         academy = section.first(lambda n: n.attrs.get("id") == "logo_academy_link_profile")
         subject = section.first(lambda n: n.has_class("subject"))
         location = info.first(lambda n: n.attrs.get("id") == "line_location") if info else None
-        return {"name": name.text(), "personId": person_id, "platform": "findtutors.co.uk", "sourceUrls": [url],
-                "localityClaim": location.text() if location else crumbs[2] if len(crumbs) >= 3 else "", "services": [subject.text() if subject else ""],
+        locality = location.text() if location else "Online" if len(crumbs) > 1 and crumbs[1].lower() == "online" else crumbs[2] if len(crumbs) >= 3 and locality_status(crumbs[2]) == "advertised_bucks_locality" else ""
+        title = section.first(lambda n: n.tag == "h1")
+        description = section.first(lambda n: n.attrs.get("id") == "card_ad_description")
+        return annotate_advert({"name": name.text(), "personId": person_id, "platform": "findtutors.co.uk", "sourceUrls": [url],
+                "localityClaim": locality, "services": [subject.text() if subject else ""],
                 "evidenceKind": "public_advert_person", "outreachEligible": False,
-                "institution": not academy or not academy.has_class("non-academy")}
+                "institution": not academy or not academy.has_class("non-academy")}, title.text() if title else "", description.text().removeprefix("Advert description ") if description else "")
     return None
 
 
@@ -343,7 +379,10 @@ def merge_profiles(rows):
     merged = {}
     for row in rows:
         key = (row["platform"], row.get("personId") or row["sourceUrls"][0])
-        target = merged.setdefault(key, dict(row, services=[], sourceUrls=[], pageEvidence=[]))
+        qualifies = exclusion_reason(row) is None
+        target = merged.setdefault(key, dict(row, services=[], sourceUrls=[], pageEvidence=[], hasQualifyingTutorAdvert=False))
+        target["hasQualifyingTutorAdvert"] = bool(target["hasQualifyingTutorAdvert"] or qualifies)
+        target["nonTuitionAdvert"] = not target["hasQualifyingTutorAdvert"] and bool(target.get("nonTuitionAdvert") or row.get("nonTuitionAdvert"))
         for field in ("services", "sourceUrls"):
             target[field] = list(dict.fromkeys([*target[field], *row.get(field, [])]))
         if target.get("localityClaim") != row.get("localityClaim"):

@@ -13,10 +13,51 @@ spec.loader.exec_module(directory)
 
 
 class ProfileTests(unittest.TestCase):
+    def test_online_breadcrumb_subject_does_not_supply_a_tutor_location(self):
+        html = '''<section id="sectionaddetail"><div class="info"><span class="user-name">Jane</span>
+          <span class="subject">Maths Lessons</span></div><div id="logo_academy_link_profile" class="non-academy"></div>
+          <input id="iduser" value="42"><ul id="ariadna"><li><span itemprop="name">Find Tutors</span></li>
+          <li><span itemprop="name">online</span></li><li><span itemprop="name">Maths</span></li></ul></section>'''
+        row = directory.profile_record(html, "https://www.findtutors.co.uk/tutors-aylesbury/maths-123")
+        self.assertEqual(row["localityClaim"], "Online")
+        self.assertEqual(directory.profile_locality_status(row), "unresolved")
+
+    def test_own_advert_context_overrides_a_local_header_and_generic_subject_tag(self):
+        html = '''<section id="sectionaddetail"><div class="info"><span class="user-name">Laura</span>
+          <div id="line_location">Aylesbury</div><span class="subject">English Language Lessons</span></div>
+          <div id="logo_academy_link_profile" class="non-academy"></div><input id="iduser" value="42">
+          <h1>Experienced online tutor currently resident in Spain</h1>
+          <div id="card_ad_description">I teach GCSE English.</div></section>'''
+        row = directory.profile_record(html, "https://www.findtutors.co.uk/tutors-aylesbury/english-123")
+        self.assertTrue(row["locationConflict"])
+        self.assertIn("Spain", row["currentLocalityDeclarations"])
+        local = directory.profile_record(html.replace("Spain", "High Wycombe"), "https://www.findtutors.co.uk/tutors-aylesbury/english-123")
+        self.assertFalse(local.get("locationConflict", False))
+        therapy = directory.profile_record(html.replace("Experienced online tutor currently resident in Spain", "Anxiety coaching and therapy for students in Aylesbury"), "https://www.findtutors.co.uk/tutors-aylesbury/english-123")
+        self.assertEqual(directory.exclusion_reason(therapy), "non_tuition_advert")
+        academic = directory.profile_record(html.replace("Experienced online tutor currently resident in Spain", "Psychology GCSE tutor and anxiety coach"), "https://www.findtutors.co.uk/tutors-aylesbury/english-123")
+        self.assertIsNone(directory.exclusion_reason(academic))
+
+    def test_location_checks_use_the_tutors_current_declaration(self):
+        base = {"name": "Jane", "services": ["English"], "localityClaim": "Aylesbury"}
+        abroad = directory.annotate_advert(dict(base), description="I'm currently based in Spain. I teach English.")
+        self.assertTrue(abroad.get("locationConflict"))
+        students = directory.annotate_advert(dict(base), description="My students are currently resident in Spain. I studied there previously.")
+        self.assertFalse(students.get("locationConflict", False))
+        american = directory.annotate_advert(dict(base), description="I am based in Penn State. I tutor English.")
+        self.assertTrue(american.get("locationConflict"))
+
+    def test_a_person_with_an_academic_advert_is_not_excluded_for_also_offering_coaching(self):
+        first = {"name": "Jane", "personId": "42", "platform": "findtutors.co.uk", "localityClaim": "Aylesbury",
+                 "services": ["Psychology"], "sourceUrls": ["https://www.findtutors.co.uk/tutors-aylesbury/therapy-123"], "nonTuitionAdvert": True}
+        second = dict(first, services=["Maths"], sourceUrls=["https://www.findtutors.co.uk/tutors-aylesbury/maths-124"], nonTuitionAdvert=False)
+        for rows in [[first, second], [second, first]]:
+            self.assertIsNone(directory.exclusion_reason(directory.merge_profiles(rows)[0]))
+
     def test_verified_rural_places_are_local_without_accepting_ambiguous_names(self):
-        for town in ["Flackwell Heath", "Bledlow Ridge", "Hughenden Valley", "Little Kimble", "Long Crendon", "Stewkley", "Stokenchurch", "Woburn Sands"]:
+        for town in ["Flackwell Heath", "Bledlow Ridge", "Hughenden Valley", "Little Kimble", "Long Crendon", "Stewkley", "Stokenchurch", "Woburn Sands", "Cheddington", "Far Bletchley", "New Bradwell", "Bow Brickhill", "Little Marlow"]:
             self.assertEqual(directory.locality_status(town), "advertised_bucks_locality")
-        for town in ["Bourne End", "Lane End", "St Albans", "Reading"]:
+        for town in ["Bourne End", "Lane End", "St Albans", "Reading", "Halton", "Wing", "Calverton"]:
             self.assertEqual(directory.locality_status(town), "outside_or_unresolved")
 
     def test_tutordex_uses_the_private_tutor_header_and_numeric_identity(self):

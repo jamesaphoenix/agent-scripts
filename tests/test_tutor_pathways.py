@@ -645,6 +645,18 @@ class RunnerHealthTests(unittest.TestCase):
         with patch.dict(sys.modules, {"discovery": discovery, "configuration": configuration}):
             module_spec.loader.exec_module(self.runner)
 
+    def test_monitor_records_launcher_startup_without_creating_a_new_window(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            discovery.atomic_json(root / "manifest.json", {"monitorIntervalSeconds": 900})
+            with patch.object(self.runner.subprocess, "run") as command:
+                self.runner.watch(root)
+            command.assert_not_called()
+            report = json.loads((root / "monitor/latest.json").read_text())
+            self.assertEqual(report["health"], "starting")
+            self.assertEqual(report["monitorIntervalSeconds"], 900)
+            self.assertFalse((root / "job.json").exists())
+
     def cache_business_page(self, cache, offset, total, status=20000):
         payload = {"categories": ["private_tutor"], "location_coordinate": "51.572,-0.497,12", "limit": 100, "offset": offset}
         key = discovery.request_key("business", payload)

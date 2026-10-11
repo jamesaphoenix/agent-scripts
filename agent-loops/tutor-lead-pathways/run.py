@@ -513,6 +513,16 @@ def monitor_health(value, now, stalled):
 
 
 def watch(root):
+    if not (root / "job.json").exists() or not (root / "status.json").exists():
+        labels, interval = launchd_settings(json.loads((root / "manifest.json").read_text()))
+        now = datetime.datetime.now(UTC)
+        report = {"checkedAt": now.isoformat(), "health": "starting", "action": "none",
+                  "issues": ["Waiting for the launcher's first runtime checkpoint"], "recoveries": 0,
+                  "monitorIntervalSeconds": interval, "launchdLabels": labels}
+        atomic_json(root / "monitor/reports" / (now.strftime("%Y%m%dT%H%M%SZ") + ".json"), report)
+        atomic_json(root / "monitor/latest.json", report)
+        print(json.dumps(report))
+        return
     value = status(root)
     job = json.loads((root / "job.json").read_text())
     labels, interval = launchd_settings(job)

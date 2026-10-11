@@ -146,10 +146,22 @@ def reconcile(rows, decisions):
                 pending.extend(suspected[member] - component)
         visited.update(component)
         members = [by_identity[k] for k in sorted(component)]
-        accepted.append(members[0])
+        selected, withheld = [], []
+        # A possible-match chain is not proof of one person. Prefer complete own
+        # professional names, retaining a pairwise non-colliding subset. An
+        # incomplete-name bridge stays held without collapsing distinct names.
+        for member in sorted(members, key=lambda r: (not bool(r.get("professionalNameHint")), r["key"])):
+            if any(other["key"] in suspected[member["key"]] for other in selected):
+                withheld.append(dict(member, reason="possible_duplicate_requires_review"))
+            else:
+                selected.append(member)
+        accepted.extend(selected)
+        held.extend(withheld)
         if len(members) > 1:
-            groups.append({"reason": "possible_duplicate_requires_review", "memberKeys": [m["key"] for m in members]})
-            held.extend(dict(m, reason="possible_duplicate_requires_review") for m in members[1:])
+            groups.append({"reason": "possible_duplicate_requires_review", "memberKeys": [m["key"] for m in members],
+                           "acceptedKeys": [m["key"] for m in selected], "heldKeys": [m["key"] for m in withheld]})
+    accepted.sort(key=lambda r: r["key"])
+    held.sort(key=lambda r: r["key"])
     return accepted, held, groups
 
 

@@ -67,6 +67,22 @@ class IdentityTests(unittest.TestCase):
         accepted, held, groups = audit.reconcile([self.row("a:1", "Jane"), self.row("b:2", "Jane Smith")], {"merges": []})
         self.assertEqual((len(accepted), len(held)), (1, 1))
 
+    def test_an_incomplete_name_cannot_collapse_two_distinct_professional_names(self):
+        rows = [self.row("a:1", "Jane"), self.row("b:2", "Jane", "jane smith"),
+                self.row("c:3", "Jane", "jane brown")]
+        for ordered in (rows, list(reversed(rows))):
+            accepted, held, groups = audit.reconcile(ordered, {"merges": []})
+            self.assertEqual({r["key"] for r in accepted}, {"b:2", "c:3"})
+            self.assertEqual([r["key"] for r in held], ["a:1"])
+            self.assertEqual(len(groups), 1)
+
+    def test_an_exact_name_collision_remains_held_despite_another_distinct_name(self):
+        rows = [self.row("a:1", "Jane", "jane smith"), self.row("b:2", "Jane", "jane smith"),
+                self.row("c:3", "Jane", "jane brown"), self.row("d:4", "Jane")]
+        accepted, held, _ = audit.reconcile(rows, {"merges": []})
+        self.assertEqual({r["key"] for r in accepted}, {"a:1", "c:3"})
+        self.assertEqual({r["key"] for r in held}, {"b:2", "d:4"})
+
     def test_a_reviewed_merge_requires_matching_page_hashes_and_preserves_both_sources(self):
         rows = [self.row("a:1", "Jane"), self.row("b:2", "Jane")]
         decision = {"members": ["a:1", "b:2"], "reason": "Matching public professional biographies",

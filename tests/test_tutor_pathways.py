@@ -199,6 +199,18 @@ class LeadCleaningTests(unittest.TestCase):
                     {"name": "Tutoring with Natalie", "category": "Educational consultant"}]:
             self.assertIsNone(discovery.hold_reason(row))
 
+    def test_independent_schools_and_unrelated_maps_businesses_are_held(self):
+        for name, category in [("Caldicott Preparatory School", "Independent school"),
+                               ("Thorpe House School", "Independent school"),
+                               ("Pipers Corner School", "Sixth form college"),
+                               ("Limes Montessori", "Montessori preschool")]:
+            with self.subTest(category=category, name=name):
+                self.assertEqual(discovery.hold_reason({"name": name, "category": category}), "school_or_college")
+        for category in ("Personal trainer", "Music Teacher", "Media company", "Bag shop", "Golf club"):
+            with self.subTest(category=category):
+                self.assertEqual(discovery.hold_reason({"name": "Saved Maps listing", "category": category}), "outside_academic_tuition_scope")
+        self.assertIsNone(discovery.hold_reason({"name": "Primary School Tutor in Beaconsfield", "category": "Tutor"}))
+
     def test_changing_plan_is_rejected(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
@@ -339,6 +351,22 @@ class RunnerHealthTests(unittest.TestCase):
         self.runner = importlib.util.module_from_spec(module_spec)
         with patch.dict(sys.modules, {"discovery": discovery}):
             module_spec.loader.exec_module(self.runner)
+
+    def test_crawler_enriches_tutor_categories_and_subject_urls_without_name_keywords(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            rows = [discovery.business_record({"name": "Peasy Learning", "category": "Tutor", "website": "https://peasylearning.example/"}, {}),
+                    discovery.business_record({"name": "Katie Bucks Eleven Plus", "category": "Private tutor", "website": "https://buckselevenplus.example/"}, {}),
+                    discovery.business_record({"name": "Alison Taylor", "category": "After-school programme", "website": "https://alisontaylor11plustuition.example/"}, {}),
+                    discovery.business_record({"name": "Tuition bag shop", "category": "Bag shop", "website": "https://tuition-bags.example/"}, {})]
+            state = {"crawlRoots": [], "crawlNumber": 0}
+            job = {"freePageBudget": 4000, "crawlerBinary": "/reviewed/tutor-crawler"}
+            with patch.object(self.runner, "collect_records", return_value=rows), patch.object(self.runner.subprocess, "Popen"):
+                result = self.runner.start_crawl(root, job, None, state, set())
+            self.assertIsNotNone(result)
+            self.assertEqual((root / "crawls/batch-000/seeds.txt").read_text().splitlines(),
+                             ["https://peasylearning.example/", "https://buckselevenplus.example/", "https://alisontaylor11plustuition.example/"])
+            self.assertEqual(state["crawlNumber"], 1)
 
     def test_empty_search_is_not_treated_as_an_outage_or_retried(self):
         response = {"status_code": 20000, "tasks": [{"status_code": 40102}]}

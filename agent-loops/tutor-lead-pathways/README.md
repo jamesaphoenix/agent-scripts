@@ -44,6 +44,8 @@ Cleaning rechecks franchise and service scope even on earlier exports. Recognise
 
 The 11+ shortlist requires explicit 11+, 11-plus or eleven-plus wording in the saved page text/title or business name. A generic reference to grammar schools or entrance exams stays as an `admissionsHint` in page evidence and does not imply 11+ tuition. Text excerpts are bounded, so absent wording means the subject needs review. This refinement reuses saved pages without another fetch or paid request.
 
+Crawler seeds consider the listing category and website as well as the name. A business categorised as a tutor is not skipped merely because its brand name has no tutoring keyword. Independent schools, colleges and preschools remain institutions rather than tutor leads. Personal trainers, music teachers, media companies, bag shops and golf clubs are held outside the academic scope. These filters do not discard an individual whose business name says primary school tutor.
+
 Verification:
 
 ```bash

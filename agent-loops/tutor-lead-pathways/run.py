@@ -180,7 +180,9 @@ def start_crawl(root, job, cache, state, previous_urls):
             if source_count >= 1 or re.search(r"(?i)job|vacancy|teachingpersonnel|studysmarter|womenforhire", url):
                 continue
             source_count += 1
-        elif record.get("websiteKind") != "professional_profile" and not re.search(r"(?i)tutor|tuition|11.?plus|education|dyslexia", record.get("name", "")):
+        elif record.get("websiteKind") != "professional_profile" and not re.search(
+                r"(?i)tutor|tuition|11\s*\+|11[\s-]*plus|eleven[\s-]*plus|education|dyslexia",
+                " ".join([record.get("name") or "", record.get("category") or "", url])):
             continue
         seeds.append(url)
         if len(seeds) >= 10:

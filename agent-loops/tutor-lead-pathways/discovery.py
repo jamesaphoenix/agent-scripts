@@ -26,6 +26,13 @@ ELEVEN_PLUS = re.compile(r"\b(?:11\s*\+|11[\s-]*plus\b|eleven[\s-]*plus\b)", re.
 NON_ACADEMIC_CATEGORIES = {
     "museum", "driving school", "martial arts school", "piano instructor",
     "art school", "life coach", "translation service",
+    "personal trainer", "music teacher", "media company", "bag shop", "golf club",
+}
+SCHOOL_CATEGORIES = {
+    "school", "independent school", "private school", "preparatory school",
+    "boarding school", "grammar school", "high school", "sixth form college",
+    "college", "university", "preschool", "montessori preschool", "nursery school",
+    "special education school",
 }
 SOURCE_HOSTS = {
     "11plusguide.com", "elevenplusexams.co.uk", "hometutorsdirectory.co.uk", "my-towns.co.uk",
@@ -291,14 +298,17 @@ def hold_reason(record):
     name = record.get("name") or ""
     url = record.get("website") or record.get("sourceUrl") or ""
     host = urllib.parse.urlsplit(url).hostname or ""
+    category = (record.get("category") or "").strip().lower()
     if CHAINS.search(name + " " + host.replace(".", " ")):
         return "recognised_chain"
     if source_host(host) and not professional_profile(url):
         return "source_directory_or_job_page"
-    if (record.get("category") or "").strip().lower() in NON_ACADEMIC_CATEGORIES:
+    if category in NON_ACADEMIC_CATEGORIES:
         return "outside_academic_tuition_scope"
-    if record.get("category") in ("Primary school", "Secondary school"):
+    if category in ("primary school", "secondary school"):
         return "school"
+    if category in SCHOOL_CATEGORIES:
+        return "school_or_college"
     if host.endswith((".sch.uk", ".ac.uk")) or re.search(r"(?i)\b(?:grammar|high|secondary|primary) school\b", name) and not re.search(r"(?i)tutor|tuition", name):
         return "school_or_college"
     if re.search(r"(?i)\b(tutor job|tutor vacancy|tutoring jobs)\b", name):

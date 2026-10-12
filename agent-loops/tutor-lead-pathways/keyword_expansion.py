@@ -105,12 +105,21 @@ def canonical_url(value):
     return urllib.parse.urlunsplit((parsed.scheme, netloc, parsed.path or '/', urllib.parse.urlencode(sorted(pairs)), ''))
 
 
+def search_navigation(url):
+    host = urllib.parse.urlsplit(url).hostname.casefold()
+    return (bool(re.fullmatch(r'(?:www\.|maps\.|images\.|news\.)?google\.(?:[a-z]+|co\.[a-z]+|com\.[a-z]+)', host))
+            or host in {'bing.com', 'www.bing.com', 'duckduckgo.com', 'www.duckduckgo.com',
+                        'search.yahoo.com', 'uk.search.yahoo.com', 'yandex.com', 'www.yandex.com',
+                        'yandex.ru', 'www.yandex.ru', 'maps.app.goo.gl', 'goo.gl',
+                        'accounts.google.com', 'support.google.com', 'policies.google.com'})
+
+
 def upstream_results(response):
     def visit(value):
         if isinstance(value, dict):
             for field in ('url', 'website'):
                 url = canonical_url(value.get(field))
-                if url:
+                if url and not search_navigation(url):
                     context = {k: value[k][:1000] for k in ('title', 'name', 'description', 'address', 'category')
                                if isinstance(value.get(k), str)}
                     yield url, context
@@ -432,6 +441,17 @@ class SearchIndex:
             WHERE s.url_key=? AND o.status='succeeded' AND o.receipt_verified=1
             ORDER BY q.generation DESC,q.query_key''', (url_key,))]
 
+    def _exclude_navigation(self):
+        rows = self.db.execute("SELECT url_key,url FROM upstream_urls WHERE state='pending'").fetchall()
+        keys = [r['url_key'] for r in rows if search_navigation(r['url'])]
+        self.db.executemany("UPDATE upstream_urls SET state='error',error='Search engine navigation, not a lead page' WHERE url_key=? AND state='pending'",
+                            [(key,) for key in keys])
+        return len(keys)
+
+    def exclude_navigation(self):
+        with self.db:
+            return self._exclude_navigation()
+
     def claim(self, worker, limit=20, lease_seconds=900):
         if not re.fullmatch(r'[a-zA-Z0-9_-]{1,64}', worker):
             raise ValueError('A bounded worker name is required')
@@ -441,6 +461,7 @@ class SearchIndex:
         try:
             self.db.execute('BEGIN IMMEDIATE')
             self.db.execute("UPDATE upstream_urls SET state=CASE WHEN attempts>=3 THEN 'error' ELSE 'pending' END WHERE state='claimed' AND lease_until<=?", (now,))
+            self._exclude_navigation()
             rows = self.db.execute("SELECT * FROM upstream_urls WHERE state='pending' ORDER BY created_at,url_key LIMIT ?", (limit,)).fetchall()
             result = []
             for row in rows:
@@ -542,6 +563,7 @@ def main():
     expand.add_argument('--ideas', type=Path, required=True)
     expand.add_argument('--source-url')
     commands.add_parser('status')
+    commands.add_parser('exclude-navigation', help='Retain previously queued search links as excluded evidence')
     args = parser.parse_args()
     index = SearchIndex(args.db)
     try:
@@ -572,6 +594,8 @@ def main():
             if not re.fullmatch(r'[a-zA-Z0-9_-]{1,64}', args.worker) or args.ideas.stat().st_size > 65536:
                 raise ValueError('Invalid worker or oversized phrase proposal')
             index.propose(args.parent_query_key, json.loads(args.ideas.read_text()), 'agent:' + args.worker, args.source_url)
+        elif args.command == 'exclude-navigation':
+            index.exclude_navigation()
         print(json.dumps(index.summary()))
     finally:
         index.close()

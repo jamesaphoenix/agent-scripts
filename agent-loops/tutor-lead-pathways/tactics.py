@@ -21,7 +21,6 @@ def build_plan(towns):
     def organic(lane, tactic, town, query, depth=30):
         add(lane, tactic, town, {'keyword': query, 'location_coordinate': town['coordinate'] + ',200',
             'language_code': 'en', 'se_domain': 'google.co.uk', 'depth': depth})
-    # Start with alternative platforms, rather than buying more generic results.
     for site in PROFILE_SITES:
         for town in towns:
             organic('directories', 'public_profiles', town, f'site:{site} "{town["name"]}" tutor')

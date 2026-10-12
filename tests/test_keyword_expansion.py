@@ -8,7 +8,7 @@ HERE = Path(__file__).parents[1] / 'agent-loops/tutor-lead-pathways'
 sys.path.insert(0, str(HERE))
 
 from discovery import PaidCache, atomic_json, request_key
-from keyword_expansion import SearchIndex, keyword_plan, search_identity
+from keyword_expansion import SearchIndex, keyword_plan, search_identity, upstream_results
 
 TOWNS = [{'name': 'Amersham', 'coordinate': '51.674,-0.607'},
          {'name': 'High Wycombe', 'coordinate': '51.629,-0.749'}]
@@ -347,6 +347,26 @@ class KeywordExpansionTests(unittest.TestCase):
             self.index.propose(search_identity(other['lane'], other['payload']), ideas,
                                origin='agent:claude', source_url='https://unrelated.co.uk/')
         self.assertEqual(self.index.pending_plan(), [])
+
+    def test_search_navigation_is_not_queued_but_google_sites_can_be_a_tutor_site(self):
+        reply = response('https://www.google.co.uk/search?q=tutor+Amersham')
+        items = reply['tasks'][0]['result'][0]['items']
+        items.extend([{'url': 'https://maps.google.com/?q=tutor'},
+                      {'url': 'https://www.bing.com/search?q=tutor'},
+                      {'url': 'https://sites.google.com/view/amersham-tutor'},
+                      {'website': 'https://namedtutor.co.uk/about'}])
+        self.assertEqual([url for url, _ in upstream_results(reply)],
+                         ['https://sites.google.com/view/amersham-tutor', 'https://namedtutor.co.uk/about'])
+
+    def test_existing_navigation_jobs_are_retained_as_excluded_evidence(self):
+        root, _ = self.paid()
+        self.index.sync_run(root, TOWNS)
+        with self.index.db:
+            self.index.db.execute('UPDATE upstream_urls SET url=?', ('https://www.google.co.uk/search?q=tutor',))
+        self.assertEqual(self.index.exclude_navigation(), 1)
+        self.assertEqual(self.index.claim('codex', 1), [])
+        self.assertEqual(self.index.summary()['urls'], 1)
+        self.assertEqual(self.index.summary()['classifications']['error'], 1)
 
 
 if __name__ == '__main__':

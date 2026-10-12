@@ -31,7 +31,7 @@
       "enabled": true,
       "machine": "mac-studio",
       "launchdLabel": "com.jud.bucks-private-tutors-20261011-extension-1",
-      "schedule": "separate finite two-hour stage, at most two thousand additional attempts",
+      "schedule": "finite six-hour stage, at most five thousand additional attempts",
       "requiresOpServiceAccount": false,
       "opServiceAccountSource": null,
       "install": {

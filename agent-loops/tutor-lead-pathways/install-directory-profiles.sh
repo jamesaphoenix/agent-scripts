@@ -26,7 +26,9 @@ if job_path.exists():
  job=json.loads(job_path.read_text())
  hours=(job["deadlineUnix"]-datetime.datetime.fromisoformat(job["startedAt"]).timestamp())/3600
  pages,target=job["pageLimit"],job["target"]
- assert 0<hours<=6 and 1<=pages<=10000 and 1<=target<=5000
+ # Earlier prepared jobs used two clock reads, differing by microseconds.
+ assert 0<hours<=6+1/3600000 and 1<=pages<=10000 and 1<=target<=5000
+ hours=min(hours,6)
 value={"Label":label,"ProgramArguments":["/opt/homebrew/bin/python3",scripts+"/directory_profiles.py",
        "--run-dir",state,"--hours",str(hours),"--pages",str(pages),"--target",str(target),
        "--seed","https://www.findtutors.co.uk/buckinghamshire-tutors/",

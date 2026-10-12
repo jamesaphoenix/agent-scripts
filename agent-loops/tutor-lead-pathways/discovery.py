@@ -102,9 +102,9 @@ def validate_plan(root, job):
 
 class PaidCache:
     def __init__(self, root, budget_cents, prior_cents):
-        self.root = Path(root)
+        self.root = Path(root).resolve()
         self.root.mkdir(parents=True, exist_ok=True, mode=0o700)
-        if not 100 <= budget_cents <= 2000 or prior_cents < 0 or budget_cents + prior_cents > 10000:
+        if type(budget_cents) is not int or type(prior_cents) is not int or not 100 <= budget_cents <= 10000 or prior_cents < 0 or budget_cents + prior_cents > 10000:
             raise ValueError("Shared USD100 allowance exceeded")
         self.db = sqlite3.connect(self.root / "paid.sqlite", timeout=30)
         self.db.row_factory = sqlite3.Row
@@ -218,7 +218,7 @@ class PaidCache:
         self.db.commit()
 
     def receipt(self, row):
-        path = Path(row["receipt"])
+        path = self.root / "receipts" / (row["key"] + ".json")
         if file_hash(path) != row["receipt_hash"]:
             raise ValueError("Archived receipt changed")
         return json.loads(path.read_text())["response"]

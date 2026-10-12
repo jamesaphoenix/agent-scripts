@@ -105,7 +105,11 @@ def completed_paid_history(history_root, legacy_exposure, exclude=None):
     return max(largest_exposure, floor + sum(charges.values())), receipts
 
 
-def prepare(root, history_root, towns_file, codex_binary, crawler_binary, model, monitor_seconds=900):
+def prepare(root, history_root, towns_file, codex_binary, crawler_binary, model, monitor_seconds=900, strategy="legacy", budget_cents=None, profile_run_dir=None):
+    root, history_root, towns_file = root.resolve(), history_root.resolve(), towns_file.resolve()
+    codex_binary, crawler_binary = codex_binary.resolve(), crawler_binary.resolve()
+    if profile_run_dir:
+        profile_run_dir = profile_run_dir.resolve()
     if (root / "manifest.json").exists():
         raise ValueError("Prepared job already exists; preserve its original plan")
     suffix = root.name.removeprefix("tutor-lead-pathways-")
@@ -123,12 +127,17 @@ def prepare(root, history_root, towns_file, codex_binary, crawler_binary, model,
         for folder in path.parent.glob("*-receipts"):
             receipts.extend(folder.glob("*.json"))
     prior, completed_receipts = completed_paid_history(history_root, prior, exclude=root)
+    if strategy not in ("legacy", "expansion"):
+        raise ValueError("Unknown discovery strategy")
+    budget = budget_cents if budget_cents is not None else (10000 - prior if strategy == "expansion" else 2000)
+    if type(budget) is not int or not 100 <= budget <= 10000 or prior + budget > 10000:
+        raise ValueError("New job exceeds the remaining shared USD100 budget")
     evidence_roots = sorted(str(folder) for pattern in ("tutor-lead-pathways-*", "tutor-search-entrypoints-*")
                             for folder in history_root.glob(pattern)
                             if folder.resolve() != root.resolve() and (folder / "runtime.json").exists()
                             and json.loads((folder / "runtime.json").read_text()).get("phase") == "complete")
     root.mkdir(parents=True, exist_ok=True, mode=0o700)
-    cache = PaidCache(root, 2000, prior)
+    cache = PaidCache(root, budget, prior)
     imported = 0
     for path in receipts:
         saved = json.loads(path.read_text())
@@ -151,11 +160,15 @@ def prepare(root, history_root, towns_file, codex_binary, crawler_binary, model,
     imported = cache.usage()["importedReceipts"]
     cache.db.close()
     towns = json.loads(towns_file.read_text())
-    plan = build_plan(towns)
+    if strategy == "expansion":
+        from tactics import build_plan as expansion_plan
+        plan = expansion_plan(towns)
+    else:
+        plan = build_plan(towns)
     atomic_json(root / "plan.json", plan)
     config_path = Path.home() / ".codex/config.toml"
     config = tomllib.loads(config_path.read_text()) if config_path.exists() else {}
-    manifest = {"runId": root.name, "hours": 6, "budgetCents": 2000, "priorExposureCents": prior,
+    manifest = {"runId": root.name, "hours": 6, "budgetCents": budget, "priorExposureCents": prior,
                 "sharedCapCents": 10000, "planSha256": file_hash(root / "plan.json"), "towns": towns,
                 "codexBinary": str(codex_binary), "codexModel": model or config.get("model"),
                 "nodeBinary": shutil.which("node"),
@@ -169,9 +182,14 @@ def prepare(root, history_root, towns_file, codex_binary, crawler_binary, model,
                 "pathways": ["maps", "business", "organic", "directories", "codex_oauth"],
                 "monitorIntervalSeconds": monitor_seconds, "launchdLabels": labels,
                 "delivery": "private research artifacts, no external outreach"}
+    if strategy == "expansion":
+        manifest.update(strategy=strategy, requestIntervals={"maps": 15, "business": 60, "organic": 15, "directories": 15},
+                        sdkTownOffset=0, sdkTokenCeiling=2000000, maximumSdkTurns=8)
+        if profile_run_dir:
+            manifest["profileRunDir"] = str(profile_run_dir)
     atomic_json(root / "manifest.json", manifest)
     shutil.copy2(towns_file, root / "towns.json")
-    print(json.dumps({"planQueries": len(plan), "locations": len(towns), "importedReceipts": imported, "priorExposureCents": prior, "budgetCents": 2000}))
+    print(json.dumps({"planQueries": len(plan), "locations": len(towns), "importedReceipts": imported, "priorExposureCents": prior, "budgetCents": budget}))
 
 
 if __name__ == "__main__":
@@ -182,6 +200,10 @@ if __name__ == "__main__":
     parser.add_argument("--codex", type=Path, required=True)
     parser.add_argument("--crawler", type=Path, required=True)
     parser.add_argument("--model")
+    parser.add_argument("--strategy", choices=("legacy", "expansion"), default="legacy")
+    parser.add_argument("--budget-cents", type=int)
+    parser.add_argument("--profile-run-dir", type=Path)
     parser.add_argument("--monitor-seconds", type=int, default=900)
     args = parser.parse_args()
-    prepare(args.run_dir, args.history_root, args.towns, args.codex, args.crawler, args.model, args.monitor_seconds)
+    prepare(args.run_dir, args.history_root, args.towns, args.codex, args.crawler, args.model, args.monitor_seconds,
+            args.strategy, args.budget_cents, args.profile_run_dir)

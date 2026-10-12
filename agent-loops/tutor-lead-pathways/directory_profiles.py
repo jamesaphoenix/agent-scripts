@@ -16,7 +16,7 @@ import urllib.parse
 import urllib.request
 import urllib.robotparser
 
-HOSTS = {"www.findtutors.co.uk", "tutorperch.com", "www.childcare.co.uk", "tutordex.net", "tutorextra.co.uk", "www.uktutors.com"}
+HOSTS = {"www.findtutors.co.uk", "tutorperch.com", "www.childcare.co.uk", "tutordex.net", "tutorextra.co.uk", "www.uktutors.com", "www.tutorhunt.com"}
 AGENT = "TutorResearch/1.0"
 BUCKS = {
     "amersham", "amersham on the hill", "aylesbury", "beaconsfield", "bierton", "buckingham",
@@ -80,7 +80,10 @@ def admitted_url(value):
         p = urllib.parse.urlsplit(value)
         if p.scheme != "https" or p.hostname not in HOSTS or p.port not in (None, 443) or p.username or p.password:
             return None
-        if p.hostname == "www.uktutors.com":
+        if p.hostname == "www.tutorhunt.com":
+            profile = bool(re.fullmatch(r"/users/[a-z0-9-]{1,64}/", p.path))
+            allowed = profile or p.path == "/robots.txt" or bool(re.fullmatch(r"/(?:subjects/[a-z0-9-]+/)?locations/[a-z0-9-]+/", p.path))
+        elif p.hostname == "www.uktutors.com":
             profile = bool(re.fullmatch(r"/tutor/\d+/[a-z0-9-]+", p.path))
             allowed = profile or p.path in ("/robots.txt", "/county/buckinghamshire-tutors/") or bool(re.fullmatch(r"/town/[a-z0-9-]+-tutors/", p.path))
         elif p.hostname == "tutordex.net":
@@ -172,6 +175,8 @@ def profile_locality_status(row):
 
 
 def exclusion_reason(row):
+    if row.get("advertisedUnavailable"):
+        return "profile_advertises_unavailable"
     if row.get("institution") or INSTITUTION.search(row.get("name", "")):
         return "institution_or_chain"
     if row.get("nonTuitionAdvert"):
@@ -289,7 +294,22 @@ def profile_record(text, url):
         return None
     p = urllib.parse.urlsplit(url)
     document = Document(text).root
-    if p.hostname == "www.uktutors.com":
+    if p.hostname == "www.tutorhunt.com":
+        if not re.fullmatch(r"/users/[a-z0-9-]{1,64}/", p.path):
+            return None
+        header = document.first(lambda n: n.attrs.get("id") == "profilenameinfo")
+        name = header.first(lambda n: n.tag == "h1") if header else None
+        location = header.first(lambda n: n.attrs.get("id") == "profileloc") if header else None
+        table = document.first(lambda n: n.tag == "table" and n.has_class("profilesubjectstattable"))
+        info = document.first(lambda n: n.has_class("card") and name and n.first(
+            lambda c: c.tag == "h2" and c.text().casefold() == "information about " + name.text().casefold()))
+        subjects = [n.text() for n in table.walk() if n.tag == "td" and n.has_class("marksub")] if table else []
+        if not name or not name.text() or not location or not location.text() or not subjects or not info:
+            return None
+        row = annotate_advert(public_person(p.hostname, p.path.split('/')[2], name.text(), location.text(), subjects, url), description=info.text())
+        row["advertisedUnavailable"] = bool(re.search(r"\bNot available to contact\b", document.text(), re.I))
+        return row
+    elif p.hostname == "www.uktutors.com":
         if not re.fullmatch(r"/tutor/\d+/[a-z0-9-]+", p.path):
             return None
         header = document.first(lambda n: n.tag == "h1" and re.fullmatch(r"(.+?) - (.+) tutor", n.text()))
@@ -522,6 +542,11 @@ def local_directory_link(value, source):
     parsed, origin = urllib.parse.urlsplit(value), urllib.parse.urlsplit(source)
     if parsed.hostname != origin.hostname:
         return False
+    if parsed.hostname == "www.tutorhunt.com":
+        if parsed.path.startswith('/users/'):
+            return True
+        match = re.fullmatch(r"/(?:subjects/[a-z0-9-]+/)?locations/([a-z0-9-]+)/", parsed.path)
+        return bool(match and locality_status(match.group(1).replace('-', ' ')) == 'advertised_bucks_locality')
     if parsed.hostname == "www.uktutors.com":
         if parsed.path == "/county/buckinghamshire-tutors/":
             return True
@@ -586,7 +611,7 @@ def next_page(state):
     indices = [index for index, url in enumerate(queue) if urllib.parse.urlsplit(url).hostname == host]
     def person_page(index):
         path = urllib.parse.urlsplit(queue[index]).path
-        return path.startswith(("/profile/", "/t/", "/tutor/")) or bool(re.search(r"-\d+/?$", path))
+        return path.startswith(("/profile/", "/t/", "/tutor/", "/users/")) or bool(re.search(r"-\d+/?$", path))
     def town_root(index):
         parsed = urllib.parse.urlsplit(queue[index])
         return parsed.hostname == "www.findtutors.co.uk" and not parsed.query and bool(re.fullmatch(r"/tutors-[a-z0-9-]+/", parsed.path))
@@ -594,6 +619,13 @@ def next_page(state):
                  next((index for index in indices if town_root(index)), indices[0]))
     state["lastHost"] = host
     return queue.pop(index)
+
+
+def source_still_producing(job):
+    if not job.get("seedSourceRun"):
+        return False
+    path = Path(job["seedSourceRun"]) / "runtime.json"
+    return not path.exists() or json.loads(path.read_text()).get("phase") != "complete"
 
 
 def run(root, seeds, hours, page_limit, target):
@@ -607,7 +639,8 @@ def run(root, seeds, hours, page_limit, target):
             admitted = list(dict.fromkeys(admitted_url(s) for s in seeds if admitted_url(s)))
             if not admitted:
                 raise ValueError("No permitted source seeds")
-            job = {"startedAt": now(), "deadlineUnix": time.time() + hours * 3600, "pageLimit": page_limit,
+            started = datetime.datetime.now(datetime.timezone.utc)
+            job = {"startedAt": started.isoformat(), "deadlineUnix": started.timestamp() + hours * 3600, "pageLimit": page_limit,
                    "target": target, "seeds": admitted, "paidBudget": 0,
                    "scope": "Public individual tutor profiles across subjects in Bucks and Milton Keynes; exclude institutions. Locality is advertised tuition locality, not verified residence."}
             save(job_path, job)
@@ -619,6 +652,14 @@ def run(root, seeds, hours, page_limit, target):
             except (OSError, ValueError, TypeError) as error:
                 state["errors"].append({"reason": "seed_batch_rejected", "type": type(error).__name__})
             if not state["queue"]:
+                if source_still_producing(job):
+                    state["updatedAt"] = now()
+                    save(state_path, state)
+                    save(root / "status.json", {"observedAt": now(), "pid": os.getpid(), "phase": "awaiting_sources",
+                        "attempts": state["attempts"], "queue": 0, "errors": len(state["errors"]),
+                        "bucksPrivateProfiles": len(json.loads((root / "bucks-private-tutors.json").read_text())), "paidCostUsd": 0})
+                    time.sleep(5)
+                    continue
                 break
             url = next_page(state)
             if url in state["seen"]:

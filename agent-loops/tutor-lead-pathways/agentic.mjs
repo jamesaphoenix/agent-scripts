@@ -72,7 +72,10 @@ export async function main(runDirectory, slot, transport = "direct") {
     webSearchMode: "live", networkAccessEnabled: false };
   const thread = researchThread(codex, options, previous, job);
   const towns = researchTowns(job, slot);
-  const prompt = `Research independent individual and small local 11 plus and primary tutors in Buckinghamshire, including Milton Keynes.
+  const scope = job.strategy === "expansion"
+    ? "Research new independent private tutors across all academic subjects in Buckinghamshire and Milton Keynes. Include GCSE, A level, primary, languages, SEND and 11 plus. Focus on public person profiles from Superprof, First Tutors, Tutorhunt, Tutorful and named local tutors. Discover new source entry points as nextQueries. Do not constrain this search to primary tutors."
+    : "Research independent individual and small local 11 plus and primary tutors in Buckinghamshire, including Milton Keynes.";
+  const prompt = `${scope}
 This is slot ${slot + 1} of a finite six-hour research workflow. Prioritise these actual towns and nearby villages: ${towns.map((town) => town.name).join(", ")}.
 Use live web search creatively. Combine business websites, named professional registers, parish/community directories, venue announcements, council family directories and newsletter PDF advertisements. Find tutors without standalone websites as well.
 Use targeted rg searches with at most eight matches per search against sdk/known-leads.tsv to check already-known names, domains and towns. Do not read the complete index or the large exports/businesses.json file. Focus on new individual practices; retain additional evidence for known leads only when it resolves locality, actual teaching services or business identity.

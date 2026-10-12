@@ -26,6 +26,13 @@ INTERVALS = {"maps": 120, "business": 240, "organic": 240, "directories": 240}
 OFFSETS = {"maps": 0, "business": 25, "organic": 50, "directories": 75}
 
 
+def request_intervals(job):
+    value = job.get("requestIntervals", INTERVALS)
+    if not isinstance(value, dict) or set(value) != set(INTERVALS) or any(type(v) is not int or not 15 <= v <= 900 for v in value.values()):
+        raise ValueError("Every pathway needs a bounded integer request interval")
+    return value
+
+
 def initialize_job(root):
     manifest = json.loads((root / "manifest.json").read_text())
     if (root / "job.json").exists():
@@ -45,6 +52,7 @@ def initialize_job(root):
     validate_plan(root, job)
     crawl_limits(job)
     launchd_settings(job)
+    request_intervals(job)
     return job
 
 
@@ -126,13 +134,29 @@ def next_query(lane, plan, cache, state):
         if supplementary:
             return supplementary
     completed = set(state["completedQueries"])
-    for item in plan:
+    def group(item):
+        if item.get('tactic') == 'public_profiles':
+            match = re.search(r'\bsite:([^ ]+)', item['payload'].get('keyword', ''))
+            return match.group(1) if match else item['tactic']
+        return item.get('tactic', lane)
+    # Explore sources and tactics before buying another town from one source.
+    # This changes selection order only; every payload and paid key stays fixed.
+    counts = collections.Counter(group(item) for item in plan if item['lane'] == lane and item['key'] in completed)
+    choices = [item for item in plan if item['lane'] == lane]
+    if any('tactic' in item for item in choices):
+        choices.sort(key=lambda item: counts[group(item)])
+    for item in choices:
         if item["lane"] != lane or item["key"] in completed:
             continue
         saved = cache.get(item["key"])
         if saved:
             state["completedQueries"].append(item["key"])
             state.setdefault("reusedQueries", []).append({"key": item["key"], "status": saved["status"]})
+            continue
+        if 'site:firsttutors.com' in item['payload'].get('keyword', ''):
+            state['completedQueries'].append(item['key'])
+            state.setdefault('skippedQueries', []).append({'key': item['key'],
+                'reason': 'Own source site served its closure notice on 12 October 2026'})
             continue
         if finished_query(item, cache):
             state["completedQueries"].append(item["key"])
@@ -377,6 +401,7 @@ def run(root):
         state["pid"] = os.getpid()
         state["phase"] = "running"
         plan = json.loads((root / "plan.json").read_text())
+        intervals = request_intervals(job)
         original_deadline = parse_time(job["deadline"]).timestamp()
         paid_deadline = parse_time(job["discoveryDeadline"]).timestamp()
         previous_urls = seed_previous_urls(job)
@@ -435,7 +460,7 @@ def run(root):
                         state.setdefault("businessSupplementaryQueries", []).append({"parentKey": item["parentKey"], "key": item["key"]})
                     else:
                         state["completedQueries"].append(item["key"])
-                    state["nextDue"][lane] = current + INTERVALS[lane]
+                    state["nextDue"][lane] = current + intervals[lane]
                     atomic_json(root / "runtime.json", state)
                     try:
                         if not finished_query(item, cache):
@@ -461,9 +486,18 @@ def run(root):
             atomic_json(root / "runtime.json", state)
             if time.time() >= state.get("nextExportsAt", 0):
                 write_exports(root, cache)
+                if job.get("strategy") == "expansion":
+                    try:
+                        from expansion_metrics import write_metrics
+                        write_metrics(root, cache, plan)
+                        if job.get("profileRunDir"):
+                            from profile_seeds import write_seed_batch
+                            write_seed_batch(root, Path(job["profileRunDir"]), cache)
+                    except (OSError, ValueError, TypeError, KeyError, sqlite3.Error) as error:
+                        save_error(state, "expansion_observation", error)
                 state["nextExportsAt"] = time.time() + 60
             runner_snapshot(root, job, cache, state)
-            time.sleep(10)
+            time.sleep(2 if job.get("strategy") == "expansion" else 10)
         state["phase"] = "interrupted" if interrupted else "cleaning"
         atomic_json(root / "runtime.json", state)
         runner_snapshot(root, job, cache, state)

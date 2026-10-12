@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Prepare a separate finite stage from sealed, hash-verified public evidence."""
 import argparse
+import datetime
 import fcntl
 import hashlib
 import json
@@ -17,7 +18,7 @@ def digest(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def prepare(parent, output, hours, new_pages, target, seed_batch=None):
+def prepare(parent, output, hours, new_pages, target, seed_batch=None, source_run_dir=None):
     if not 0 < hours <= 6 or not 1 <= new_pages <= 5000 or not 1 <= target <= 5000:
         raise ValueError("Choose bounded duration, additional attempts and target")
     if output.exists():
@@ -77,10 +78,13 @@ def prepare(parent, output, hours, new_pages, target, seed_batch=None):
                 import_seed_batches(temporary, state)
             if not state["queue"]:
                 raise ValueError("Follow-on stage has no new public frontier")
-            job = {"startedAt": now(), "deadlineUnix": time.time() + hours * 3600,
+            started = datetime.datetime.now(datetime.timezone.utc)
+            job = {"startedAt": started.isoformat(), "deadlineUnix": started.timestamp() + hours * 3600,
                    "pageLimit": page_limit, "initialAttemptCount": state["attempts"], "newAttemptLimit": new_pages,
                    "target": target, "seeds": list(state["queue"]), "paidBudget": 0, "parentStage": provenance,
                    "scope": "Public individual tutor profiles across subjects in Bucks and Milton Keynes. Independent locality and consent verification remain required."}
+            if source_run_dir:
+                job["seedSourceRun"] = str(source_run_dir)
             state["phase"] = "running"
             state["updatedAt"] = now()
             profiles = merge_profiles(state["records"])
@@ -113,5 +117,6 @@ if __name__ == "__main__":
     parser.add_argument("--additional-pages", type=int, default=2000)
     parser.add_argument("--target", type=int, default=1500)
     parser.add_argument("--seed-batch", type=Path)
+    parser.add_argument("--source-run-dir", type=Path)
     args = parser.parse_args()
-    print(json.dumps(prepare(args.parent_dir, args.run_dir, args.hours, args.additional_pages, args.target, args.seed_batch)))
+    print(json.dumps(prepare(args.parent_dir, args.run_dir, args.hours, args.additional_pages, args.target, args.seed_batch, args.source_run_dir)))

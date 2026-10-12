@@ -114,3 +114,15 @@ Verification:
 python3 -m unittest discover -s tests -p test_tutor_pathways.py
 node --test agent-loops/tutor-lead-pathways/agentic.test.mjs
 ```
+
+## Additional Bucks tutors, 12 October 2026
+
+The expansion uses `tactics.py` to prepare 1,320 distinct queries for 44 towns: subject-specific Maps searches, public-profile site operators, individual tutors' own websites, community/newsletter searches and unclaimed Business Listings. It reuses settled historic receipts before submitting anything. First Tutors queries are skipped because its own site served a closure notice during source review.
+
+`prepare.py --strategy expansion` allocates only the original USD100 cap's remaining allowance. The new run imported 833 settled receipts and reserved at most USD88.74, with USD11.26 prior conservative exposure. `PaidCache` keeps one immutable allowance and serialises reservations. Unknown paid outcomes stay reserved and cannot be reposted. Existing jobs retain their saved budget, pacing, plan and deadline. New query intervals are fifteen seconds for Maps/organic/profile searches and sixty seconds for Business Listings; actual provider duration also bounds throughput.
+
+`expansion_metrics.py` saves per-tactic successful, failed, uncertain and empty requests, newly observed result URLs, cost and URL yield every minute. Result URLs are a discovery measure, not verified people. `profile_seeds.py` publishes hash-bound public-source URL batches to the separate profile stage. `watch_expansion.py` replays profile evidence and compares accepted identities with the frozen delivered 1,010-record baseline every fifteen minutes. Potential baseline name matches stay held. SDK research uses the existing ChatGPT OAuth login, isolated streamed threads, attributed structured results and a recorded token ceiling. Its tokens do not establish dollar charges or subscription quota.
+
+Tutorhunt adds public `/users/` profiles and observed local town/subject indexes. Qualification requires the person's own header, locality and subject table. Profiles explicitly marked unavailable are held. Contact forms, accounts, contact unlocks and messaging are excluded. The profile stage reuses 3,781 cached receipts, allows 5,000 additional public-page attempts and waits for provider seed batches within its own six-hour deadline. Go crawling retains depth two, fifteen additional sites per root branch, eight pages per site and the saved ten-thousand-page job ceiling.
+
+All jobs and watchers are registered in `launchd-tasks/registry.json`; install through `scripts/install-launchd-tasks.sh --task <id>` on Mac Studio. The owner/health watcher checks actual process ownership and checkpoints. The seed/audit watcher never calls a paid provider. Keep the goal open until the audited delta proves at least one thousand additional identities. Keep the initial 187 late-arriving historical records separate from newly collected stage yield. Nothing in these artifacts authorises outreach.

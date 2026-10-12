@@ -515,6 +515,111 @@
         ]
       },
       "notes": "User authorised another four to seven hours on 2026-10-11, with fifteen-minute monitoring and targeted script/runtime improvements. Six-hour immutable window; USD20 incremental ceiling within original USD100 cap. Reuse settled provider receipts and historical source evidence. Independent local tutors, no outreach or purchases. Codex uses existing ChatGPT OAuth only."
+    },
+    {
+      "id": "tutor-lead-pathways-20261012-expansion-1",
+      "name": "New Bucks tutor discovery",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.tutor-lead-pathways-20261012-expansion-1",
+      "schedule": "finite six-hour run, RunAtLoad and original-checkpoint recovery",
+      "requiresOpServiceAccount": true,
+      "opServiceAccountSource": "profile-or-keychain",
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
+        "command": [
+          "bash",
+          "agent-loops/tutor-lead-pathways/install-launchd.sh",
+          "run",
+          "tutor-lead-pathways-20261012-expansion-1"
+        ]
+      },
+      "notes": "New subject Maps, public profile, own-site and community tactics. Semantic SHA256 paid cache imports completed history. Remaining original USD100 shared budget only. Six-hour checkpointed window; no outreach. Watcher observes actual ownership every fifteen minutes."
+    },
+    {
+      "id": "tutor-lead-pathways-watch-20261012-expansion-1",
+      "name": "Fifteen-minute expansion checks",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.tutor-lead-pathways-watch-20261012-expansion-1",
+      "schedule": "every fifteen minutes plus RunAtLoad until finite discovery completes",
+      "requiresOpServiceAccount": false,
+      "opServiceAccountSource": null,
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
+        "command": [
+          "bash",
+          "agent-loops/tutor-lead-pathways/install-launchd.sh",
+          "watch",
+          "tutor-lead-pathways-20261012-expansion-1"
+        ]
+      },
+      "notes": "New subject Maps, public profile, own-site and community tactics. Semantic SHA256 paid cache imports completed history. Remaining original USD100 shared budget only. Six-hour checkpointed window; no outreach. Watcher observes actual ownership every fifteen minutes."
+    },
+    {
+      "id": "bucks-private-tutors-20261012-expansion-1",
+      "name": "Bucks tutor profile expansion",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.bucks-private-tutors-20261012-expansion-1",
+      "schedule": "separate finite two-hour stage, at most two thousand additional attempts",
+      "requiresOpServiceAccount": false,
+      "opServiceAccountSource": null,
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
+        "command": [
+          "bash",
+          "agent-loops/tutor-lead-pathways/install-directory-profiles.sh",
+          "run",
+          "bucks-private-tutors-20261012-expansion-1"
+        ]
+      },
+      "notes": "Replays sealed parent evidence; five thousand additional public-page attempts, six-hour window and live paid-query source frontier. No provider charges. Profile own locality and subjects required. Raw profile totals do not prove the new-person goal."
+    },
+    {
+      "id": "bucks-private-tutors-20261012-expansion-1-watch",
+      "name": "Fifteen-minute expansion profile checks",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.bucks-private-tutors-20261012-expansion-1-watch",
+      "schedule": "every fifteen minutes until the finite follow-on stage ends",
+      "requiresOpServiceAccount": false,
+      "opServiceAccountSource": null,
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
+        "command": [
+          "bash",
+          "agent-loops/tutor-lead-pathways/install-directory-profiles.sh",
+          "watch",
+          "bucks-private-tutors-20261012-expansion-1"
+        ]
+      },
+      "notes": "Replays sealed parent evidence; five thousand additional public-page attempts, six-hour window and live paid-query source frontier. No provider charges. Profile own locality and subjects required. Raw profile totals do not prove the new-person goal."
+    },
+    {
+      "id": "bucks-private-tutors-20261012-expansion-1-audit",
+      "name": "Expansion seed bridge and novelty audit",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.bucks-private-tutors-20261012-expansion-1-audit",
+      "schedule": "every fifteen minutes until the bounded profile stage finishes",
+      "requiresOpServiceAccount": false,
+      "opServiceAccountSource": null,
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
+        "command": [
+          "bash",
+          "agent-loops/tutor-lead-pathways/install-expansion-watch.sh",
+          "tutor-lead-pathways-20261012-expansion-1",
+          "bucks-private-tutors-20261012-expansion-1"
+        ]
+      },
+      "notes": "Read-only paid receipts, SHA256 seed batches, replayed identity audit and novelty against the delivered 1010-record baseline. No paid provider calls."
     }
   ]
 }

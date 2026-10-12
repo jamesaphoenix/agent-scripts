@@ -493,6 +493,13 @@ def run(root):
                         if job.get("profileRunDir"):
                             from profile_seeds import write_seed_batch
                             write_seed_batch(root, Path(job["profileRunDir"]), cache)
+                        if job.get('keywordIndexPath'):
+                            from keyword_expansion import SearchIndex
+                            index = SearchIndex(Path(job['keywordIndexPath']))
+                            try:
+                                index.sync_run(root, job['towns'])
+                            finally:
+                                index.close()
                     except (OSError, ValueError, TypeError, KeyError, sqlite3.Error) as error:
                         save_error(state, "expansion_observation", error)
                 state["nextExportsAt"] = time.time() + 60

@@ -165,6 +165,26 @@ def prepare(root, history_root, towns_file, codex_binary, crawler_binary, model,
         plan = expansion_plan(towns)
     else:
         plan = build_plan(towns)
+    keyword_index_path = None
+    if strategy == 'expansion':
+        from keyword_expansion import SearchIndex
+        keyword_index_path = history_root / 'keyword-search.sqlite'
+        index = SearchIndex(keyword_index_path)
+        try:
+            for previous in evidence_roots:
+                index.sync_run(Path(previous), towns)
+            index.sync_run(root, towns)
+            index.add_queries(plan, origin='plan:' + str(root))
+            plan = index.unsearched(plan)
+            keys = {item['key'] for item in plan}
+            approved = {town['name'] for town in towns}
+            for item in index.pending_plan(5000):
+                if item['generation'] > 0 and item['town'] in approved and item['key'] not in keys:
+                    plan.append(item)
+                    keys.add(item['key'])
+            plan.sort(key=lambda item: -item.get('priority', 0))
+        finally:
+            index.close()
     atomic_json(root / "plan.json", plan)
     config_path = Path.home() / ".codex/config.toml"
     config = tomllib.loads(config_path.read_text()) if config_path.exists() else {}
@@ -184,7 +204,8 @@ def prepare(root, history_root, towns_file, codex_binary, crawler_binary, model,
                 "delivery": "private research artifacts, no external outreach"}
     if strategy == "expansion":
         manifest.update(strategy=strategy, requestIntervals={"maps": 15, "business": 60, "organic": 15, "directories": 15},
-                        sdkTownOffset=0, sdkTokenCeiling=2000000, maximumSdkTurns=8)
+                        sdkTownOffset=0, sdkTokenCeiling=2000000, maximumSdkTurns=8,
+                        keywordIndexPath=str(keyword_index_path))
         if profile_run_dir:
             manifest["profileRunDir"] = str(profile_run_dir)
     atomic_json(root / "manifest.json", manifest)

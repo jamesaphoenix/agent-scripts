@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 import re
 import subprocess
+import sqlite3
 import time
 from audit_directory_identities import run as audit
 from discovery import PaidCache, atomic_json, now_iso, file_hash
@@ -30,6 +31,17 @@ def watch(paid_root, profile_root, baseline, stage_baseline=None):
              'baselineSha256': file_hash(baseline)}
     if stage_novelty:
         value['thisStageDelta'] = stage_novelty
+    keyword_path = Path(job.get('keywordIndexPath', paid_root.parent / 'keyword-search.sqlite'))
+    if keyword_path.exists():
+        from keyword_expansion import SearchIndex
+        try:
+            index = SearchIndex(keyword_path)
+            try:
+                value['keywordSearch'] = index.sync_run(paid_root, job['towns'])
+            finally:
+                index.close()
+        except (OSError, ValueError, KeyError, TypeError, sqlite3.Error) as error:
+            value['keywordSearchError'] = type(error).__name__ + ': keyword observation failed'
     atomic_json(profile_root / 'review/latest-expansion.json', value)
     print(json.dumps(value))
     return value

@@ -1,5 +1,6 @@
 """New county discovery queries, retaining semantic paid-request identities."""
 from discovery import request_key
+from keyword_expansion import keyword_plan
 
 PROFILE_SITES = (
     'superprof.co.uk', 'firsttutors.com', 'tutorhunt.com', 'tutorful.co.uk',
@@ -9,7 +10,8 @@ PROFILE_SITES = (
 
 
 def build_plan(towns):
-    result, seen = [], set()
+    result = keyword_plan(towns)
+    seen = {item['key'] for item in result}
     def add(lane, tactic, town, payload):
         key = request_key(lane, payload)
         if key not in seen:

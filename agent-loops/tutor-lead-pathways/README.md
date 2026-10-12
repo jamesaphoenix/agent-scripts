@@ -1,5 +1,111 @@
 # Tutor lead discovery through five pathways
 
+## Keyword expansion and upstream classification
+
+`keyword_expansion.py` keeps a shared `state/keyword-search.sqlite` alongside the separate paid
+ledger. It generates plain location searches such as `11+ tutor Amersham`, `tutor Amersham`,
+`11 plus tutor High Wycombe` and subject variants for both Google Maps and organic search.
+The approved location list fixes the geographic scope. The research loop is:
+
+1. Describe the lead target and seed service phrases across approved locations.
+2. Search Maps and organic listings through the existing budgeted runner.
+3. Cache outcomes and queue the returned public pages for Codex or Claude to classify.
+4. Ask the agent to think of new phrases that would find more leads for that target.
+5. Store those phrases as child queries, search them in a later budgeted run, and repeat.
+
+Agents can propose customer wording, alternative role names, service specialisms and combinations,
+such as `KS2 home tutor`, `grammar school preparation tuition` and `dyslexia specialist tutor`.
+This is broader than replacing words in a fixed template. Proposals carry a reason and keep a
+target anchor such as `tutor` or `tuition`. Service phrases omit locations and search operators;
+the parent supplies the approved town and coordinates. Existing operator tactics run separately.
+The agent treats page text as evidence, never instructions.
+
+The target, locations and recursion limits are saved as an immutable configuration. Defaults are
+three generations and fifteen child queries per parent, counting Maps and organic separately.
+Each query retains its first root and depth, with parent edges and expansion reasons. Re-imports
+cannot promote descendants to fresh roots. Repeated phrases are deduplicated, and back-links
+into earlier generations are rejected. Eight allowlisted service topics in verified receipts
+also propose children automatically. Wider phrase ideation comes from the agent's structured
+response, not untrusted page instructions.
+
+The SQLite tables hold queries and their origins, exact paid-request observations, returned
+URLs and receipt attribution, and classifier claims/results. Normalised search identity removes
+case/spacing differences and equates a literal `11+` with its required `%2B` wire encoding.
+Maps and organic remain distinct; depth and location settings remain part of the identity.
+Submitted, successful, failed, empty and uncertain outcomes all block another equivalent search.
+The original `paid.sqlite` remains the sole authority for charges and reservations.
+
+New expansion plans put plain keyword searches first, remove already submitted searches using
+the shared index and prioritise pending recursive expansions. Preparation freezes the resulting
+plan and its SHA256. Existing manifests and deadlines remain unchanged. During a new run the
+index observes paid receipts at export time; the fifteen-minute expansion watcher also syncs an
+existing shared index, including the current stage without changing its immutable plan.
+
+From the runtime repository:
+
+```bash
+python3 agent-loops/tutor-lead-pathways/keyword_expansion.py --db state/keyword-search.sqlite seed \
+  --towns state/tutor-lead-pathways-20261012-expansion-1/towns.json
+python3 agent-loops/tutor-lead-pathways/keyword_expansion.py --db state/keyword-search.sqlite sync \
+  --run-dir state/tutor-lead-pathways-20261012-expansion-1 \
+  --towns state/tutor-lead-pathways-20261012-expansion-1/towns.json
+python3 agent-loops/tutor-lead-pathways/keyword_expansion.py --db state/keyword-search.sqlite plan \
+  --limit 200 --output state/tutor-studio-dispatch-20261012/next-keyword-plan.json
+python3 agent-loops/tutor-lead-pathways/keyword_expansion.py --db state/keyword-search.sqlite claim \
+  --worker claude --limit 10 --output state/tutor-studio-dispatch-20261012/classification-batch.json
+python3 agent-loops/tutor-lead-pathways/keyword_expansion.py --db state/keyword-search.sqlite searches \
+  --town Amersham --state searched --output state/tutor-studio-dispatch-20261012/amersham-searches.json
+```
+
+These commands do not call paid APIs. A plan export is a proposal for a separately prepared,
+budgeted run. Sync all historical paid run directories before exporting it. Sync opens source
+ledgers read-only and requires receipt SHA256, payload and task agreement before enqueueing URLs.
+Tracking parameters do not create extra classifier jobs. An interrupted receipt import resumes
+without losing search memory. Receipt errors remain visible and never authorise repeat spending.
+
+Codex or Claude can claim batches with a worker name, lease token and receipt-backed provenance.
+SQLite atomically prevents two workers claiming the same URL. Claims expire after fifteen minutes
+by default, with at most three attempts. Stale tokens cannot complete a replacement worker's claim.
+Open the actual public pages or inspect existing crawl evidence, then save a classification JSON:
+
+```json
+{
+  "kind": "uncertain",
+  "sourceUrls": ["https://example.org/tutor"],
+  "notes": "Needs the tutor's own locality and service evidence",
+  "outreachEligible": false,
+  "searchPhrases": [
+    {"phrase": "grammar school preparation tuition", "reason": "Another way families describe entrance preparation"},
+    {"phrase": "KS2 home tutor", "reason": "Find primary tutors advertising the curriculum and home visits"}
+  ]
+}
+```
+
+Allowed kinds are `independent_tutor`, `directory`, `institution`, `irrelevant` and `uncertain`.
+Complete each claim with `complete --url-key KEY --worker claude --lease-token TOKEN --result FILE`.
+Completion atomically saves classification and child queries. Each claim contains `researchBrief`
+with the target and limits, plus `searchParents`. If several searches returned a URL, choose a
+specific parent with `expansionParentQueryKey`; otherwise the deepest recorded parent is used.
+An expired lease or invalid phrase rolls back both classification and expansion.
+
+An agent can also propose phrases directly beneath a verified successful query:
+
+```bash
+python3 agent-loops/tutor-lead-pathways/keyword_expansion.py --db state/keyword-search.sqlite expand \
+  --parent-query-key KEY --worker codex --ideas state/phrase-ideas.json --source-url https://example.org/tutor
+```
+
+`phrase-ideas.json` is an array of `phrase`/`reason` objects, at most twelve. The optional source
+URL must belong to the parent's verified receipt. Failed and uncertain searches cannot expand.
+For a different lead target, use a separate database and `seed --target "Independent bookkeepers"
+--anchor bookkeeper --anchor accountant --terms FILE --towns FILE`. The terms file is a JSON
+array of seed service phrases. No provider or model API key is needed for these commands;
+native Codex/Claude sessions supply the reasoning and the existing runner owns paid execution.
+
+Use `status` to see generations, parent edges, searched outcomes and pending/claimed/classified/error counts. Classification
+is research triage, never audited tutor acceptance or permission to contact someone. Keep final
+identity/locality verification and duplicate review in the existing audit pipeline.
+
 The later one-thousand-tutor target covers private tutors across subjects, excluding institutions. `directory_profiles.py` adds a separate public-profile stage alongside the existing Go/Maps research. It follows observed county/town links and pagination on FindTutors and public Tutorperch profiles, obeys robots rules, spaces host requests, bounds pages and duration, and caches both successful and failed GET observations by SHA256. It reads the named tutor's advertised tuition locality, never the platform's registered office or the search heading.
 
 Childcare.co.uk supplies another bounded source: its Buckinghamshire private-tutor index, numeric pagination and public profile headers. The parser requires the person's header to say `Private Tutor in ...` and takes subjects from positive tutor summary tags. It does not follow login, chat, reviews or parent searches. A live Edinburgh profile carried a Buckinghamshire breadcrumb, so `directoryCountyCategory` is retained only for audit and never establishes locality. Profiles advertising the former Bucks districts Aylesbury Vale, Chiltern, South Bucks or Wycombe use the district names recognised in [Buckinghamshire Council's authority overview](https://www.buckinghamshire.gov.uk/planning-building-and-environment/policy/view-the-authority-monitoring-report-amr/authority-monitoring-report-2023-to-2024/overview-of-authority-area/). Wavendon, Upper Weald and Holmer Green were checked against Postcodes.io's OS Open Names place records; cached observations remain in the private run review folder.

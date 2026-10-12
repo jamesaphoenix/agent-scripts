@@ -18,6 +18,10 @@ DIRECTORY = re.compile(r'directory|find.*tutor|tutor.*(?:list|search)|/results|/
 DENIED = {'facebook.com', 'instagram.com', 'linkedin.com', 'twitter.com', 'x.com',
           'youtube.com', 'tiktok.com', 'pinterest.com', 'amazon.co.uk', 'amazon.com'}
 BINARY = re.compile(r'\.(?:pdf|png|jpg|jpeg|webp|gif|svg|mp4|mp3|zip|woff2?|css|js)$', re.I)
+DIRECTORY_HOSTS = {'findtutors.co.uk', 'tutorful.co.uk', 'superprof.co.uk', 'tutorhunt.com',
+                   'firsttutors.com', 'uktutors.com', 'yell.com', 'bark.com', 'childcare.co.uk',
+                   'tutorperch.com', 'tophelp.co.uk', 'cylex-uk.co.uk', 'hometutorsdirectory.co.uk'}
+WEBSITE = re.compile(r'^(?:website|visit(?: my| our| tutor)? (?:website|site)|view website)$', re.I)
 
 
 def site_identity(url):
@@ -49,6 +53,7 @@ class Policy:
     max_pages: int = 5000
     max_sites: int = 2000
     per_site: int = 8
+    directory_per_site: int = 200
     max_depth: int = 2
     branch_sites: int = 15
     root_sites: int = 30
@@ -62,6 +67,7 @@ class Policy:
         if (not self.towns or not all(isinstance(t, str) and t for t in self.towns)
             or not 1 <= self.max_pages <= 10000 or not 1 <= self.max_sites <= 3000
             or not 1 <= self.per_site <= 8 or not 0 <= self.max_depth <= 2
+            or not 1 <= self.directory_per_site <= 200
             or not 0 <= self.branch_sites <= 15 or not 0 <= self.root_sites <= 50
             or not 1 <= self.max_hops <= 8 or not 1 <= self.exploration_every <= 100
             or not all(math.isfinite(v) and 0 <= v <= 1 for v in
@@ -118,6 +124,12 @@ class Frontier:
             if evidence:
                 with self.db: self.db.execute('UPDATE pages SET evidence=coalesce(evidence,?) WHERE key=?', (json.dumps(evidence), key))
             return key
+        if self.db.execute('SELECT count(*) FROM pages').fetchone()[0] >= self.policy.max_pages * 4:
+            return None
+        count = self.db.execute('SELECT count(*) FROM pages WHERE site=?', (site,)).fetchone()[0]
+        cap = self.policy.directory_per_site if site in DIRECTORY_HOSTS else self.policy.per_site
+        if count >= cap:
+            return None
         root, depth, hops = key, 0, 0
         if parent:
             root, group = parent['root'], parent['group_key']
@@ -134,9 +146,6 @@ class Frontier:
             if external:
                 self.db.execute('INSERT OR IGNORE INTO branch_sites VALUES(?,?)', (parent['key'], site))
                 self.db.execute('INSERT OR IGNORE INTO root_sites VALUES(?,?)', (root, site))
-        count = self.db.execute('SELECT count(*) FROM pages WHERE site=?', (site,)).fetchone()[0]
-        if count >= self.policy.per_site:
-            return None
         cue, locality = link_signals(url, context, self.policy.towns)
         self.db.execute('''INSERT INTO pages(key,url,site,root,parent,group_key,depth,hops,drift,cue,locality,context,provenance,evidence)
             VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)''', (key, url, site, root, parent['key'] if parent else None, group,
@@ -165,9 +174,10 @@ class Frontier:
             rows = self.db.execute("SELECT * FROM pages WHERE state='pending'").fetchall()
             eligible = []
             for row in rows:
-                branch = self.db.execute('SELECT count(*),coalesce(sum(success),0) FROM branch_yield WHERE root=?', (row['root'],)).fetchone()
                 # Root result does not count as an explored child domain.
                 root_site = self.db.execute('SELECT site FROM pages WHERE key=?', (row['root'],)).fetchone()[0]
+                branch = self.db.execute('SELECT count(*),coalesce(sum(success),0) FROM branch_yield WHERE root=? AND site<>?',
+                                         (row['root'], root_site)).fetchone()
                 failures = self.db.execute('SELECT count(*) FROM branch_yield WHERE root=? AND site<>? AND success=0',
                                            (row['root'], root_site)).fetchone()[0]
                 if row['parent'] and failures >= 6 and branch[1] == 0:
@@ -198,6 +208,9 @@ class Frontier:
         with self.db:
             self.db.execute('UPDATE pages SET state=?,reason=?,evidence=coalesce(?,evidence) WHERE key=?',
                             (state, reason, json.dumps(evidence) if evidence else None, key))
+            if state == 'error':
+                row = self.db.execute('SELECT group_key,site FROM pages WHERE key=?', (key,)).fetchone()
+                self.db.execute('INSERT OR IGNORE INTO source_yield VALUES(?,?,0)', (row['group_key'], row['site']))
 
     def complete(self, key, evidence, result):
         row = dict(self.db.execute('SELECT * FROM pages WHERE key=?', (key,)).fetchone())
@@ -228,7 +241,11 @@ class Frontier:
             external = site_identity(url) != row['site']
             hint = url + ' ' + link.get('anchor', '')
             if external:
-                if not positive or not local_branch or not TUTOR.search(hint):
+                # Directory profile "Website" links often point to a tutor's
+                # personal domain without the word tutor in its name. Inspect
+                # that destination once; it must pass its own page decision.
+                tutor_website = row['site'] in DIRECTORY_HOSTS and WEBSITE.fullmatch(link.get('anchor', '').strip())
+                if not positive or not local_branch or not (TUTOR.search(hint) or tutor_website):
                     continue
             elif not TUTOR.search(hint) and not IDENTITY.search(hint) and not DIRECTORY.search(hint):
                 continue

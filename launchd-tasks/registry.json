@@ -620,6 +620,48 @@
         ]
       },
       "notes": "Read-only paid receipts, SHA256 seed batches, replayed identity audit and novelty against the delivered 1010-record baseline. No paid provider calls."
+    },
+    {
+      "id": "tutor-focused-20261012-1",
+      "name": "Decisions-gated tutor crawl",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.tutor-focused-20261012-1",
+      "schedule": "finite six-hour stage",
+      "requiresOpServiceAccount": true,
+      "opServiceAccountSource": "profile-or-keychain",
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
+        "command": [
+          "bash",
+          "agent-loops/tutor-lead-pathways/install-focused.sh",
+          "run",
+          "tutor-focused-20261012-1"
+        ]
+      },
+      "notes": "Existing Maps/organic URL seeds and cached Go evidence. Relevance and unique-domain yield ranking; fifteen-site branches, two external hops. OpenAI Decisions classification USD3 cap within original USD100 allowance; USD43 uncertain DataForSEO holds retained. No new DataForSEO calls or outreach. Cleanup retains evidence, shared caches and exports."
+    },
+    {
+      "id": "tutor-focused-20261012-1-watch",
+      "name": "Decisions-gated tutor crawl health checks",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.tutor-focused-20261012-1-watch",
+      "schedule": "every fifteen minutes until the finite stage ends",
+      "requiresOpServiceAccount": false,
+      "opServiceAccountSource": null,
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
+        "command": [
+          "bash",
+          "agent-loops/tutor-lead-pathways/install-focused.sh",
+          "watch",
+          "tutor-focused-20261012-1"
+        ]
+      },
+      "notes": "Existing Maps/organic URL seeds and cached Go evidence. Relevance and unique-domain yield ranking; fifteen-site branches, two external hops. OpenAI Decisions classification USD3 cap within original USD100 allowance; USD43 uncertain DataForSEO holds retained. No new DataForSEO calls or outreach. Cleanup retains evidence, shared caches and exports."
     }
   ]
 }

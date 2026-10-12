@@ -62,6 +62,9 @@ budgeted run. Sync all historical paid run directories before exporting it. Sync
 ledgers read-only and requires receipt SHA256, payload and task agreement before enqueueing URLs.
 Tracking parameters do not create extra classifier jobs. An interrupted receipt import resumes
 without losing search memory. Receipt errors remain visible and never authorise repeat spending.
+Search-engine navigation and query-refinement links are excluded from the agent queue, while
+public tutor websites hosted on Google Sites remain eligible. `exclude-navigation` marks earlier
+pending navigation jobs as excluded errors and retains their original receipt provenance.
 
 Codex or Claude can claim batches with a worker name, lease token and receipt-backed provenance.
 SQLite atomically prevents two workers claiming the same URL. Claims expire after fifteen minutes

@@ -6,6 +6,7 @@ import math
 import os
 from pathlib import Path
 import sqlite3
+import ssl
 import urllib.error
 import urllib.request
 
@@ -40,7 +41,11 @@ def post_decision(payload):
         data=json.dumps(payload).encode(), method='POST',
         headers={'Authorization': 'Bearer ' + key, 'Content-Type': 'application/json'})
     try:
-        with urllib.request.build_opener(NoRedirects()).open(request, timeout=35) as reply:
+        # The python.org interpreter on Studio can lack its optional certifi
+        # install. Use macOS's shipped trust bundle, retaining TLS verification.
+        trust = Path('/etc/ssl/cert.pem')
+        context = ssl.create_default_context(cafile=str(trust) if trust.is_file() else None)
+        with urllib.request.build_opener(NoRedirects(), urllib.request.HTTPSHandler(context=context)).open(request, timeout=35) as reply:
             body = reply.read(1024 * 1024 + 1)
             if len(body) > 1024 * 1024:
                 raise HeldDecision('Oversized API response')

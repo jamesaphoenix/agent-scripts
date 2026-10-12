@@ -246,8 +246,10 @@ def provider_request(cache, lane, payload, maximum_cents=100):
     request = urllib.request.Request("https://api.dataforseo.com" + ENDPOINTS[lane],
                                      json.dumps([request_payload]).encode(),
                                      {"Authorization": "Basic " + auth, "Content-Type": "application/json"})
+    raw, http_status = None, None
     try:
         with urllib.request.build_opener(NoRedirect()).open(request, timeout=100) as response:
+            http_status = getattr(response, "status", None)
             raw = response.read(16 * 1024 * 1024 + 1)
         if len(raw) > 16 * 1024 * 1024:
             raise ValueError("Paid receipt exceeded 16 MB")
@@ -258,7 +260,36 @@ def provider_request(cache, lane, payload, maximum_cents=100):
         cache.settle(key, envelope)
         return envelope
     except (OSError, ValueError, urllib.error.URLError) as error:
-        cache.mark_uncertain(key, type(error).__name__ + ": paid response could not be verified")
+        if isinstance(error, urllib.error.HTTPError):
+            http_status = error.code
+            try:
+                raw = error.read(16 * 1024 * 1024 + 1)
+            except OSError:
+                raw = None
+        digest = quarantine_response(cache.root, key, lane, raw, http_status, error)
+        suffix = " sha256=" + digest[:16] if digest else ""
+        cache.mark_uncertain(key, type(error).__name__ + ": paid response could not be verified (" + str(error)[:120] + ")" + suffix)
+        return None
+
+
+def quarantine_response(root, key, lane, raw, http_status, error):
+    """Keep unverifiable provider bytes for diagnosis; the reservation and request identity stay held."""
+    try:
+        folder = Path(root) / "quarantine"
+        folder.mkdir(mode=0o700, exist_ok=True)
+        digest = hashlib.sha256(raw).hexdigest() if raw is not None else None
+        if raw is not None:
+            body = folder / (key + "." + digest + ".bin")
+            if not body.exists():
+                temporary = body.with_suffix(".tmp")
+                temporary.write_bytes(raw)
+                os.chmod(temporary, 0o600)
+                os.replace(temporary, body)
+        atomic_json(folder / (key + ".json"), {"key": key, "lane": lane, "observedAt": now_iso(), "httpStatus": http_status,
+                                              "error": type(error).__name__ + ": " + str(error)[:250],
+                                              "bytes": None if raw is None else len(raw), "sha256": digest})
+        return digest
+    except OSError:
         return None
 
 

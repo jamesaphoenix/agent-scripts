@@ -1,5 +1,7 @@
 import importlib.util
+import hashlib
 import json
+import os
 from pathlib import Path
 import tempfile
 import unittest
@@ -183,6 +185,32 @@ class PaidCacheTests(unittest.TestCase):
         self.cache.recover_interrupted()
         self.assertEqual(self.cache.usage()["uncertainCents"], 100)
         self.assertFalse(self.cache.reserve("one", "maps", {}, 100))
+
+    def test_unverifiable_response_is_quarantined_with_its_hash_and_reserve_held(self):
+        payload = {"keyword": "maths tutor Penn", "depth": 100}
+        key = discovery.request_key("maps", payload)
+        raw = json.dumps({"status_code": 20000, "cost": 0.01, "tasks": [{"id": "t", "cost": 0.01, "status_code": 40101, "data": {}}]}).encode()
+
+        class Response:
+            status = 200
+            def __enter__(self): return self
+            def __exit__(self, *args): return False
+            def read(self, limit): return raw
+
+        class Opener:
+            def open(self, request, timeout): return Response()
+
+        with patch.dict(os.environ, {"DATAFORSEO_LOGIN": "login", "DATAFORSEO_PASSWORD": "secret"}), \
+                patch.object(discovery.urllib.request, "build_opener", return_value=Opener()):
+            self.assertIsNone(discovery.provider_request(self.cache, "maps", payload))
+        digest = hashlib.sha256(raw).hexdigest()
+        self.assertEqual((Path(self.directory.name) / "quarantine" / (key + "." + digest + ".bin")).read_bytes(), raw)
+        meta = json.loads((Path(self.directory.name) / "quarantine" / (key + ".json")).read_text())
+        self.assertEqual((meta["sha256"], meta["httpStatus"]), (digest, 200))
+        self.assertIn("identity mismatch", meta["error"])
+        self.assertNotIn("secret", json.dumps(meta))
+        self.assertEqual(self.cache.usage()["uncertainCents"], 100)
+        self.assertIsNone(discovery.provider_request(self.cache, "maps", payload))
 
     def test_existing_run_budget_cannot_be_changed(self):
         with self.assertRaises(ValueError):

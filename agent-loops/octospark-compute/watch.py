@@ -18,7 +18,7 @@ RETIRED = {'grafana', 'prometheus', 'node-exporter', 'promtail', 'loki', 'jaeger
 
 def check():
     # No inputs, credentials, workflow starts or agent invocations in health checks.
-    remote = '''import json,subprocess
+    remote = '''import json,subprocess,urllib.request
 from pathlib import Path
 projects = ['octospark-staging','octospark-prod','trace-learn-staging','trace-learn-prod']
 proof = [json.loads((Path('/volume1/docker/jud')/p/'current.json').read_text()) for p in projects]
@@ -29,11 +29,18 @@ for c in containers:
  labels = c['Config'].get('Labels') or {}
  project = labels.get('com.docker.compose.project')
  service = labels.get('com.docker.compose.service')
- if project in projects and service in ['api','mcp','worker','redis','cloudsql-proxy','otel-collector']:
+ if (project in projects or project == 'jud-observability') and service in ['api','mcp','worker','redis','cloudsql-proxy','otel-collector']:
   states.append(dict(project=project,service=service,running=c['State']['Running'],health=c['State'].get('Health',{}).get('Status','running'),restarts=c['RestartCount'],image=c['Config']['Image']))
-print(json.dumps(dict(releases=[dict(project=p['project'],release=p['release'],images=p['images']) for p in proof],containers=states)))'''
+with urllib.request.urlopen('http://127.0.0.1:32133/health/status',timeout=3) as response:
+ if response.status != 200: raise RuntimeError('Shared NAS collector not ready')
+telemetry = json.loads(Path('/volume1/docker/jud/observability/current.json').read_text())
+print(json.dumps(dict(telemetry=telemetry,releases=[dict(project=p['project'],release=p['release'],images=p['images']) for p in proof],containers=states)))'''
     result = subprocess.run(['ssh', '-o', 'BatchMode=yes', '-o', 'ConnectTimeout=5', 'mydocker@100.123.72.113', 'python3 -'], input=remote, capture_output=True, text=True, timeout=15, check=True)
     nas = json.loads(result.stdout)
+    if not any(c['project'] == 'jud-observability' and c['service'] == 'otel-collector' and c['running'] for c in nas['containers']):
+        raise RuntimeError('Shared NAS collector is not running')
+    if set(nas['telemetry']['projects']) != set(PROJECTS):
+        raise RuntimeError('Shared NAS collector routing is incomplete')
     for project in PROJECTS:
         for service in ['api', 'worker']:
             if not any(c['project'] == project and c['service'] == service and c['running'] and c['health'] in ['healthy', 'running'] for c in nas['containers']):

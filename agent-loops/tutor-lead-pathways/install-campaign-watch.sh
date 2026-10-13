@@ -13,7 +13,7 @@ path,scripts,root,stage,label=sys.argv[1:]
 state=pathlib.Path(root)/'state'/stage
 assert json.loads((state/'manifest.json').read_text())['hours']==12
 value={'Label':label,'ProgramArguments':[sys.executable,scripts+'/campaign_watch.py','--run-dir',str(state),'--label',label],
- 'WorkingDirectory':root,'RunAtLoad':True,'StartInterval':900,'ProcessType':'Adaptive',
+ 'WorkingDirectory':root,'RunAtLoad':True,'StartInterval':900,'ProcessType':'Standard',
  'StandardOutPath':str(state/'campaign-watch-stdout.log'),'StandardErrorPath':str(state/'campaign-watch-stderr.log'),
  'EnvironmentVariables':{'PATH':'/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin','PYTHONUNBUFFERED':'1'}}
 with open(path,'wb') as stream:plistlib.dump(value,stream)

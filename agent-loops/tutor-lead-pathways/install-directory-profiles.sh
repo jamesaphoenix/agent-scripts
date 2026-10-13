@@ -36,7 +36,7 @@ value={"Label":label,"ProgramArguments":[sys.executable,scripts+"/directory_prof
        "--seed","https://www.findtutors.co.uk/buckinghamshire-tutors/",
        "--seed","https://tutorperch.com/find/results?age=15&level=11-plus&mode=online&send=none",
        "--seed","https://tutorperch.com/t/tracey-9ghv","--seed","https://tutorperch.com/t/jo-rutw"],
-       "RunAtLoad":True,"ProcessType":"Adaptive","KeepAlive":{"SuccessfulExit":False},"ThrottleInterval":120,
+       "RunAtLoad":True,"ProcessType":"Standard","KeepAlive":{"SuccessfulExit":False},"ThrottleInterval":120,
        "StandardOutPath":state+"/stdout.log","StandardErrorPath":state+"/stderr.log",
        "EnvironmentVariables":{"PATH":"/opt/homebrew/bin:/usr/bin:/bin","PYTHONUNBUFFERED":"1"}}
 if mode=="watch":

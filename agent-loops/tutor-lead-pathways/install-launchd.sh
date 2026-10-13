@@ -30,7 +30,7 @@ sys.path.insert(0,scripts)
 from configuration import launchd_settings
 with open(state+"/manifest.json") as stream: labels,interval=launchd_settings(json.load(stream))
 args=["/bin/zsh","-f",scripts+"/run.zsh","--run-dir",state] if mode=="run" else [sys.executable,scripts+"/run.py","watch","--run-dir",state]
-value={"Label":label,"ProgramArguments":args,"RunAtLoad":True,"ProcessType":"Adaptive",
+value={"Label":label,"ProgramArguments":args,"RunAtLoad":True,"ProcessType":"Standard",
        "WorkingDirectory":str(pathlib.Path(scripts).parent.parent),
        "StandardOutPath":state+("/stdout.log" if mode=="run" else "/monitor-stdout.log"),
        "StandardErrorPath":state+("/stderr.log" if mode=="run" else "/monitor-stderr.log")}

@@ -165,10 +165,14 @@ def reconcile(rows, decisions):
     return accepted, held, groups
 
 
-def run(root, output, decisions_path):
+def run(root, output, decisions_path, exclude_source_urls=None):
     path = root / "bucks-private-tutors.json"
     raw = path.read_bytes()
-    rows = audit_rows(root, json.loads(raw))
+    candidates = json.loads(raw)
+    excluded = {url.rstrip('/') for url in (exclude_source_urls or ())}
+    selected = [row for row in candidates if not row.get('sourceUrls') or
+                not all(url.rstrip('/') in excluded for url in row['sourceUrls'])]
+    rows = audit_rows(root, selected)
     decisions = json.loads(decisions_path.read_text()) if decisions_path else {"merges": []}
     scope_held = [dict(r, reason="ambiguous_county_place_requires_review") for r in rows if ambiguous_county(r["localityClaim"])]
     accepted, held, groups = reconcile([r for r in rows if not ambiguous_county(r["localityClaim"])], decisions)
@@ -178,7 +182,8 @@ def run(root, output, decisions_path):
     save(output / "possible-duplicate-groups.json", groups)
     save(output / "audit.json", {"at": now(), "inputSha256": hashlib.sha256(raw).hexdigest(),
         "decisionsSha256": hashlib.sha256(decisions_path.read_bytes()).hexdigest() if decisions_path else None,
-        "sourceProfiles": len(rows), "reviewedMergeReduction": len(rows) - len(accepted) - len(held) - len(scope_held),
+        "sourceProfiles": len(rows), "fullSourceProfileRows": len(candidates), "excludedKnownProfileRows": len(candidates) - len(selected),
+        "reviewedMergeReduction": len(rows) - len(accepted) - len(held) - len(scope_held),
         "acceptedIdentities": len(accepted), "heldPossibleDuplicates": len(held), "possibleDuplicateGroups": len(groups),
         "heldAmbiguousLocations": len(scope_held),
         "withExplicitElevenPlusServiceClaim": sum(r["elevenPlusServiceClaim"] for r in accepted),

@@ -91,6 +91,19 @@ class CampaignBudgetTests(unittest.TestCase):
 
 
 class CampaignNoveltyTests(unittest.TestCase):
+    def test_known_profiles_are_excluded_without_inflating_the_new_audit(self):
+        from audit_directory_identities import run as audit
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            url = 'https://www.findtutors.co.uk/tutor/jane.htm'
+            atomic_json(root / 'bucks-private-tutors.json', [{'name': 'Jane', 'sourceUrls': [url]}])
+            value = audit(root, root / 'review', None, exclude_source_urls={url})
+            self.assertEqual(value['excludedKnownProfileRows'], 1)
+            self.assertEqual(value['acceptedIdentities'], 0)
+            self.assertEqual(value['pageEvidenceVerified'], 0)
+            with self.assertRaises((KeyError, ValueError)):
+                audit(root, root / 'full-review', None)
+
     def test_reclassifying_an_existing_page_does_not_count_as_a_new_contact(self):
         old = [{'canonicalId': 'page', 'name': 'Title before extraction',
                 'sourceUrls': ['https://www.findtutors.co.uk/tutor/jane.htm'], 'outreachEligible': False}]

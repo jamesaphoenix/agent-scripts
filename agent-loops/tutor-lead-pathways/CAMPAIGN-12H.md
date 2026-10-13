@@ -40,6 +40,12 @@ from audited new identities attributed to a source. Identity audits run every
 15 minutes. A duplicate advert, locality ambiguity, historical profile or name
 collision does not inflate the accepted new-person count.
 
+Campaign audits replay page evidence for profiles outside the frozen baseline.
+The preparation step already verified and replayed the inherited cached pages.
+Previously collected profiles remain in the preserved baseline and full profile
+exports, but are excluded from the new-person audit instead of reparsing them
+every 15 minutes. `excludedKnownProfileRows` records that distinction.
+
 The Go crawler retains a depth of two and at most 15 new sites per branch.
 Public-profile collection has at most 12000 additional attempts and runs until
 the deadline, rather than stopping when a raw profile count reaches a target.

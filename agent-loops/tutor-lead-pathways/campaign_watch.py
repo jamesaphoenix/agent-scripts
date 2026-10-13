@@ -85,7 +85,7 @@ def watch(root, label):
         except (OSError, ValueError, KeyError, subprocess.SubprocessError) as error:
             classifier = 'continuation_failed'
             errors.append(type(error).__name__ + ': classifier continuation failed; inspect native logs')
-        report = audit_progress(root, profile_root, root / 'baseline/contacts.json', root / 'baseline/contacts.json')
+        report = audit_progress(root, profile_root, root / 'baseline/contacts.json', root / 'baseline/contacts.json', new_only=True)
         report.update(classifier=classifier, deadline=job['authorizedDeadline'], errors=errors)
         report['cleaned'] = terminal_cleanup(root, profile_root, job)
         atomic_json(root / 'campaign-status.json', report)

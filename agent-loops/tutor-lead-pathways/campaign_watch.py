@@ -11,9 +11,32 @@ import time
 from discovery import PaidCache, atomic_json, now_iso, parse_time
 from classifier_seeds import publish as publish_classifier_seeds
 from focused_run import prepare as prepare_focused
+from professional_registers import replay as replay_register
+from new_leads import classify_delta, run as publish_delta
 from watch_expansion import watch as audit_progress
 
 HERE = Path(__file__).resolve().parent
+
+
+def aggregate_contacts(root, report):
+    baseline = root / 'baseline/contacts.json'
+    known = json.loads(baseline.read_text())
+    rows = json.loads((Path(report['outputDirectory']) / 'this-stage-delta/new.json').read_text())
+    register = root / 'public-source-review/bda'
+    register_report = None
+    if (register / 'receipt.json').exists():
+        register_report = replay_register(register / 'page.html', register / 'receipt.json', baseline,
+            register / 'contacts', root / 'review/candidates/bda-public-professionals.json')
+        candidates = json.loads((register / 'contacts/contacts.json').read_text())
+        # A register card and a newly collected directory profile may represent
+        # the same tutor. Hold name collisions rather than adding both.
+        matches = classify_delta(known + rows, candidates)
+        rows.extend(matches['new'])
+        atomic_json(register / 'contacts/current-run-needs-review.json', matches['needsReview'])
+    path = root / 'exports/additional-contacts.json'
+    atomic_json(path, rows)
+    value = publish_delta(baseline, path, root / 'exports/additional-contacts')
+    return {'delta': value, 'register': register_report, 'export': str(path)}
 
 
 def continue_classifier(root, job):
@@ -103,6 +126,10 @@ def watch(root, label):
         report = audit_progress(root, profile_root, root / 'baseline/contacts.json', root / 'baseline/contacts.json', new_only=True)
         report.update(classifier=classifier, deadline=job['authorizedDeadline'], errors=errors)
         report['classifierSeeds'] = classifier_seeds
+        try:
+            report['additionalContacts'] = aggregate_contacts(root, report)
+        except (OSError, ValueError, KeyError, TypeError) as error:
+            errors.append(type(error).__name__ + ': additional contact audit failed; evidence retained')
         report['cleaned'] = terminal_cleanup(root, profile_root, job)
         atomic_json(root / 'campaign-status.json', report)
         print(json.dumps({k: report[k] for k in ('observedAt', 'thisStageDelta', 'classifier', 'deadline', 'errors', 'cleaned')}))

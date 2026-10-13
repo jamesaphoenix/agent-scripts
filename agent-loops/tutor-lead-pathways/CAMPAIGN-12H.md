@@ -72,6 +72,14 @@ targeted known-lead index reads. Results are returned when that bounded research
 is complete, rather than filling the twelve-minute timeout. The existing token
 ceiling, number of turns and authorisation window remain unchanged.
 
+Public professional registers add another contact source. The BDA adapter
+replays a cached, hashed body and reads each named card separately. It requires
+an advertised county, teaching service and contact route; assessment-only
+cards and possible duplicates stay held. The campaign monitor combines these
+with the directory delta in `exports/additional-contacts/new.csv` and JSON,
+checking previous business phone aliases as well as names and source URLs.
+The combined export remains research and grants no outreach eligibility.
+
 ## Runtime and handoff
 
 Author scripts on the MacBook. Push the scoped branch, then create a clean pinned

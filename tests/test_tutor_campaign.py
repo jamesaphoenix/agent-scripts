@@ -113,6 +113,15 @@ class CampaignNoveltyTests(unittest.TestCase):
         self.assertEqual(result['new'], [])
         self.assertEqual(len(result['known']), 1)
 
+    def test_old_business_phone_prevents_a_register_alias_from_counting_as_new(self):
+        old = [{'canonicalId': 'business:https://old-tutor.co.uk/:01494 123456',
+                'name': 'Jane Smith Tutoring', 'sourceUrls': ['https://old-tutor.co.uk/']}]
+        current = [{'canonicalId': 'register:jane', 'name': 'Jane Smith', 'phone': '+44 1494 123456',
+                    'sourceUrls': ['https://register.co.uk/tutors'], 'outreachEligible': False}]
+        result = classify_delta(old, current)
+        self.assertEqual(result['new'], [])
+        self.assertEqual(len(result['known']), 1)
+
     def test_sdk_suggestions_need_target_wording_and_an_approved_town(self):
         from run import sdk_query_supplements
         with tempfile.TemporaryDirectory() as temporary:

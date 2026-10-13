@@ -5,12 +5,21 @@ import json
 from collections import defaultdict
 from pathlib import Path
 from audit_directory_identities import normalize_name
-from discovery import atomic_json, file_hash, now_iso
+from discovery import atomic_json, file_hash, now_iso, phone_key
 
 
 def classify_delta(baseline, current):
     member_keys = {k for r in baseline for k in r.get('memberKeys', [r['canonicalId']])}
     source_urls = {url.rstrip('/') for row in baseline for url in row.get('sourceUrls', [])}
+    def contact_phone(row):
+        value = row.get('phone')
+        # Prepared campaign baselines encode the original business phone in
+        # their canonical key. Keep that frozen inventory unchanged while
+        # comparing newly extracted professional names with business aliases.
+        if not value and row.get('canonicalId', '').startswith('business:'):
+            value = row['canonicalId'].rsplit(':', 1)[-1]
+        return phone_key(value)
+    phones = {value for row in baseline if (value := contact_phone(row))}
     def names(row):
         return set(row.get('aliases', [])) | {normalize_name(row['name'])}
     baseline_names = defaultdict(set)
@@ -29,7 +38,8 @@ def classify_delta(baseline, current):
         if row.get('outreachEligible'):
             raise ValueError('Research export cannot grant outreach eligibility')
         members = set(row.get('memberKeys', [row['canonicalId']]))
-        if members & member_keys or any(url.rstrip('/') in source_urls for url in row.get('sourceUrls', [])):
+        if (members & member_keys or any(url.rstrip('/') in source_urls for url in row.get('sourceUrls', []))
+                or contact_phone(row) in phones):
             result['known'].append(row)
         elif possible_match(row):
             result['needsReview'].append(dict(row, deltaHoldReason='possible_baseline_name_match'))
@@ -44,7 +54,7 @@ def run(baseline_path, current_path, output):
         atomic_json(output / (key + '.json'), rows)
         path = output / (key + '.csv')
         with path.open('w', newline='') as stream:
-            writer = csv.DictWriter(stream, fieldnames=['canonicalId', 'name', 'localityClaim', 'services',
+            writer = csv.DictWriter(stream, fieldnames=['canonicalId', 'name', 'email', 'phone', 'localityClaim', 'services',
                                                        'sourceUrls', 'elevenPlusServiceClaim', 'outreachEligible'])
             writer.writeheader()
             for row in rows:

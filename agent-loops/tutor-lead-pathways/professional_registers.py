@@ -1,5 +1,6 @@
 """Replay public register cards with local teaching and contact evidence."""
 import argparse
+from collections import Counter
 import csv
 import hashlib
 import json
@@ -64,7 +65,11 @@ def parse_bda(text, receipt):
             held.append(dict(row, holdReason=reason))
         else:
             candidates.append(row)
-    return candidates, held
+    unique = list({row['canonicalId']: row for row in candidates}.values())
+    names = Counter(normalize_name(row['name']) for row in unique)
+    repeated = [dict(row, holdReason='possible_duplicate_requires_review') for row in unique
+                if names[normalize_name(row['name'])] > 1]
+    return [row for row in unique if names[normalize_name(row['name'])] == 1], held + repeated
 
 
 def replay(page, receipt_path, baseline, output, candidate_artifact=None):

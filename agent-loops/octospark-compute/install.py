@@ -25,7 +25,10 @@ if platform.system() == 'Darwin':
     dest.write_bytes(plistlib.dumps(obj))
     uid = str(os.getuid())
     subprocess.run(['launchctl', 'bootout', 'gui/' + uid + '/' + label], check=False, stderr=subprocess.DEVNULL)
-    subprocess.run(['launchctl', 'bootstrap', 'gui/' + uid, str(dest)], check=True)
+    subprocess.run(['launchctl', 'unload', str(dest)], check=False, stderr=subprocess.DEVNULL)
+    loaded = subprocess.run(['launchctl', 'bootstrap', 'gui/' + uid, str(dest)], check=False, stderr=subprocess.DEVNULL)
+    if loaded.returncode:
+        subprocess.run(['launchctl', 'load', '-w', str(dest)], check=True)
 else:
     if os.geteuid() != 0:
         raise SystemExit('Systemd installation requires root')

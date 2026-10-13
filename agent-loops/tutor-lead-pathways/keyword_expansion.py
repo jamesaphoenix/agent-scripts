@@ -227,7 +227,8 @@ class SearchIndex:
         # A known descendant never becomes a fresh root when re-imported from a receipt or plan.
         self.db.execute('''INSERT INTO search_queries VALUES(?,?,?,?,?,?,?,?,?)
             ON CONFLICT(query_key) DO UPDATE SET priority=max(priority,excluded.priority),
-            town=CASE WHEN town='' THEN excluded.town ELSE town END''',
+            town=CASE WHEN town='' THEN excluded.town ELSE town END
+            WHERE priority<excluded.priority OR (town='' AND excluded.town<>'')''',
             (key, item['lane'], normal_keyword(item['payload']['keyword']), item.get('town', ''),
              json.dumps(item['payload'], sort_keys=True), priority, generation, now_iso(), root))
         self.db.execute('INSERT OR IGNORE INTO query_origins VALUES(?,?)', (key, origin))

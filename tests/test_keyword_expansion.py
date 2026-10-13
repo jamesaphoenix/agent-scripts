@@ -102,7 +102,9 @@ class KeywordExpansionTests(unittest.TestCase):
         before = paid.usage()
         self.addCleanup(paid.db.close)
         self.index.sync_run(root)
+        changes = self.index.db.total_changes
         self.index.sync_run(root)
+        self.assertEqual(self.index.db.total_changes, changes)
         self.assertEqual(paid.usage(), before)
         self.assertEqual(self.index.summary()['observations'], 1)
         self.assertEqual(self.index.summary()['urls'], 1)
@@ -110,6 +112,16 @@ class KeywordExpansionTests(unittest.TestCase):
         self.assertEqual(jobs[0]['url'], 'https://namedtutor.co.uk/about')
         self.assertEqual(jobs[0]['sources'][0]['requestKey'], item['key'])
         self.assertTrue(jobs[0]['sources'][0]['receiptSha256'])
+
+    def test_query_refresh_can_still_raise_priority_and_fill_a_missing_town(self):
+        item = query()
+        self.index.add_queries([dict(item, town='')])
+        self.index.add_queries([dict(item, priority=9)])
+        row = self.index.db.execute('SELECT priority,town,root_key FROM search_queries').fetchone()
+        self.assertEqual(tuple(row), (9, 'Amersham', search_identity(item['lane'], item['payload'])))
+        changes = self.index.db.total_changes
+        self.index.add_queries([dict(item, priority=1)])
+        self.assertEqual(self.index.db.total_changes, changes)
 
     def test_corrupt_receipt_still_blocks_replay_but_cannot_seed_classifiers(self):
         root, item = self.paid()

@@ -22,8 +22,8 @@ def check():
 from pathlib import Path
 projects = ['octospark-staging','octospark-prod','trace-learn-staging','trace-learn-prod']
 proof = [json.loads((Path('/volume1/docker/jud')/p/'current.json').read_text()) for p in projects]
-ids = subprocess.check_output(['/usr/local/bin/docker','ps','-q'],text=True).split()
-containers = json.loads(subprocess.check_output(['/usr/local/bin/docker','inspect',*ids]))
+ids = subprocess.check_output(['/usr/local/bin/docker','ps','-q'],text=True,timeout=5).split()
+containers = json.loads(subprocess.check_output(['/usr/local/bin/docker','inspect',*ids],timeout=8))
 states = []
 for c in containers:
  labels = c['Config'].get('Labels') or {}
@@ -35,7 +35,7 @@ with urllib.request.urlopen('http://127.0.0.1:32133/health/status',timeout=3) as
  if response.status != 200: raise RuntimeError('Shared NAS collector not ready')
 telemetry = json.loads(Path('/volume1/docker/jud/observability/current.json').read_text())
 print(json.dumps(dict(telemetry=telemetry,releases=[dict(project=p['project'],release=p['release'],images=p['images']) for p in proof],containers=states)))'''
-    result = subprocess.run(['ssh', '-o', 'BatchMode=yes', '-o', 'ConnectTimeout=5', 'mydocker@100.123.72.113', 'python3 -'], input=remote, capture_output=True, text=True, timeout=15, check=True)
+    result = subprocess.run(['ssh', '-o', 'BatchMode=yes', '-o', 'ConnectTimeout=5', 'mydocker@100.123.72.113', 'python3 -'], input=remote, capture_output=True, text=True, timeout=30, check=True)
     nas = json.loads(result.stdout)
     if not any(c['project'] == 'jud-observability' and c['service'] == 'otel-collector' and c['running'] for c in nas['containers']):
         raise RuntimeError('Shared NAS collector is not running')

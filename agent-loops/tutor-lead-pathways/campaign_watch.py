@@ -12,6 +12,7 @@ from discovery import PaidCache, atomic_json, now_iso, parse_time
 from classifier_seeds import publish as publish_classifier_seeds
 from focused_run import prepare as prepare_focused
 from professional_registers import replay as replay_register
+from reviewed_contacts import replay as replay_public_contacts
 from new_leads import classify_delta, run as publish_delta
 from watch_expansion import watch as audit_progress
 
@@ -34,9 +35,18 @@ def aggregate_contacts(root, report):
         rows.extend(matches['new'])
         atomic_json(register / 'contacts/current-run-needs-review.json', matches['needsReview'])
     path = root / 'exports/additional-contacts.json'
+    public_reviews = root / 'review/candidates/public-contact-reviews.json'
+    public_report = None
+    if public_reviews.exists():
+        public_output = root / 'review/public-contacts'
+        public_report = replay_public_contacts(root, public_reviews, baseline, public_output)
+        candidates = json.loads((public_output / 'new.json').read_text())
+        matches = classify_delta(known + rows, candidates)
+        rows.extend(matches['new'])
+        atomic_json(public_output / 'current-run-needs-review.json', matches['needsReview'])
     atomic_json(path, rows)
     value = publish_delta(baseline, path, root / 'exports/additional-contacts')
-    return {'delta': value, 'register': register_report, 'export': str(path)}
+    return {'delta': value, 'register': register_report, 'publicContacts': public_report, 'export': str(path)}
 
 
 def continue_classifier(root, job):

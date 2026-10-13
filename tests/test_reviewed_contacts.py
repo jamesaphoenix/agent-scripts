@@ -1,0 +1,126 @@
+import hashlib
+import json
+from pathlib import Path
+import sys
+import tempfile
+import unittest
+
+sys.path.insert(0, str(Path(__file__).parents[1] / 'agent-loops/tutor-lead-pathways'))
+from discovery import atomic_json
+from reviewed_contacts import replay
+
+
+class ReviewedContactTests(unittest.TestCase):
+    def fixture(self, root):
+        text = 'Jane Smith offers GCSE English tuition. I am based in Haddenham, Buckinghamshire. Contact jane@example.net or 07700 900123.'
+        path = root / 'crawls/public-directory/crawl.json'
+        atomic_json(path, {'results': [{'node': {'url': 'https://village.example.org/services'},
+            'evidence': {'url': 'https://village.example.org/services', 'text': text,
+                         'contentHash': 'a' * 64, 'emails': ['jane@example.net']}}], 'updatedAt': '2026-10-13'})
+        item = {'checkpoint': 'crawls/public-directory/crawl.json',
+            'checkpointSha256': hashlib.sha256(path.read_bytes()).hexdigest(), 'resultIndex': 0,
+            'sourceKind': 'public_advert', 'unitText': text, 'name': 'Jane Smith',
+            'nameQuote': 'Jane Smith', 'localityClaim': 'Haddenham',
+            'localityQuote': 'I am based in Haddenham, Buckinghamshire.',
+            'services': ['GCSE English tuition'], 'email': 'jane@example.net', 'phone': '07700 900123',
+            'reviewer': 'codex', 'reviewedAt': '2026-10-13T15:00:00+00:00'}
+        atomic_json(root / 'baseline/contacts.json', [])
+        return path, item
+
+    def run_review(self, root, items):
+        p = root / 'review/candidates/public-contact-reviews.json'
+        atomic_json(p, items)
+        return replay(root, p, root / 'baseline/contacts.json', root / 'review/public-contacts')
+
+    def test_verified_advert_exports_its_advertised_contact_route(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _, item = self.fixture(root)
+            report = self.run_review(root, [item])
+            self.assertEqual(report['newResearchContacts'], 1)
+            row = json.loads((root / 'review/public-contacts/contacts.json').read_text())[0]
+            self.assertEqual(row['email'], 'jane@example.net')
+            self.assertFalse(row['outreachEligible'])
+            self.assertEqual(row['pageEvidence'][0]['checkpointSha256'], item['checkpointSha256'])
+
+    def test_one_bad_or_tampered_item_does_not_stop_other_reviews(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _, item = self.fixture(root)
+            bad = dict(item, checkpointSha256='b' * 64)
+            report = self.run_review(root, [bad, item])
+            self.assertEqual(report['held'], 1)
+            self.assertEqual(report['newResearchContacts'], 1)
+
+    def test_advert_cannot_take_neighbour_contact_or_unproved_locality(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _, item = self.fixture(root)
+            for bad in [dict(item, email='neighbour@example.net'),
+                        dict(item, localityClaim='London'),
+                        dict(item, localityQuote='Based in London'),
+                        dict(item, name='Other Tutor')]:
+                with self.subTest(bad=bad):
+                    report = self.run_review(root, [bad])
+                    self.assertEqual(report['newResearchContacts'], 0)
+                    self.assertEqual(report['held'], 1)
+
+    def test_known_business_host_or_phone_is_not_an_additional_contact(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _, item = self.fixture(root)
+            item.update(sourceKind='own_site', website='https://village.example.org/')
+            atomic_json(root / 'baseline/contacts.json', [{'canonicalId': 'business:old:',
+                'name': 'Earlier business name', 'sourceUrls': ['http://www.village.example.org/contact']}])
+            self.assertEqual(self.run_review(root, [item])['newResearchContacts'], 0)
+            atomic_json(root / 'baseline/contacts.json', [{'canonicalId': 'business:old:+447700900123',
+                'name': 'Earlier business name', 'sourceUrls': []}])
+            item.update(sourceKind='public_advert', website=None)
+            self.assertEqual(self.run_review(root, [item])['newResearchContacts'], 0)
+
+    def test_own_site_cannot_use_another_business_or_directory_host(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _, item = self.fixture(root)
+            report = self.run_review(root, [dict(item, sourceKind='own_site', website='https://other.example.net/')])
+            self.assertEqual(report['held'], 1)
+
+    def test_aggregate_rechecks_current_run_duplicates(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _, item = self.fixture(root)
+            self.run_review(root, [item])
+            atomic_json(root / 'profile-audit/this-stage-delta/new.json', [{'canonicalId': 'profile:jane',
+                'name': 'Jane Smith', 'sourceUrls': ['https://tutor.example.net/jane'], 'outreachEligible': False}])
+            from campaign_watch import aggregate_contacts
+            report = aggregate_contacts(root, {'outputDirectory': str(root / 'profile-audit')})
+            self.assertEqual(report['delta']['newAcceptedResearchIdentities'], 1)
+            self.assertEqual(len(json.loads((root / 'review/public-contacts/current-run-needs-review.json').read_text())), 1)
+
+    def test_two_adverts_sharing_a_route_are_held_without_arbitrary_identity_choice(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            path, item = self.fixture(root)
+            saved = json.loads(path.read_text())
+            second = json.loads(json.dumps(saved['results'][0]))
+            second['evidence']['text'] = second['evidence']['text'].replace('Jane Smith', 'Alex Brown')
+            saved['results'].append(second)
+            atomic_json(path, saved)
+            item['checkpointSha256'] = hashlib.sha256(path.read_bytes()).hexdigest()
+            other = dict(item, resultIndex=1, name='Alex Brown', nameQuote='Alex Brown',
+                         unitText=second['evidence']['text'])
+            report = self.run_review(root, [item, other])
+            self.assertEqual(report['newResearchContacts'], 0)
+            self.assertEqual(report['held'], 2)
+
+    def test_explicit_identity_hold_and_malformed_record_cannot_add_contacts(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _, item = self.fixture(root)
+            report = self.run_review(root, [None, dict(item, manualHoldReason='Possible existing owner')])
+            self.assertEqual(report['newResearchContacts'], 0)
+            self.assertEqual(report['held'], 2)
+
+
+if __name__ == '__main__':
+    unittest.main()

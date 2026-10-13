@@ -132,3 +132,13 @@ Published Business Listings pricing is USD0.012 per task plus USD0.00036 per
 returned item, up to 1000 items per response. The runner reserves USD1 before
 each request and records verified provider receipts; it does not assume that
 all requested rows will be returned.
+# Reviewing public contact adverts
+
+Save reviewed own-site or public-advert contacts in
+`review/candidates/public-contact-reviews.json`. `reviewed_contacts.py` requires a campaign Go
+checkpoint, its SHA256 and result index, a contiguous source unit, literal name, town and service
+quotes, an advertised email or phone, and reviewer/time provenance. A malformed or changed item
+is held individually. Shared names or contact routes are held for identity review. Own-site host
+aliases and frozen-baseline phone/name matches do not create additional contacts. The campaign
+watcher combines accepted entries with directory and professional-register contacts, checking
+current-run duplicates again. These are research claims; the review cannot grant outreach eligibility.

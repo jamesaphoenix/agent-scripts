@@ -50,6 +50,11 @@ scripts/install-launchd-tasks.sh --task tutor-focused-20261012-1-watch
 
 Validation: `python3 -m unittest discover -s tests -p 'test_focused*'` and `python3 -m unittest discover -s tests -p test_decisions_classifier.py`. Ordinary tests inject provider responses. Explicit live canaries retain usage receipts in the same budget cache as the owner.
 
+The separate twelve-hour campaign can prepare a registered remainder after its
+10000-attempt stage is terminal. Its ceiling is 20000 cumulative attempts with the
+same USD3 cache, original campaign deadline and crawl boundaries. See
+`CAMPAIGN-12H.md`; existing stages retain their sealed policies.
+
 Reference: https://developers.openai.com/api/docs/guides/decisions
 
 

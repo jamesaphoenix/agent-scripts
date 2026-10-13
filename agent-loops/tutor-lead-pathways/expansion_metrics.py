@@ -6,6 +6,7 @@ from pathlib import Path
 from urllib.parse import urlsplit
 from discovery import PaidCache, atomic_json, now_iso, public_url, website_key
 from source_groups import tactic_group, positive_sites
+from configuration import focused_roots
 
 
 def result_urls(response):
@@ -48,7 +49,7 @@ def metrics(root, cache, plan):
     manifest_path = root / 'manifest.json'
     if manifest_path.exists():
         manifest = json.loads(manifest_path.read_text())
-        for folder in manifest.get('focusedRoots', []):
+        for folder in focused_roots(manifest):
             path = Path(folder) / 'research-candidates.json'
             if not path.exists():
                 continue

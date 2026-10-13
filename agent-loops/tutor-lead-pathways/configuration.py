@@ -1,6 +1,18 @@
 """Validate the finite job's registered owner, monitor and observation schedule."""
 import re
 import datetime
+from pathlib import Path
+
+
+def focused_roots(manifest):
+    roots = list(dict.fromkeys(Path(p) for p in [*manifest.get('focusedRoots', []),
+        manifest.get('focusedParent'), manifest.get('focusedContinuation')] if p))
+    if manifest.get('focusedContinuation'):
+        target = Path(manifest['focusedContinuation'])
+        remainder = target.with_name(target.name + '-remainder')
+        if (remainder / 'job.json').exists() and remainder not in roots:
+            roots.append(remainder)
+    return roots
 
 
 def campaign_window(manifest):

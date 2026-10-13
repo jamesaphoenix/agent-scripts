@@ -15,7 +15,7 @@ import sqlite3
 import subprocess
 import time
 
-from configuration import launchd_settings, campaign_window
+from configuration import launchd_settings, campaign_window, focused_roots
 from source_health import held_profile_sources, positive_sites
 from source_groups import tactic_group
 
@@ -462,7 +462,7 @@ def run(root):
         state["pid"] = os.getpid()
         state["phase"] = "running"
         state['adaptiveTactics'] = job.get('adaptiveTactics', False)
-        state['blockedProfileSites'] = held_profile_sources(job.get('focusedRoots', []))['sites']
+        state['blockedProfileSites'] = held_profile_sources(focused_roots(job))['sites']
         plan = json.loads((root / "plan.json").read_text())
         intervals = request_intervals(job)
         original_deadline = parse_time(job["deadline"]).timestamp()
@@ -554,7 +554,7 @@ def run(root):
             state["updatedAt"] = now_iso()
             atomic_json(root / "runtime.json", state)
             if time.time() >= state.get("nextExportsAt", 0):
-                health = held_profile_sources(job.get('focusedRoots', []))
+                health = held_profile_sources(focused_roots(job))
                 state['blockedProfileSites'] = health['sites']
                 state['sourceHealthErrors'] = health['errors']
                 write_exports(root, cache)

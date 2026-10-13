@@ -876,6 +876,50 @@
         ]
       },
       "notes": "Authorised 13 October 2026 at 11:43:51 UTC, deadline 23:43:51 UTC. Target 2000-3000 additional independent Bucks/Milton Keynes tutor contacts. USD100 lifetime cap: preserve USD66.35 prior exposure including all uncertain holds, reserve USD3 classifier lifetime cap, at most USD30.65 new DataForSEO. Reuse SHA256 caches and semantic query identities. Codex uses existing ChatGPT OAuth only. No outreach or geographic widening. Keep audited contacts separate from URLs. Clean task scratch at terminal completion; retain evidence, caches, ledgers and source awaiting PR review."
+    },
+    {
+      "id": "tutor-focused-20261013-12h-remainder",
+      "name": "Tutor classifier remainder",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.tutor-focused-20261013-12h-remainder",
+      "schedule": "starts after cumulative 10000-page classifier is terminal, same original deadline",
+      "requiresOpServiceAccount": true,
+      "opServiceAccountSource": "profile-or-keychain",
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
+        "command": [
+          "bash",
+          ".worktrees/tutor-campaign-20261013-12h/agent-loops/tutor-lead-pathways/install-focused.sh",
+          "run",
+          "tutor-focused-20261013-12h-remainder",
+          "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts"
+        ]
+      },
+      "notes": "Authorised 13 October 2026 at 11:43:51 UTC, deadline 23:43:51 UTC. Target 2000-3000 additional independent Bucks/Milton Keynes tutor contacts. USD100 lifetime cap: preserve USD66.35 prior exposure including all uncertain holds, reserve USD3 classifier lifetime cap, at most USD30.65 new DataForSEO. Reuse SHA256 caches and semantic query identities. Codex uses existing ChatGPT OAuth only. No outreach or geographic widening. Keep audited contacts separate from URLs. Clean task scratch at terminal completion; retain evidence, caches, ledgers and source awaiting PR review. Carry the completed frontier into a separate stage with at most 20000 cumulative attempts, including all inherited attempts. Same USD3 lifetime Decisions cache, 4000 directory URLs, unchanged geography and recursion gates. Never clone an active parent or reset the deadline."
+    },
+    {
+      "id": "tutor-focused-20261013-12h-remainder-watch",
+      "name": "Tutor classifier remainder watch",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.tutor-focused-20261013-12h-remainder-watch",
+      "schedule": "every fifteen minutes after continuation preparation",
+      "requiresOpServiceAccount": false,
+      "opServiceAccountSource": null,
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
+        "command": [
+          "bash",
+          ".worktrees/tutor-campaign-20261013-12h/agent-loops/tutor-lead-pathways/install-focused.sh",
+          "watch",
+          "tutor-focused-20261013-12h-remainder",
+          "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts"
+        ]
+      },
+      "notes": "Authorised 13 October 2026 at 11:43:51 UTC, deadline 23:43:51 UTC. Target 2000-3000 additional independent Bucks/Milton Keynes tutor contacts. USD100 lifetime cap: preserve USD66.35 prior exposure including all uncertain holds, reserve USD3 classifier lifetime cap, at most USD30.65 new DataForSEO. Reuse SHA256 caches and semantic query identities. Codex uses existing ChatGPT OAuth only. No outreach or geographic widening. Keep audited contacts separate from URLs. Clean task scratch at terminal completion; retain evidence, caches, ledgers and source awaiting PR review. Carry the completed frontier into a separate stage with at most 20000 cumulative attempts, including all inherited attempts. Same USD3 lifetime Decisions cache, 4000 directory URLs, unchanged geography and recursion gates. Never clone an active parent or reset the deadline."
     }
   ]
 }

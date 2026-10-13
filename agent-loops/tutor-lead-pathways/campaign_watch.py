@@ -9,6 +9,7 @@ import subprocess
 import time
 
 from discovery import PaidCache, atomic_json, now_iso, parse_time
+from configuration import focused_roots
 from classifier_seeds import publish as publish_classifier_seeds
 from focused_run import prepare as prepare_focused
 from professional_registers import replay as replay_register
@@ -49,10 +50,7 @@ def aggregate_contacts(root, report):
     return {'delta': value, 'register': register_report, 'publicContacts': public_report, 'export': str(path)}
 
 
-def continue_classifier(root, job):
-    parent, target = Path(job['focusedParent']), Path(job['focusedContinuation'])
-    if time.time() >= parse_time(job['authorizedDeadline']).timestamp():
-        return 'deadline_reached'
+def prepare_classifier(root, job, parent, target, pages, record):
     if not target.exists():
         status = json.loads((parent / 'status.json').read_text())
         if status['status'] != 'complete':
@@ -67,15 +65,18 @@ def continue_classifier(root, job):
             except BlockingIOError:
                 return 'previous_classifier_finalizing'
             prepare_focused(target, Path(job['keywordIndexPath']), Path(cache), Path(job['crawlerBinary']),
-                Path(job['focusedHistory']), (deadline - time.time()) / 3600, 10000, 2000, source_sha,
+                Path(job['focusedHistory']), (deadline - time.time()) / 3600, pages, 2000, source_sha,
                 previous=parent, directory_pages=4000, workers=4, baseline=Path(job['identityBaselineCsv']),
                 authorized_deadline=deadline)
-        atomic_json(root / 'classifier-continuation.json', {'preparedAt': now_iso(), 'runDir': str(target),
+        atomic_json(root / (record + '.json'), {'preparedAt': now_iso(), 'runDir': str(target),
             'deadline': job['authorizedDeadline'], 'sameCache': cache, 'classificationLifetimeCapUsd': 3})
-    marker = root / 'classifier-installed.json'
+    marker = root / (record + '-installed.json')
+    # Preserve the first stage's existing installation marker.
+    if record == 'classifier-continuation':
+        marker = root / 'classifier-installed.json'
     if not marker.exists():
         installer = str(HERE.parents[1] / 'scripts/install-launchd-tasks.sh')
-        for task in ('tutor-focused-20261013-12h', 'tutor-focused-20261013-12h-watch'):
+        for task in (target.name, target.name + '-watch'):
             registered = subprocess.run(['launchctl', 'print', f'gui/{os.getuid()}/com.jud.{task}'],
                                         capture_output=True, timeout=10)
             if registered.returncode == 0:
@@ -87,14 +88,29 @@ def continue_classifier(root, job):
     return json.loads((target / 'status.json').read_text())['status']
 
 
+def continue_classifier(root, job):
+    parent, target = Path(job['focusedParent']), Path(job['focusedContinuation'])
+    if time.time() >= parse_time(job['authorizedDeadline']).timestamp():
+        return 'deadline_reached'
+    state = prepare_classifier(root, job, parent, target, 10000, 'classifier-continuation')
+    if state != 'complete':
+        return state
+    completed = json.loads((target / 'status.json').read_text())
+    policy = json.loads((target / 'job.json').read_text())['policy']
+    if completed['attempts'] < policy['max_pages'] or completed.get('decisions', {}).get('remainingUsd', 0) <= 0:
+        return state
+    remainder = target.with_name(target.name + '-remainder')
+    return prepare_classifier(root, job, target, remainder, 20000, 'classifier-remainder')
+
+
 def terminal_cleanup(root, profile_root, job):
     runtime = json.loads((root / 'runtime.json').read_text())
     profiles = json.loads((profile_root / 'status.json').read_text())
     if runtime.get('phase') != 'complete' or profiles.get('phase') != 'stage_complete':
         return False
-    target = Path(job['focusedContinuation'])
-    if target.exists() and json.loads((target / 'status.json').read_text())['status'] in ('prepared', 'running', 'interrupted'):
-        return False
+    for target in focused_roots(job):
+        if target.exists() and json.loads((target / 'status.json').read_text())['status'] in ('prepared', 'running', 'interrupted'):
+            return False
     removed = []
     for relative in ('sdk/ssh-known-hosts', 'crawls/seed-candidates.txt'):
         path = root / relative
@@ -128,7 +144,7 @@ def watch(root, label):
             cache = PaidCache(root, job['budgetCents'], job['priorExposureCents'])
             try:
                 classifier_seeds = publish_classifier_seeds(root,
-                    [Path(job['focusedParent']), Path(job['focusedContinuation'])], cache)
+                    focused_roots(job), cache)
             finally:
                 cache.db.close()
         except (OSError, ValueError, KeyError, TypeError) as error:

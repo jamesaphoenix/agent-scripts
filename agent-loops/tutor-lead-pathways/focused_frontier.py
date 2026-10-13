@@ -93,7 +93,7 @@ class Policy:
 
     def validate(self):
         if (not self.towns or not all(isinstance(t, str) and t for t in self.towns)
-            or not 1 <= self.max_pages <= 10000 or not 1 <= self.max_sites <= 3000
+            or not 1 <= self.max_pages <= 20000 or not 1 <= self.max_sites <= 3000
             or not 1 <= self.per_site <= 8 or not 0 <= self.max_depth <= 2
             or not 1 <= self.directory_per_site <= 4000
             or not 0 <= self.branch_sites <= 15 or not 0 <= self.root_sites <= 50

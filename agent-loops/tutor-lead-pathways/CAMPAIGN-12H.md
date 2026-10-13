@@ -71,6 +71,16 @@ existing branch gates. Native access holds defer searches exclusively targeting
 unavailable directories without marking them searched or reserving money.
 Mixed-source queries and accessible directories continue.
 
+If that stage reaches its 10000 cumulative attempts before the original deadline,
+and the same USD3 lifetime Decisions cache still has budget, the monitor prepares
+`tutor-focused-20261013-12h-remainder`. This separate registered stage permits
+20000 cumulative attempts, including every inherited attempt. Preparation requires
+a terminal parent and its released writer lock. The previous job is unchanged;
+geography, directory quotas, ordinary-site limits and recursion gates stay fixed.
+API failures and exhausted classification budgets do not start another stage.
+Seed publication, profile collection, yield metrics and terminal cleanup include
+the prepared remainder. No new classification allowance is reserved.
+
 The campaign monitor also publishes hash-addressed classifier seed batches from
 new verified provider receipts, completed SDK results and saved Go page text.
 The classifier owner imports them itself every 30 seconds, retaining existing

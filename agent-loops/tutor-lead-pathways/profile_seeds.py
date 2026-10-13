@@ -6,6 +6,7 @@ from pathlib import Path
 from directory_profiles import admitted_url
 from discovery import PaidCache, atomic_json, now_iso
 from expansion_metrics import result_urls
+from configuration import focused_roots
 
 
 def write_seed_batch(root, destination, cache):
@@ -25,7 +26,7 @@ def write_seed_batch(root, destination, cache):
             urls.update(selected)
             origins.append({'sdkResult': str(path), 'resultSha256': hashlib.sha256(path.read_bytes()).hexdigest(), 'urls': selected})
     manifest = json.loads((root / 'manifest.json').read_text()) if (root / 'manifest.json').exists() else {}
-    for folder in manifest.get('focusedRoots', []):
+    for folder in focused_roots(manifest):
         path = Path(folder) / 'profile-candidates-not-in-baseline.json'
         if path.exists():
             selected = sorted({url for row in json.loads(path.read_text()) if (url := admitted_url(row.get('url')))})

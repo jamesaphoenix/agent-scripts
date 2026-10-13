@@ -42,7 +42,11 @@ def continue_classifier(root, job):
     if not marker.exists():
         installer = str(HERE.parents[1] / 'scripts/install-launchd-tasks.sh')
         for task in ('tutor-focused-20261013-12h', 'tutor-focused-20261013-12h-watch'):
-            command = ['zsh', '-c', 'source ~/.zprofile >/dev/null 2>&1 || true; exec bash "$1" --task "$2"',
+            registered = subprocess.run(['launchctl', 'print', f'gui/{os.getuid()}/com.jud.{task}'],
+                                        capture_output=True, timeout=10)
+            if registered.returncode == 0:
+                continue
+            command = ['zsh', '-f', '-c', 'source ~/.zprofile >/dev/null 2>&1 || true; exec bash "$1" --task "$2"',
                        'tutor-classifier-installer', installer, task]
             subprocess.run(command, check=True, capture_output=True, text=True, timeout=120)
         atomic_json(marker, {'installedAt': now_iso(), 'runDir': str(target)})

@@ -64,7 +64,7 @@ def cleanup_retired():
         project = labels.get('com.docker.compose.project')
         service = labels.get('com.docker.compose.service')
         obsolete = project in ['trace-learn', 'tx-agent-kit'] and service in RETIRED
-        migrated = project in ['octospark-prod-live', 'octospark-staging-live', 'trace-learn-prod', 'trace-learn-staging'] and service in ['api', 'mcp', 'worker', 'redis', 'cloudsql-proxy', 'otel-collector', 'otel-healthcheck'] and not container['State']['Running']
+        migrated = project in ['octospark-prod-live', 'octospark-staging-live', 'trace-learn-prod', 'trace-learn-staging'] and service in ['api', 'mcp', 'worker', 'redis', 'cloudsql-proxy', 'otel-collector', 'otel-healthcheck'] and (service in ['otel-collector', 'otel-healthcheck'] or not container['State']['Running'])
         if obsolete or migrated:
             subprocess.run(['docker', '--context', 'desktop-linux', 'rm', '-f', container['Id']], check=True, timeout=20, stdout=subprocess.DEVNULL)
             removed.append(container['Name'])

@@ -55,7 +55,7 @@ cat >"$PLIST_PATH" <<PLIST
   <key>StandardErrorPath</key>
   <string>${STATE_DIR}/logs/llama-server.err.log</string>
   <key>ProcessType</key>
-  <string>Interactive</string>
+  <string>Background</string>
   <key>EnvironmentVariables</key>
   <dict>
     <key>PATH</key>
@@ -66,6 +66,8 @@ cat >"$PLIST_PATH" <<PLIST
     <string>${MODEL_FILE}</string>
     <key>LLAMA_SERVE_ALIAS</key>
     <string>${MODEL_ALIAS}</string>
+    <key>LLAMA_SERVE_HOST</key>
+    <string>${LLAMA_SERVE_HOST:-127.0.0.1}</string>
     <key>LLAMA_SERVE_PORT</key>
     <string>${PORT}</string>
     <key>LLAMA_SERVE_PARALLEL</key>

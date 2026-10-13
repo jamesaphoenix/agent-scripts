@@ -224,3 +224,13 @@ in the usual sibling checkout. Its existing Studio collection schedule remains
 in the central launchd registry; the skill does not install a second schedule.
 
 Run helper checks with `python3 -m unittest discover -s tests -v`.
+
+## Cross-repo drift check (trace-learn and octospark)
+
+`scripts/cross-repo-drift.py` compares the files listed in `config/cross-repo-identical-files.txt`
+between trace-learn and octospark at `origin/staging` (read with `git show`, working trees are not
+touched) and exits 1 if any has drifted or disappeared. Entries suffixed `  # comments` ignore comment
+wording. Run `scripts/cross-repo-drift.py --fetch` before porting work, or add it as a weekly launchd
+task via `launchd-tasks/registry.json` if drift keeps slipping through. The list came from a blob
+comparison on 2026-09-29; the reasoning per file is in `~/Desktop/cross-repo-test-duplication.md`.
+Remove a path from the list when the repos should deliberately diverge.

@@ -138,10 +138,16 @@ Save reviewed own-site or public-advert contacts in
 `review/candidates/public-contact-reviews.json`. `reviewed_contacts.py` requires a campaign Go
 checkpoint, its SHA256 and result index, a contiguous source unit, literal name, town and service
 quotes, an advertised email or phone, and reviewer/time provenance. Classified parent-frontier
-evidence can also be reused by page key and
-evidence SHA256 after its Go fetch scratch has been cleaned up. SQLite is opened read-only and
+evidence can also be reused by page key and evidence SHA256 after its Go fetch scratch has been
+cleaned up. SQLite is opened read-only and
 the original Go checkpoint hash remains in the contact evidence. A malformed or changed item
 is held individually. Shared names or contact routes are held for identity review. Own-site host
 aliases and frozen-baseline phone/name matches do not create additional contacts. The campaign
 watcher combines accepted entries with directory and professional-register contacts, checking
 current-run duplicates again. These are research claims; the review cannot grant outreach eligibility.
+
+For adverts beyond the crawler's text limit, cache the public HTML body and successful response
+receipt under `public-source-review/`. An `html_advert` review verifies both hashes and one complete
+DOM unit selected by its unique ID. Names, locality, services and contact routes must all belong
+to that unit. Another advert's email or an inferred village location is held. Use robots-permitted
+public pages and preserve original receipts; this replay makes no network requests.

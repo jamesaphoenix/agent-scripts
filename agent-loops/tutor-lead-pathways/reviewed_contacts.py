@@ -9,7 +9,7 @@ import sqlite3
 from urllib.parse import urlsplit
 
 from audit_directory_identities import normalize_name
-from directory_profiles import ACADEMIC, BUCKS
+from directory_profiles import ACADEMIC, BUCKS, Document, decode_page
 from discovery import atomic_json, clean_emails, file_hash, now_iso, phone_key
 from new_leads import classify_delta
 
@@ -30,7 +30,27 @@ def verified_contact(root, item):
         raise ValueError('Expected a structured contact review')
     if item.get('manualHoldReason'):
         raise ValueError(item['manualHoldReason'])
-    if item.get('sourceType') == 'focused_page':
+    if item.get('sourceType') == 'html_advert':
+        source_root = (root / 'public-source-review').resolve(strict=True)
+        page = (root / item['page']).resolve(strict=True)
+        receipt_path = (root / item['receipt']).resolve(strict=True)
+        if not page.is_relative_to(source_root) or not receipt_path.is_relative_to(source_root):
+            raise ValueError('HTML evidence must belong to the campaign public-source cache')
+        if file_hash(receipt_path) != item['receiptSha256']:
+            raise ValueError('HTML receipt hash mismatch')
+        receipt = json.loads(receipt_path.read_text())
+        if receipt.get('status') != 200 or file_hash(page) != receipt.get('sha256'):
+            raise ValueError('HTML body hash or response status mismatch')
+        units = [n for n in Document(decode_page(page.read_bytes(), receipt.get('contentType', ''))).root.walk()
+                 if n.attrs.get('id') == item['unitId']]
+        if len(units) != 1 or normal(units[0].text()) != normal(item['unitText']):
+            raise ValueError('Expected one complete source advert unit')
+        evidence = {'url': receipt['url'], 'contentHash': receipt['sha256'], 'text': units[0].text()}
+        proof = {'page': str(page), 'receipt': str(receipt_path), 'receiptSha256': item['receiptSha256'],
+                 'unitId': item['unitId'], 'observedAt': receipt.get('observedAt')}
+        if item['sourceKind'] != 'public_advert':
+            raise ValueError('HTML advert review requires a public advert source')
+    elif item.get('sourceType') == 'focused_page':
         manifest = json.loads((root / 'manifest.json').read_text())
         source = Path(manifest['focusedParent']).resolve() / 'frontier.sqlite'
         with closing(sqlite3.connect(source.as_uri() + '?mode=ro', uri=True)) as db:

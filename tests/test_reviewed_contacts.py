@@ -144,6 +144,25 @@ class ReviewedContactTests(unittest.TestCase):
                 db.execute('UPDATE pages SET evidence=?', (encoded + ' ',))
             self.assertEqual(self.run_review(root, [item])['held'], 1)
 
+    def test_html_advert_unit_cannot_borrow_the_next_cards_email(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _, item = self.fixture(root)
+            page = root / 'public-source-review/village/page.html'
+            page.parent.mkdir(parents=True)
+            page.write_text('<div id="jane">' + item['unitText'] + '</div><div id="alex">Contact alex@example.net</div>')
+            receipt = page.parent / 'receipt.json'
+            atomic_json(receipt, {'url': 'https://village.example.org/services', 'status': 200,
+                'sha256': hashlib.sha256(page.read_bytes()).hexdigest(), 'observedAt': '2026-10-13'})
+            item.update(sourceType='html_advert', page=str(page.relative_to(root)),
+                receipt=str(receipt.relative_to(root)), receiptSha256=hashlib.sha256(receipt.read_bytes()).hexdigest(),
+                unitId='jane')
+            self.assertEqual(self.run_review(root, [item])['newResearchContacts'], 1)
+            self.assertEqual(self.run_review(root, [dict(item, email='alex@example.net')])['held'], 1)
+            self.assertEqual(self.run_review(root, [dict(item, unitId='alex')])['held'], 1)
+            page.write_text(page.read_text() + 'changed')
+            self.assertEqual(self.run_review(root, [item])['held'], 1)
+
 
 if __name__ == '__main__':
     unittest.main()

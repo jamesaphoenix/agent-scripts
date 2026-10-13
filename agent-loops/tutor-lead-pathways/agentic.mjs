@@ -83,7 +83,9 @@ export async function main(runDirectory, slot, transport = "direct") {
     webSearchMode: "live", networkAccessEnabled: false };
   const thread = researchThread(codex, options, previous, job);
   const towns = researchTowns(job, slot);
-  const scope = job.strategy === "expansion"
+  const scope = job.researchPriority === "11_plus_and_private_academic"
+    ? "Research new independent 11 plus and private academic tutors in Buckinghamshire and Milton Keynes. Prioritise entrance exams, verbal and non-verbal reasoning, primary maths and English, then GCSE, A level, languages and SEND academic tuition. Use advertised local tutoring evidence on each person's own profile."
+    : job.strategy === "expansion"
     ? "Research new independent private tutors across all academic subjects in Buckinghamshire and Milton Keynes. Include GCSE, A level, primary, languages, SEND and 11 plus. Focus on public person profiles from Superprof, First Tutors, Tutorhunt, Tutorful and named local tutors. Discover new source entry points as nextQueries. Do not constrain this search to primary tutors."
     : "Research independent individual and small local 11 plus and primary tutors in Buckinghamshire, including Milton Keynes.";
   const prompt = `${scope}

@@ -3,6 +3,8 @@ import re
 import datetime
 from pathlib import Path
 import subprocess
+import hashlib
+import json
 
 
 def loaded_source_sha():
@@ -41,6 +43,26 @@ def campaign_window(manifest):
     if start.tzinfo is None or deadline.tzinfo is None or deadline - start != datetime.timedelta(hours=hours):
         raise ValueError('Original authorised duration changed')
     return start, deadline, deadline - datetime.timedelta(minutes=15)
+
+
+def profile_page_ceiling(job):
+    """Only a hash-bound extra window permits more than 20,000 cumulative attempts."""
+    if 'additionalWindowAuthorization' not in job:
+        return 20000
+    path = Path(job['additionalWindowAuthorization'])
+    raw = path.read_bytes()
+    if hashlib.sha256(raw).hexdigest() != job['additionalWindowAuthorizationSha256']:
+        raise ValueError('Additional public-crawl authorization changed')
+    authorization = json.loads(raw)
+    start, deadline, _ = campaign_window({'hours': 12,
+        'authorizedStartedAt': authorization['requestedAt'],
+        'authorizedDeadline': authorization['deadline']})
+    if (job['startedAt'] != start.isoformat() or job['deadlineUnix'] != deadline.timestamp()
+            or type(job['newAttemptLimit']) is not int or not 1 <= job['newAttemptLimit'] <= 12000
+            or job['pageLimit'] != job['initialAttemptCount'] + job['newAttemptLimit']
+            or not authorization.get('parentManifestSha256')):
+        raise ValueError('Public crawl changed its additional window or page allowance')
+    return 32000
 
 
 def launchd_settings(manifest):

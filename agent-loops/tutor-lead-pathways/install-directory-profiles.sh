@@ -22,6 +22,8 @@ chmod 700 "$RUN_DIR"
 "$PYTHON_BIN" - "$PLIST_PATH" "$SCRIPT_DIR" "$RUN_DIR" "$LABEL" "$MODE" "$OWNER" "$MONITOR" <<'PY'
 import datetime,json,pathlib,plistlib,sys
 path,scripts,state,label,mode,owner,monitor=sys.argv[1:]
+sys.path.insert(0,scripts)
+from configuration import profile_page_ceiling
 job_path=pathlib.Path(state)/"job.json"
 hours,pages,target=3,5000,1000
 if job_path.exists():
@@ -29,7 +31,7 @@ if job_path.exists():
  hours=(job["deadlineUnix"]-datetime.datetime.fromisoformat(job["startedAt"]).timestamp())/3600
  pages,target=job["pageLimit"],job["target"]
  # Earlier prepared jobs used two clock reads, differing by microseconds.
- assert 0<hours<=12+1/3600000 and 1<=pages<=20000 and 1<=target<=5000
+ assert 0<hours<=12+1/3600000 and 1<=pages<=profile_page_ceiling(job) and 1<=target<=5000
  hours=min(hours,12)
 value={"Label":label,"ProgramArguments":[sys.executable,scripts+"/directory_profiles.py",
        "--run-dir",state,"--hours",str(hours),"--pages",str(pages),"--target",str(target),

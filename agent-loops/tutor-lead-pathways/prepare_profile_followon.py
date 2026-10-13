@@ -18,10 +18,15 @@ def digest(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def prepare(parent, output, hours, new_pages, target, seed_batch=None, source_run_dir=None, requested_start=None):
+def prepare(parent, output, hours, new_pages, target, seed_batch=None, source_run_dir=None, requested_start=None,
+            cumulative_ceiling=20000, allow_empty=False):
     maximum_hours, maximum_pages = (12, 12000) if requested_start else (6, 5000)
     if not 0 < hours <= maximum_hours or not 1 <= new_pages <= maximum_pages or not 1 <= target <= 5000:
         raise ValueError("Choose bounded duration, additional attempts and target")
+    if type(cumulative_ceiling) is not int or cumulative_ceiling not in (20000, 32000) or (cumulative_ceiling == 32000 and not requested_start):
+        raise ValueError('Larger cumulative frontier requires an authorised additional window')
+    if allow_empty and not (source_run_dir and requested_start):
+        raise ValueError('An empty frontier requires an authorised live seed source')
     if output.exists():
         raise ValueError("Follow-on stage already exists; resume it without re-preparing")
     with (parent / "owner.lock").open("a") as lock:
@@ -35,7 +40,7 @@ def prepare(parent, output, hours, new_pages, target, seed_batch=None, source_ru
         if seed_batch and (seed_batch.stat().st_size > 2 * 1024 * 1024 or digest(seed_batch) != seed_batch.stem):
             raise ValueError("New source seed batch hash changed or exceeded its bound")
         page_limit = state["attempts"] + new_pages
-        if page_limit > (20000 if requested_start else 10000):
+        if page_limit > (cumulative_ceiling if requested_start else 10000):
             raise ValueError("Inherited and additional attempts exceed the stage ceiling")
         receipts = []
         for path in sorted((parent / "receipts").glob("*.json")):
@@ -77,7 +82,7 @@ def prepare(parent, output, hours, new_pages, target, seed_batch=None, source_ru
             if seed_batch:
                 shutil.copy2(seed_batch, temporary / "seed-batches" / seed_batch.name)
                 import_seed_batches(temporary, state)
-            if not state["queue"]:
+            if not state["queue"] and not allow_empty:
                 raise ValueError("Follow-on stage has no new public frontier")
             started = requested_start or datetime.datetime.now(datetime.timezone.utc)
             if started.tzinfo is None:

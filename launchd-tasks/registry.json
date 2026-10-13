@@ -920,6 +920,136 @@
         ]
       },
       "notes": "Authorised 13 October 2026 at 11:43:51 UTC, deadline 23:43:51 UTC. Target 2000-3000 additional independent Bucks/Milton Keynes tutor contacts. USD100 lifetime cap: preserve USD66.35 prior exposure including all uncertain holds, reserve USD3 classifier lifetime cap, at most USD30.65 new DataForSEO. Reuse SHA256 caches and semantic query identities. Codex uses existing ChatGPT OAuth only. No outreach or geographic widening. Keep audited contacts separate from URLs. Clean task scratch at terminal completion; retain evidence, caches, ledgers and source awaiting PR review. Carry the completed frontier into a separate stage with at most 20000 cumulative attempts, including all inherited attempts. Same USD3 lifetime Decisions cache, 4000 directory URLs, unchanged geography and recursion gates. Never clone an active parent or reset the deadline."
+    },
+    {
+      "id": "tutor-lead-pathways-20261013-extra-12h",
+      "name": "tutor lead pathways 20261013 extra 12h",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.tutor-lead-pathways-20261013-extra-12h",
+      "schedule": "finite request-anchored twelve-hour campaign",
+      "requiresOpServiceAccount": true,
+      "opServiceAccountSource": "profile-or-keychain",
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
+        "command": [
+          "bash",
+          ".worktrees/tutor-campaign-20261013-12h/agent-loops/tutor-lead-pathways/install-launchd.sh",
+          "run",
+          "tutor-lead-pathways-20261013-extra-12h",
+          "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts"
+        ]
+      },
+      "notes": "Explicit extra twelve-hour window requested 13 October 2026. Activate only after the original 23:43:51 UTC deadline and sealed owners; finish 14 October 11:43:51 UTC (12:43 BST). Prioritise 11+ and private academic tutors in Bucks/Milton Keynes. Carry forward USD100 lifetime budget, all uncertain holds, the existing USD3 Decisions reserve and cumulative four-million SDK token admission ceiling. No fresh classifier allowance or outreach. Inherit raw evidence, semantic query ledger, original baseline and contact exports. Add at most 12000 public fetch attempts within 32000 cumulative. Native health checks every fifteen minutes and terminal scratch cleanup; retain source awaiting PR review."
+    },
+    {
+      "id": "tutor-lead-pathways-20261013-extra-12h-watch",
+      "name": "tutor lead pathways 20261013 extra 12h watch",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.tutor-lead-pathways-watch-20261013-extra-12h",
+      "schedule": "every fifteen minutes",
+      "requiresOpServiceAccount": false,
+      "opServiceAccountSource": null,
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
+        "command": [
+          "bash",
+          ".worktrees/tutor-campaign-20261013-12h/agent-loops/tutor-lead-pathways/install-launchd.sh",
+          "watch",
+          "tutor-lead-pathways-20261013-extra-12h",
+          "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts"
+        ]
+      },
+      "notes": "Explicit extra twelve-hour window requested 13 October 2026. Activate only after the original 23:43:51 UTC deadline and sealed owners; finish 14 October 11:43:51 UTC (12:43 BST). Prioritise 11+ and private academic tutors in Bucks/Milton Keynes. Carry forward USD100 lifetime budget, all uncertain holds, the existing USD3 Decisions reserve and cumulative four-million SDK token admission ceiling. No fresh classifier allowance or outreach. Inherit raw evidence, semantic query ledger, original baseline and contact exports. Add at most 12000 public fetch attempts within 32000 cumulative. Native health checks every fifteen minutes and terminal scratch cleanup; retain source awaiting PR review."
+    },
+    {
+      "id": "bucks-private-tutors-20261013-extra-12h",
+      "name": "bucks private tutors 20261013 extra 12h",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.bucks-private-tutors-20261013-extra-12h",
+      "schedule": "finite request-anchored twelve-hour public-profile campaign",
+      "requiresOpServiceAccount": false,
+      "opServiceAccountSource": null,
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
+        "command": [
+          "bash",
+          ".worktrees/tutor-campaign-20261013-12h/agent-loops/tutor-lead-pathways/install-directory-profiles.sh",
+          "run",
+          "bucks-private-tutors-20261013-extra-12h",
+          "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts"
+        ]
+      },
+      "notes": "Explicit extra twelve-hour window requested 13 October 2026. Activate only after the original 23:43:51 UTC deadline and sealed owners; finish 14 October 11:43:51 UTC (12:43 BST). Prioritise 11+ and private academic tutors in Bucks/Milton Keynes. Carry forward USD100 lifetime budget, all uncertain holds, the existing USD3 Decisions reserve and cumulative four-million SDK token admission ceiling. No fresh classifier allowance or outreach. Inherit raw evidence, semantic query ledger, original baseline and contact exports. Add at most 12000 public fetch attempts within 32000 cumulative. Native health checks every fifteen minutes and terminal scratch cleanup; retain source awaiting PR review."
+    },
+    {
+      "id": "bucks-private-tutors-20261013-extra-12h-watch",
+      "name": "bucks private tutors 20261013 extra 12h watch",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.bucks-private-tutors-20261013-extra-12h-watch",
+      "schedule": "every fifteen minutes",
+      "requiresOpServiceAccount": false,
+      "opServiceAccountSource": null,
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
+        "command": [
+          "bash",
+          ".worktrees/tutor-campaign-20261013-12h/agent-loops/tutor-lead-pathways/install-directory-profiles.sh",
+          "watch",
+          "bucks-private-tutors-20261013-extra-12h",
+          "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts"
+        ]
+      },
+      "notes": "Explicit extra twelve-hour window requested 13 October 2026. Activate only after the original 23:43:51 UTC deadline and sealed owners; finish 14 October 11:43:51 UTC (12:43 BST). Prioritise 11+ and private academic tutors in Bucks/Milton Keynes. Carry forward USD100 lifetime budget, all uncertain holds, the existing USD3 Decisions reserve and cumulative four-million SDK token admission ceiling. No fresh classifier allowance or outreach. Inherit raw evidence, semantic query ledger, original baseline and contact exports. Add at most 12000 public fetch attempts within 32000 cumulative. Native health checks every fifteen minutes and terminal scratch cleanup; retain source awaiting PR review."
+    },
+    {
+      "id": "tutor-lead-pathways-20261013-extra-12h-campaign-watch",
+      "name": "tutor lead pathways 20261013 extra 12h campaign watch",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.tutor-lead-pathways-20261013-extra-12h-campaign-watch",
+      "schedule": "every fifteen minutes: audit, classifier continuation and terminal cleanup",
+      "requiresOpServiceAccount": false,
+      "opServiceAccountSource": null,
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
+        "command": [
+          "bash",
+          ".worktrees/tutor-campaign-20261013-12h/agent-loops/tutor-lead-pathways/install-campaign-watch.sh",
+          "tutor-lead-pathways-20261013-extra-12h",
+          "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts"
+        ]
+      },
+      "notes": "Explicit extra twelve-hour window requested 13 October 2026. Activate only after the original 23:43:51 UTC deadline and sealed owners; finish 14 October 11:43:51 UTC (12:43 BST). Prioritise 11+ and private academic tutors in Bucks/Milton Keynes. Carry forward USD100 lifetime budget, all uncertain holds, the existing USD3 Decisions reserve and cumulative four-million SDK token admission ceiling. No fresh classifier allowance or outreach. Inherit raw evidence, semantic query ledger, original baseline and contact exports. Add at most 12000 public fetch attempts within 32000 cumulative. Native health checks every fifteen minutes and terminal scratch cleanup; retain source awaiting PR review."
+    },
+    {
+      "id": "tutor-lead-pathways-20261013-extra-12h-extension-watch",
+      "name": "tutor extra twelve-hour activation",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.tutor-lead-pathways-20261013-extra-12h-extension-watch",
+      "schedule": "every minute until the sealed parent hands over; native health checks then every fifteen minutes",
+      "requiresOpServiceAccount": false,
+      "opServiceAccountSource": null,
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
+        "command": [
+          "bash",
+          ".worktrees/tutor-campaign-20261013-12h/agent-loops/tutor-lead-pathways/install-extension-watch.sh",
+          "tutor-lead-pathways-20261013-extra-12h",
+          "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts"
+        ]
+      },
+      "notes": "Explicit extra twelve-hour window requested 13 October 2026. Activate only after the original 23:43:51 UTC deadline and sealed owners; finish 14 October 11:43:51 UTC (12:43 BST). Prioritise 11+ and private academic tutors in Bucks/Milton Keynes. Carry forward USD100 lifetime budget, all uncertain holds, the existing USD3 Decisions reserve and cumulative four-million SDK token admission ceiling. No fresh classifier allowance or outreach. Inherit raw evidence, semantic query ledger, original baseline and contact exports. Add at most 12000 public fetch attempts within 32000 cumulative. Native health checks every fifteen minutes and terminal scratch cleanup; retain source awaiting PR review."
     }
   ]
 }

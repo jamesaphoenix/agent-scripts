@@ -8,7 +8,7 @@ from pathlib import Path
 import subprocess
 import time
 
-from discovery import PaidCache, atomic_json, now_iso, parse_time
+from discovery import PaidCache, atomic_json, now_iso, parse_time, file_hash
 from configuration import focused_roots
 from classifier_seeds import publish as publish_classifier_seeds
 from focused_run import prepare as prepare_focused
@@ -24,6 +24,13 @@ def aggregate_contacts(root, report):
     baseline = root / 'baseline/contacts.json'
     known = json.loads(baseline.read_text())
     rows = json.loads((Path(report['outputDirectory']) / 'this-stage-delta/new.json').read_text())
+    manifest_path = root / 'manifest.json'
+    manifest = json.loads(manifest_path.read_text()) if manifest_path.exists() else {}
+    if manifest.get('previousCampaignRoot'):
+        previous = Path(manifest['previousCampaignRoot']) / 'exports/additional-contacts.json'
+        if file_hash(previous) != manifest['previousAdditionalContactsSha256']:
+            raise ValueError('Previous contact export changed after extension preparation')
+        rows.extend(classify_delta(known + rows, json.loads(previous.read_text()))['new'])
     register = root / 'public-source-review/bda'
     register_report = None
     if (register / 'receipt.json').exists():
@@ -89,6 +96,8 @@ def prepare_classifier(root, job, parent, target, pages, record):
 
 
 def continue_classifier(root, job):
+    if job.get('classifierContinuation') == 'disabled_shared_allowance_exhausted':
+        return 'disabled_shared_allowance_exhausted'
     parent, target = Path(job['focusedParent']), Path(job['focusedContinuation'])
     if time.time() >= parse_time(job['authorizedDeadline']).timestamp():
         return 'deadline_reached'
@@ -104,6 +113,8 @@ def continue_classifier(root, job):
 
 
 def terminal_cleanup(root, profile_root, job):
+    if not (root / 'runtime.json').exists() or not (profile_root / 'status.json').exists():
+        return False
     runtime = json.loads((root / 'runtime.json').read_text())
     profiles = json.loads((profile_root / 'status.json').read_text())
     if runtime.get('phase') != 'complete' or profiles.get('phase') != 'stage_complete':

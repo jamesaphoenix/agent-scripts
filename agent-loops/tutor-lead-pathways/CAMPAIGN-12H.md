@@ -1,5 +1,37 @@
 # Twelve-hour tutor discovery
 
+## Explicit extra window on 13 October
+
+James requested another twelve hours after the current run. The original window
+and its sealed job stay unchanged. A registered Studio activation job waits until
+23:43:51 UTC on 13 October and until both original owners have finished. It then
+starts `tutor-lead-pathways-20261013-extra-12h` and
+`bucks-private-tutors-20261013-extra-12h`. The extra window ends at 11:43:51 UTC
+on 14 October, or 12:43:51 BST. Activation checks run every minute until handover;
+the new owner health checks and contact audit run every fifteen minutes.
+
+The request JSON is pinned in the launchd plist by SHA256. Preparation verifies
+the sealed paid receipts and preserves unsettled request keys. The new DataForSEO
+ceiling is USD100 minus the sealed lifetime exposure. The existing USD3 Decisions
+reserve is inherited once, with classification disabled because that allowance
+is exhausted. No new classifier budget is created. SDK usage carries forward
+the cumulative four-million-token admission ceiling; an unconfirmed prior SDK
+turn holds that lane. The public crawler inherits its seen URLs, records and
+receipts, with at most 12,000 additional attempts and 32,000 cumulative attempts.
+The original per-site, branch and geography boundaries continue to apply.
+
+Searches and SDK research prioritise 11+ and private academic tuition. The
+original frozen baseline remains the comparison for total additional contacts.
+Previously audited contact exports are hash-verified and deduplicated when
+carried forward. Advertised contacts remain research records, with
+`outreachEligible=false`. There is no outreach or expansion beyond Bucks and
+Milton Keynes. A partial preparation is held for review; a failed installation
+retries the already prepared stage without resetting its budget or deadline.
+Terminal cleanup retains caches, exports, raw evidence, budget ledgers and source
+awaiting PR review.
+
+## Original window
+
 The 13 October request is anchored at 11:43:51 UTC and ends at 23:43:51 UTC
 (00:43:51 BST on 14 October). Preparing, recovering or restarting a job never
 extends it. The target is 2000 to 3000 additional contacts for independent academic

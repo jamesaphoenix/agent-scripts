@@ -782,6 +782,9 @@ def run(root, seeds, hours, page_limit, target):
         job_path, state_path = root / "job.json", root / "state.json"
         if job_path.exists():
             job = json.loads(job_path.read_text())
+            from configuration import profile_page_ceiling
+            if not 1 <= job['pageLimit'] <= profile_page_ceiling(job):
+                raise ValueError('Prepared public-crawl page limit exceeded')
         else:
             admitted = list(dict.fromkeys(admitted_url(s) for s in seeds if admitted_url(s)))
             if not admitted:

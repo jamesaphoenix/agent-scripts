@@ -47,6 +47,13 @@ outcomes block repeat spending. Current-run receipts remain attributable to thei
 tactic. A corrupt child is held individually; an unavailable index holds the optional queue
 while the frozen plan continues. These supplements share the existing ledger and paid cutoff.
 
+The Buckinghamshire council directory renders its service pages from a public JSON API.
+Reviewed `council_advert` records use the complete active service object from a cached response
+of at most one hundred records. Replay verifies the HTTP receipt and raw body hashes, unique
+service ID, advertised locality, tuition and contact route. Each export links to that service's
+public page and retains the API receipt and record hash. Adjacent records, inactive services
+and ambiguous IDs cannot supply a contact. This source does not call a paid provider.
+
 From the runtime repository:
 
 ```bash

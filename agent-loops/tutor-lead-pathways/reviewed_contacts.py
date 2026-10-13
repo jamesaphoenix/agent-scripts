@@ -60,12 +60,49 @@ def html_advert_unit(document, item):
     return text, dict(proof, childRange=span)
 
 
+def council_advert_unit(value, record_id):
+    """Select one complete active service advert from the council's public API."""
+    if type(record_id) is not int or not 1 <= record_id <= 1000000000 or not isinstance(value, dict):
+        raise ValueError('Invalid council service identity')
+    records = value.get('content') if 'content' in value else [value]
+    if not isinstance(records, list) or not 1 <= len(records) <= 100:
+        raise ValueError('Expected a bounded council service response')
+    matches = [r for r in records if isinstance(r, dict) and type(r.get('id')) is int and r['id'] == record_id]
+    if len(matches) != 1 or matches[0].get('status') != 'active':
+        raise ValueError('Expected one complete active council service advert')
+    text = json.dumps(matches[0], ensure_ascii=False, sort_keys=True, separators=(',', ':'))
+    return text, {'recordId': record_id, 'recordSha256': hashlib.sha256(text.encode()).hexdigest()}
+
+
 def verified_contact(root, item):
     if not isinstance(item, dict):
         raise ValueError('Expected a structured contact review')
     if item.get('manualHoldReason'):
         raise ValueError(item['manualHoldReason'])
-    if item.get('sourceType') == 'html_advert':
+    if item.get('sourceType') == 'council_advert':
+        source_root = (root / 'public-source-review').resolve(strict=True)
+        page = (root / item['page']).resolve(strict=True)
+        receipt_path = (root / item['receipt']).resolve(strict=True)
+        if not page.is_relative_to(source_root) or not receipt_path.is_relative_to(source_root):
+            raise ValueError('Council evidence must belong to the campaign public-source cache')
+        if file_hash(receipt_path) != item['receiptSha256']:
+            raise ValueError('Council receipt hash mismatch')
+        receipt = json.loads(receipt_path.read_text())
+        parsed = urlsplit(receipt.get('url', ''))
+        route = re.fullmatch(r'/api/v1/services(?:/([0-9]+))?/?', parsed.path)
+        if (receipt.get('status') != 200 or file_hash(page) != receipt.get('sha256')
+            or receipt.get('contentType', '').split(';')[0].strip() != 'application/json'
+            or parsed.scheme != 'https' or parsed.netloc != 'api.familyinfo.buckinghamshire.gov.uk'
+            or not route or (route[1] and route[1] != str(item['recordId']))):
+            raise ValueError('Council body, response or service endpoint mismatch')
+        unit_text, selector = council_advert_unit(json.loads(page.read_bytes()), item['recordId'])
+        if normal(unit_text) != normal(item['unitText']) or item['sourceKind'] != 'public_advert':
+            raise ValueError('Expected a complete reviewed council advert')
+        source_url = 'https://directory.familyinfo.buckinghamshire.gov.uk/service/' + str(item['recordId'])
+        evidence = {'url': source_url, 'contentHash': receipt['sha256'], 'text': unit_text}
+        proof = {'page': str(page), 'receipt': str(receipt_path), 'receiptUrl': receipt['url'],
+                 'receiptSha256': item['receiptSha256'], **selector, 'observedAt': receipt.get('observedAt')}
+    elif item.get('sourceType') == 'html_advert':
         source_root = (root / 'public-source-review').resolve(strict=True)
         page = (root / item['page']).resolve(strict=True)
         receipt_path = (root / item['receipt']).resolve(strict=True)

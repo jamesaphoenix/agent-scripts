@@ -1,11 +1,27 @@
 #!/usr/bin/env python3
-"""Two host-wide CI job leases, owned by Runner.Worker rather than checkout paths."""
+"""Two heavy CI job leases; known lightweight control steps can complete promptly."""
 import fcntl
 import os
 from pathlib import Path
 import subprocess
 import sys
 import time
+
+
+def is_control_job(environment):
+    repository = environment.get('GITHUB_REPOSITORY', '')
+    prefix = repository + '/.github/workflows/'
+    workflow_ref = environment.get('GITHUB_WORKFLOW_REF', '')
+    if not repository or not workflow_ref.startswith(prefix):
+        return False
+    workflow = workflow_ref[len(prefix):].split('@', 1)[0]
+    policies = {
+        ('Just-Understanding-Data-Ltd/octospark', 'release-compose.yml'): {'guard_trusted_ref', 'build_images_amd64', 'release_gate'},
+        ('Just-Understanding-Data-Ltd/octospark', 'integration-tests.yml'): {'guard_trusted_ref', 'build_images_amd64', 'release_gate'},
+        ('Just-Understanding-Data-Ltd/trace-learn', 'deploy-compose.yml'): {'guard_ref', 'build_images_amd64', 'release_gate'},
+        ('Just-Understanding-Data-Ltd/trace-learn', 'lockfile-check.yml'): {'lockfile-check'},
+    }
+    return environment.get('GITHUB_JOB') in policies.get((repository, workflow), set())
 
 
 def identity(pid):
@@ -43,6 +59,9 @@ def acquire(directory, pid, owner_identity, timeout=1800):
 
 def main():
     pid, owner_identity = owner()
+    if is_control_job(os.environ):
+        print('CI host admission: known lightweight control job; heavy leases preserved', flush=True)
+        return
     directory = Path.home() / '.local/state/jud-ci-admission'
     lease, index = acquire(directory, pid, owner_identity)
     child = os.fork()

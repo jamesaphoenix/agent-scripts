@@ -367,7 +367,11 @@ def start_crawl(root, job, cache, state, previous_urls):
             url = (result.get("evidence") or {}).get("url") or result.get("node", {}).get("url")
             if url:
                 visited_sites.add(website_key(url))
-    records = prioritise_seed_records(merge_businesses(collect_records(cache, root)), job)
+    exported = root / 'exports/businesses.json'
+    # The owner already publishes this snapshot on its export cadence. Reading
+    # it avoids another full historic receipt scan before every crawler batch.
+    records = json.loads(exported.read_text()) if exported.exists() else merge_businesses(collect_records(cache, root))
+    records = prioritise_seed_records(records, job)
     done = set(state["crawlRoots"]) | set(state.get("crawlRejected", []))
     seeds = []
     source_count = 0

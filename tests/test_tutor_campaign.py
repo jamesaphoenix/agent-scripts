@@ -122,6 +122,20 @@ class CampaignNoveltyTests(unittest.TestCase):
         self.assertEqual(result['new'], [])
         self.assertEqual(len(result['known']), 1)
 
+    def test_own_organisation_matching_a_known_business_holds_people_without_merging_them(self):
+        old = [{'canonicalId': 'business:known', 'name': 'Example Tuition', 'sourceUrls': []}]
+        people = [{'canonicalId': key, 'name': name, 'organization': 'Example Tuition',
+                   'sourceUrls': ['https://register.test/' + key], 'outreachEligible': False}
+                  for key, name in [('jane', 'Jane Smith'), ('jordan', 'Jordan Brown')]]
+        result = classify_delta(old, people)
+        self.assertEqual(result['new'], [])
+        self.assertEqual(result['known'], [])
+        self.assertEqual([r['canonicalId'] for r in result['needsReview']], ['jane', 'jordan'])
+        self.assertEqual({r['deltaHoldReason'] for r in result['needsReview']},
+                         {'possible_baseline_organisation_match'})
+        unrelated = dict(people[0], organization='Another Tuition Business')
+        self.assertEqual(classify_delta(old, [unrelated])['new'], [unrelated])
+
     def test_sdk_suggestions_need_target_wording_and_an_approved_town(self):
         from run import sdk_query_supplements
         with tempfile.TemporaryDirectory() as temporary:

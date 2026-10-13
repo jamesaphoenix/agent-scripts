@@ -71,6 +71,9 @@ Audited tutor yield used for search selection follows the campaign's subject
 policy. Music-only and other-subject-only profiles do not earn an audited-contact
 reward. Supported directory profiles retain distinct URL identities, so a result
 for one member cannot take credit for another member on the same directory.
+An own organisation name matching a business in the frozen baseline holds a
+person for identity review, even without a matching website or phone. Separate
+people remain separate; the organisation match does not merge their identities.
 
 ## Public PDF adverts
 

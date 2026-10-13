@@ -56,6 +56,9 @@ def classify_delta(baseline, current):
             result['known'].append(row)
         elif possible_match(row):
             result['needsReview'].append(dict(row, deltaHoldReason='possible_baseline_name_match'))
+        elif (isinstance(row.get('organization'), str)
+              and normalize_name(row['organization']) in baseline_names):
+            result['needsReview'].append(dict(row, deltaHoldReason='possible_baseline_organisation_match'))
         elif (key := website_key(row.get('website'))) and key in known_websites:
             result['needsReview'].append(dict(row, deltaHoldReason='possible_baseline_website_match'))
         else:

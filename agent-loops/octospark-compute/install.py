@@ -11,7 +11,7 @@ import sys
 import time
 
 role = sys.argv[1]
-if role not in ['render', 'media-staging', 'media-prod', 'qwen']:
+if role not in ['render', 'media-staging', 'media-prod', 'qwen', 'fleet-watch']:
     raise SystemExit('Invalid role')
 state = Path(os.environ.get('OCTOSPARK_COMPUTE_STATE', str(Path.home() / '.local/state/octospark-compute')))
 (state / 'logs').mkdir(parents=True, exist_ok=True)

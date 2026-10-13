@@ -58,6 +58,9 @@ Conflicting city/county claims stay outside the accepted export when the named
 town is evidenced in another authority. Initial checks cover Leighton Buzzard,
 Linslade and Wicken, with council references alongside the rules. Existing cached
 records receive the same check at export time.
+When a member puts England, UK, United Kingdom or Great Britain in the County
+field, its own City field must establish locality. A conflicting county still
+holds the profile; a national value cannot qualify an unknown or outside city.
 
 Own locality headers can omit a comma before Buckinghamshire or qualify a known
 town with Milton Keynes. The locality check accepts those formats and `St.`

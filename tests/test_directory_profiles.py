@@ -15,6 +15,22 @@ spec.loader.exec_module(directory)
 
 
 class ProfileTests(unittest.TestCase):
+    def test_tta_country_in_county_field_defers_to_own_city_without_accepting_county_conflicts(self):
+        def row(city, county):
+            return {'platform': 'thetutorsassociation.wildapricot.org',
+                'evidenceKind': 'public_person_profile', 'profileCity': city,
+                'profileCounty': county, 'localityClaim': ', '.join([city, county])}
+        for county in ['England', 'UK', 'United Kingdom', 'Great Britain']:
+            self.assertEqual(directory.profile_locality_status(row('Milton Keynes', county)),
+                             'advertised_bucks_locality')
+            self.assertEqual(directory.profile_locality_status(row('Manchester', county)),
+                             'outside_or_unresolved')
+        for city, county in [('Milton Keynes', 'West Northamptonshire'), ('Milton Keynes', 'Northamptonshire'),
+                             ('Milton Keynes', 'London'), ('London, Milton Keynes', 'England'),
+                             ('Wing', 'England'), ('Bourne End', 'England')]:
+            self.assertNotEqual(directory.profile_locality_status(row(city, county)),
+                                'advertised_bucks_locality')
+
     def test_childcare_published_subject_facets_stay_bounded_to_bucks_tutors(self):
         base = 'https://www.childcare.co.uk/search/Private-Tutors/Buckinghamshire'
         for suffix in ['', '/2', '/11-Plus', '/11-Plus/2', '/Maths-Tutor', '/English-Tutor', '/Primary-up-to-11-years']:

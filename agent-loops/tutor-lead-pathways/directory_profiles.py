@@ -201,7 +201,7 @@ def profile_locality_status(row):
         if row.get('profileCity', '').split(',', 1)[0].strip().casefold() in OUTSIDE_BUCKS_TOWNS:
             return 'outside_or_unresolved'
         county = row.get('profileCounty', '').strip().casefold()
-        if county:
+        if county and county not in ('england', 'uk', 'united kingdom', 'great britain'):
             return 'advertised_bucks_locality' if county in ('bucks', 'buckinghamshire', 'milton keynes') else 'outside_or_unresolved'
         return locality_status(re.sub(r'\bSt\.', 'St', row.get('profileCity', ''), flags=re.I))
     # These are the former Bucks district names used in Childcare's tutor header.

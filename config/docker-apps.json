@@ -105,10 +105,10 @@
       }
     },
     {
-      "id": "tx-agent-kit",
-      "composeProject": "tx-agent-kit",
+      "id": "trace-learn-dev",
+      "composeProject": "trace-learn",
       "enabled": true,
-      "_comment": "Observability stack (Langfuse, Grafana, Loki, Jaeger, Prometheus, Spotlight). Restart policy is `no`, so only this loop brings it back after a reboot.",
+      "_comment": "Shared local dev stack for trace-learn worktrees (Postgres 5432, Redis 6379, Langfuse, Grafana, Loki, Jaeger, Prometheus, Spotlight). Renamed from compose project tx-agent-kit on 2026-10-13 so `pnpm infra:ensure` in worktrees adopts it. Restart policy is `no`, so only this loop brings it back after a reboot.",
       "startOrder": [
         "postgres",
         "redis",

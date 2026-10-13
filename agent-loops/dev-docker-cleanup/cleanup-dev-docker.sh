@@ -11,7 +11,7 @@
 #   2. BuildKit cache             older than BUILD_CACHE_MAX_AGE
 #   3. ANONYMOUS dangling volumes older than VOLUME_MAX_AGE (64-hex names, created
 #                                  implicitly by images that declare VOLUME; throwaway
-#                                  by design)
+#                                  only with explicit opt-in)
 #
 # NEVER removed: tagged images, any container (running or stopped), and NAMED volumes,
 # even when dangling. A named volume left behind by `docker compose down` is usually a
@@ -25,13 +25,17 @@ ROOT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 STATE_DIR="${DEV_DOCKER_CLEANUP_STATE_DIR:-$ROOT_DIR/state/dev-docker-cleanup}"
 BUILD_CACHE_MAX_AGE="${DEV_DOCKER_CLEANUP_BUILD_CACHE_MAX_AGE:-168h}"   # 7 days
 VOLUME_MAX_AGE_DAYS="${DEV_DOCKER_CLEANUP_VOLUME_MAX_AGE_DAYS:-30}"
+PRUNE_ANONYMOUS_VOLUMES="${DEV_DOCKER_CLEANUP_PRUNE_ANONYMOUS_VOLUMES:-0}"
+BUILD_CACHE_KEEP_STORAGE="${DEV_DOCKER_CLEANUP_BUILD_CACHE_KEEP_STORAGE:-10GB}"
+BUILDER_NAME="${DEV_DOCKER_CLEANUP_BUILDER_NAME:-$(docker context show 2>/dev/null || echo default)}"
+source "$ROOT_DIR/agent-loops/docker-cleanup/lib/cache-storage-flag.sh"
 DRY_RUN="${DRY_RUN:-0}"
 MODE="run"
 
 usage() {
   cat <<'HELP'
 Usage:
-  cleanup-dev-docker.sh              reclaim dangling images, old build cache, old anonymous volumes
+  cleanup-dev-docker.sh              reclaim dangling images and budget old build cache; preserve all volumes by default
   cleanup-dev-docker.sh --dry-run    report what would be removed, change nothing
   cleanup-dev-docker.sh --status     docker system df plus the last run summary
 HELP
@@ -46,6 +50,9 @@ while [ "$#" -gt 0 ]; do
   esac
 done
 
+if [[ "$PRUNE_ANONYMOUS_VOLUMES" != 0 && "$PRUNE_ANONYMOUS_VOLUMES" != 1 ]]; then
+  echo "DEV_DOCKER_CLEANUP_PRUNE_ANONYMOUS_VOLUMES must be 0 or 1" >&2; exit 2
+fi
 mkdir -p "$STATE_DIR"
 
 log() {
@@ -103,7 +110,11 @@ if (( DRY_RUN )); then
   cache_candidates="$(docker system df -v 2>/dev/null | awk '/^CACHE ID/ { f=1; next } f && NF { n++ } END { print n+0 }')"
   log "would prune build cache older than ${BUILD_CACHE_MAX_AGE} (${cache_candidates} cache entr(ies) total)"
 else
-  cache_reclaimed="$(docker builder prune -f --filter "until=${BUILD_CACHE_MAX_AGE}" 2>/dev/null | awk '/Total.*reclaimed/ { print $NF }')"
+  storage_flag="$(builder_storage_flag docker)" || exit 1
+  if ! cache_output="$(docker buildx prune --builder "$BUILDER_NAME" -f --filter "until=${BUILD_CACHE_MAX_AGE}" "$storage_flag" "$BUILD_CACHE_KEEP_STORAGE" 2>&1)"; then
+    log "BuildKit cache prune failed: $cache_output"; exit 1
+  fi
+  cache_reclaimed="$(printf '%s\n' "$cache_output" | awk '/Total:/ { print $NF }')"
   log "pruned build cache older than ${BUILD_CACHE_MAX_AGE}, reclaimed ${cache_reclaimed:-0B}"
 fi
 
@@ -120,6 +131,7 @@ while read -r vol; do
     named_dangling+=("$vol")
     continue
   fi
+  if (( ! PRUNE_ANONYMOUS_VOLUMES )); then continue; fi
   created="$(docker volume inspect -f '{{.CreatedAt}}' "$vol" 2>/dev/null)"
   # CreatedAt looks like 2026-08-27T13:23:42Z; BSD date needs the format spelled out.
   created_epoch="$(date -j -u -f '%Y-%m-%dT%H:%M:%SZ' "${created%%.*}" +%s 2>/dev/null || echo 0)"
@@ -138,7 +150,9 @@ while read -r vol; do
   fi
 done < <(docker volume ls -q -f dangling=true)
 
-if (( DRY_RUN )); then
+if (( ! PRUNE_ANONYMOUS_VOLUMES )); then
+  log "all volumes retained; anonymous-volume pruning is disabled"
+elif (( DRY_RUN )); then
   log "would remove ${anon_removed} anonymous volume(s) older than ${VOLUME_MAX_AGE_DAYS}d (${anon_kept_young} younger, kept)"
 else
   log "removed ${anon_removed} anonymous volume(s) older than ${VOLUME_MAX_AGE_DAYS}d (${anon_kept_young} younger, kept)"
@@ -161,6 +175,7 @@ log "free space after: ${free_after}G"
   printf '  "danglingImages": %s,\n' "$dangling_images"
   printf '  "imagesReclaimed": "%s",\n' "${images_reclaimed:-0B}"
   printf '  "buildCacheReclaimed": "%s",\n' "${cache_reclaimed:-0B}"
+  printf '  "anonymousVolumePruningEnabled": %s,\n' "$( (( PRUNE_ANONYMOUS_VOLUMES )) && echo true || echo false )"
   printf '  "anonymousVolumesRemoved": %s,\n' "$anon_removed"
   printf '  "namedDanglingVolumesKept": %s,\n' "${#named_dangling[@]}"
   printf '  "freeGbBefore": %s,\n' "${free_before:-0}"

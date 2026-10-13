@@ -25,7 +25,11 @@ PLIST_PATH="$PLIST_DIR/${LABEL}.plist"
 DEFAULT_ARTIFACT_DIRS=""
 for n in 1 2 3 4; do
   for product in octospark trace-learn; do
-    dir="$HOME/actions-runner-${n}/_work${n}/${product}/${product}/deploy/artifacts"
+    if [[ "$n" == "1" ]]; then
+      dir="$HOME/actions-runner/_work/${product}/${product}/deploy/artifacts"
+    else
+      dir="$HOME/actions-runner-${n}/_work${n}/${product}/${product}/deploy/artifacts"
+    fi
     DEFAULT_ARTIFACT_DIRS="${DEFAULT_ARTIFACT_DIRS:+${DEFAULT_ARTIFACT_DIRS}:}${dir}"
   done
 done

@@ -25,11 +25,16 @@ stay allocated on macOS until the guest issues TRIM. On 2026-09-08 the prune
 freed 34GB inside the VM; the subsequent `fstrim` took the host file from
 108GB to 27GB. Skip the trim and the reclaim is invisible to the host.
 
+Allocation measurements locate named profiles under `colima-<profile>` and
+the default profile under `colima`, respecting `COLIMA_HOME` and retaining an
+unprefixed-layout fallback. The bytes printed by `fstrim` are potential discard
+bytes; repeated trims can report the same ranges. Compare the host's allocated
+datadisk size before and after to measure actual sparse-file reduction.
+
 ## What it will not touch
 
-- **Named volumes.** `docker volume prune` runs without `--all`, so the
-  long-lived CI service containers (postgres, clickhouse, minio, langfuse,
-  redis) keep their data.
+- **All volumes by default.** Anonymous-volume pruning requires explicit
+  `CI_VM_CLEANUP_PRUNE_ANONYMOUS_VOLUMES=1`. Named volumes are always preserved.
 - **Running containers**, in the VM or on the host.
 - **The base image cache.** Image pruning is dangling-only; a full
   `image prune -a` would just convert disk cost into pull time on every run.
@@ -67,3 +72,7 @@ agent-loops/ci-vm-cleanup/cleanup-ci-vm.sh             # actually clean
 ## Maintenance opt-out
 
 Touch `state/ci-vm-cleanup/disabled` to skip a run without uninstalling.
+
+Build cache defaults to a 24-hour age filter and a 10 GB storage budget. The
+installed buildx CLI is probed for its supported budget flag. Cache-prune
+failures fail the job; guest trim still returns reclaimed blocks to macOS.

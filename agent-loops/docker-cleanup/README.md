@@ -27,9 +27,37 @@ bash agent-loops/docker-cleanup/install-launchd.sh
 Runs daily at 03:30 local. See `install-launchd.sh` for the artifact-dir
 defaults (every CI runner slot x product combination it can find).
 
+Build cache defaults to a 24-hour age filter and a 10 GB storage budget, with
+the installed buildx CLI's supported budget flag. The host context is explicitly
+selected for this process (`DOCKER_CLEANUP_CONTEXT=default`), and its matching
+builder is used unless `DOCKER_CLEANUP_BUILDER_NAME` overrides it. This leaves
+the user's saved Docker context unchanged and prevents selected-context drift
+from directing maintenance to CI or breaking Buildx pruning. Recent or in-use
+cache can exceed the budget temporarily.
+Release tags also require 24 hours since both image creation and local tagging
+(`DOCKER_CLEANUP_IMAGE_MIN_AGE_HOURS`). A months-old upstream image can have been
+pulled moments ago, so its build date alone does not prove it is stale. Missing
+or invalid local tagging metadata retains the image. Age is refreshed immediately
+before removal to protect tags reused after discovery. The age helper requires
+Python 3; it reads inspection metadata through stdin and emits no image contents.
+Container inventory or inspection failures abort cleanup before any pruning.
+Docker's nanosecond timestamp precision is normalized for older system Python
+interpreters before parsing, while preserving timezone-aware age comparisons.
+Stopped containers and all volumes are preserved by default; stopped-container
+pruning requires `DOCKER_CLEANUP_PRUNE_STOPPED_CONTAINERS=1`.
+
 **Linux host sharing a daemon with prod (e.g. the Hetzner standby):** there is
 no launchd there, so this loop is deployed as a plain cron entry instead - see
 `install-cron.sh`.
+
+Digest-pinned pulls are included even when Docker lists their tag as `<none>`.
+They use the same container, release-artifact and local-age protections as tags.
+This matters on the standby, where deployment pulls `repository@sha256:...`.
+The 24-hour age guard keeps recently pulled rollback images. Set
+`DOCKER_CLEANUP_ARTIFACT_DIRS` to the product checkout artifact directories for
+longer rollback retention. The cron log shows candidate references and the
+amount reclaimed; a successful run that continually finds no candidates while
+storage grows needs investigation.
 
 ## Manual use
 

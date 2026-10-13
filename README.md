@@ -116,7 +116,7 @@ after the laptop's own tools.
 Current loops:
 
 - `ensure-dockerised-apps-online` (Mac Studio, every 5 min): `docker start`s any stopped container
-  of every app in `config/docker-apps.json` (Octospark, Trace Learn, tx-agent-kit) in dependency
+  of every app in `config/docker-apps.json` (Octospark, Trace Learn, trace-learn dev stack) in dependency
   order after a reboot or Docker Desktop restart. Not a deploy. Opt out with
   `state/ensure-dockerised-apps-online/disabled[.<app-id>]`.
 

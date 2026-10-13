@@ -13,11 +13,19 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 source "$SCRIPT_DIR/lib/lock.sh"
 source "$SCRIPT_DIR/lib/timeout.sh"
+source "$SCRIPT_DIR/lib/cache-storage-flag.sh"
 
 DRY_RUN="${DRY_RUN:-0}"
 KEEP_DEPLOY_ARTIFACTS="${KEEP_DEPLOY_ARTIFACTS:-20}"
-BUILDER_CACHE_UNTIL="${BUILDER_CACHE_UNTIL:-168h}"
-BUILDER_KEEP_STORAGE="${BUILDER_KEEP_STORAGE:-30GB}"
+BUILDER_CACHE_UNTIL="${BUILDER_CACHE_UNTIL:-24h}"
+BUILDER_KEEP_STORAGE="${BUILDER_KEEP_STORAGE:-10GB}"
+IMAGE_MIN_AGE_HOURS="${DOCKER_CLEANUP_IMAGE_MIN_AGE_HOURS:-24}"
+# A scheduled host job must not inherit the CLI's selected CI context. Buildx
+# also requires a context-backed builder to match the invocation's context.
+DOCKER_CLEANUP_CONTEXT="${DOCKER_CLEANUP_CONTEXT:-default}"
+export DOCKER_CONTEXT="$DOCKER_CLEANUP_CONTEXT"
+BUILDER_NAME="${DOCKER_CLEANUP_BUILDER_NAME:-$DOCKER_CLEANUP_CONTEXT}"
+PRUNE_STOPPED_CONTAINERS="${DOCKER_CLEANUP_PRUNE_STOPPED_CONTAINERS:-0}"
 LOCK_DIR="${DOCKER_CLEANUP_LOCK_DIR:-/tmp/host-docker-cleanup.lock}"
 LOCK_TIMEOUT_SECONDS="${DOCKER_CLEANUP_LOCK_TIMEOUT_SECONDS:-60}"
 LOCK_MISSING_PID_GRACE_SECONDS="${DOCKER_CLEANUP_LOCK_MISSING_PID_GRACE_SECONDS:-15}"
@@ -53,8 +61,8 @@ if [[ -n "$DOCKER_CLEANUP_DISABLE_FILE" && -e "$DOCKER_CLEANUP_DISABLE_FILE" ]];
   exit 0
 fi
 
-if ! command -v docker >/dev/null 2>&1; then
-  echo "docker is required"
+if ! command -v docker >/dev/null 2>&1 || ! command -v python3 >/dev/null 2>&1; then
+  echo "docker and python3 are required"
   exit 1
 fi
 
@@ -137,24 +145,34 @@ run_or_print() {
 # stopped-but-current container, exactly the state a release leaves behind
 # mid-rollout).
 protect_referenced_container_images() {
+  local container_ids=""
   local container_id=""
   local image_ref=""
   local image_id=""
+
+  if ! container_ids="$(run_with_timeout "$DOCKER_CLEANUP_INSPECT_TIMEOUT_SECONDS" docker ps -a --format '{{.ID}}' 2>/dev/null)"; then
+    echo "Cannot inventory container references; refusing Docker cleanup."
+    return 1
+  fi
 
   while IFS= read -r container_id; do
     if [[ -z "$container_id" ]]; then
       continue
     fi
 
-    image_ref="$(run_with_timeout "$DOCKER_CLEANUP_INSPECT_TIMEOUT_SECONDS" \
-      docker inspect "$container_id" --format '{{.Config.Image}}' 2>/dev/null || true)"
-    image_id="$(run_with_timeout "$DOCKER_CLEANUP_INSPECT_TIMEOUT_SECONDS" \
-      docker inspect "$container_id" --format '{{.Image}}' 2>/dev/null || true)"
+    if ! image_ref="$(run_with_timeout "$DOCKER_CLEANUP_INSPECT_TIMEOUT_SECONDS" \
+      docker inspect "$container_id" --format '{{.Config.Image}}' 2>/dev/null)" || \
+       ! image_id="$(run_with_timeout "$DOCKER_CLEANUP_INSPECT_TIMEOUT_SECONDS" \
+      docker inspect "$container_id" --format '{{.Image}}' 2>/dev/null)" || \
+       [[ -z "$image_ref" || -z "$image_id" ]]; then
+      echo "Cannot inspect container references; refusing Docker cleanup."
+      return 1
+    fi
     add_protected_image "$image_ref"
     if [[ -n "$image_id" ]]; then
       printf '%s\n' "$image_id" >> "$PROTECTED_IMAGES"
     fi
-  done < <(docker ps -a --format '{{.ID}}' 2>/dev/null || true)
+  done <<< "$container_ids"
 }
 
 artifact_dirs() {
@@ -214,14 +232,23 @@ is_reclaimable_repository() {
   return 1
 }
 
+image_is_old_enough() {
+  local metadata=""
+  if ! metadata="$(run_with_timeout "$DOCKER_CLEANUP_INSPECT_TIMEOUT_SECONDS" docker image inspect "$1" 2>/dev/null)"; then
+    return 1
+  fi
+  printf '%s\n' "$metadata" | python3 "$SCRIPT_DIR/lib/image-age.py" --min-age-hours "$IMAGE_MIN_AGE_HOURS"
+}
+
 collect_candidate_images() {
   local repository=""
   local tag=""
+  local digest=""
   local image_id=""
   local image_ref=""
 
-  while IFS=$'\t' read -r repository tag image_id; do
-    if [[ -z "$repository" || "$repository" == "<none>" || "$tag" == "<none>" ]]; then
+  while IFS=$'\t' read -r repository tag digest image_id; do
+    if [[ -z "$repository" || "$repository" == "<none>" ]]; then
       continue
     fi
 
@@ -229,11 +256,17 @@ collect_candidate_images() {
       continue
     fi
 
-    image_ref="${repository}:${tag}"
-    if ! is_protected_image "$image_ref" "$image_id"; then
+    if [[ -n "$tag" && "$tag" != "<none>" ]]; then
+      image_ref="${repository}:${tag}"
+    elif [[ "$digest" == sha256:* ]]; then
+      image_ref="${repository}@${digest}"
+    else
+      continue
+    fi
+    if ! is_protected_image "$image_ref" "$image_id" && image_is_old_enough "$image_ref"; then
       printf '%s\n' "$image_ref" >> "$CANDIDATE_IMAGES"
     fi
-  done < <(docker image ls --no-trunc --format '{{.Repository}}\t{{.Tag}}\t{{.ID}}')
+  done < <(docker image ls --digests --no-trunc --format '{{.Repository}}\t{{.Tag}}\t{{.Digest}}\t{{.ID}}')
 }
 
 echo "Collecting images referenced by containers on this host..."
@@ -242,7 +275,7 @@ protect_artifact_images
 sort -u "$PROTECTED_IMAGES" -o "$PROTECTED_IMAGES"
 echo "Protected $(grep -c . "$PROTECTED_IMAGES" || true) image refs/ids."
 
-echo "Collecting unprotected old image tags..."
+echo "Collecting unprotected old image references..."
 collect_candidate_images
 sort -u "$CANDIDATE_IMAGES" -o "$SORTED_CANDIDATES"
 
@@ -251,19 +284,29 @@ if [[ "$DRY_RUN" == "1" ]]; then
 fi
 
 if [[ -s "$SORTED_CANDIDATES" ]]; then
-  echo "Removing unprotected old release image tags:"
+  echo "Removing unprotected old release image references:"
   sed 's/^/  /' "$SORTED_CANDIDATES"
   while IFS= read -r image_ref; do
+    # A pull/retag after discovery makes the tag recent again. Refresh age at
+    # mutation time rather than deleting newly reused cached content.
+    if ! image_is_old_enough "$image_ref"; then
+      echo "Retaining recently tagged or unverified image: $image_ref"
+      continue
+    fi
     if ! run_or_print docker image rm "$image_ref"; then
       echo "Warning: failed to remove image tag ${image_ref}; continuing cleanup."
     fi
   done < "$SORTED_CANDIDATES"
 else
-  echo "No unprotected old release image tags found."
+  echo "No unprotected old release image references found."
 fi
 
-echo "Pruning stopped containers..."
-run_or_print docker container prune -f
+if [[ "$PRUNE_STOPPED_CONTAINERS" == "1" ]]; then
+  echo "Pruning stopped containers (explicitly enabled)..."
+  run_or_print docker container prune -f
+else
+  echo "Preserving stopped containers."
+fi
 
 echo "Pruning unused networks..."
 run_or_print docker network prune -f
@@ -272,6 +315,7 @@ echo "Pruning dangling images..."
 run_or_print docker image prune -f
 
 echo "Pruning BuildKit cache older than ${BUILDER_CACHE_UNTIL}, keeping ${BUILDER_KEEP_STORAGE}..."
-run_or_print docker builder prune -f --filter "until=${BUILDER_CACHE_UNTIL}" --keep-storage "$BUILDER_KEEP_STORAGE"
+STORAGE_FLAG="$(builder_storage_flag docker)"
+run_or_print docker buildx prune --builder "$BUILDER_NAME" -af --filter "until=${BUILDER_CACHE_UNTIL}" "$STORAGE_FLAG" "$BUILDER_KEEP_STORAGE"
 
 echo "Docker cleanup complete. Docker volumes were not pruned."

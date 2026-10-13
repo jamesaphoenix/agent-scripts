@@ -77,6 +77,28 @@ class ExpansionTests(unittest.TestCase):
             self.assertEqual(result['tactics']['public_profiles']['successfulRequests'], 1)
             self.assertFalse(result['urlCountsAreVerifiedTutors'])
 
+    def test_tactic_feedback_distinguishes_classified_local_tutors_from_new_unqualified_urls(self):
+        from discovery import PaidCache, request_key, atomic_json
+        from expansion_metrics import metrics
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            focus = root / 'focused'
+            atomic_json(root / 'manifest.json', {'focusedRoots': [str(focus)]})
+            url, junk = 'https://new-tutor.co.uk/', 'https://fitness.co.uk/'
+            atomic_json(focus / 'research-candidates.json', [{'url': url, 'profileKey': None,
+                'classification': {'kind': 'independent_tutor', 'kindProbability': .9, 'niche': .9, 'local': .9, 'outside': .01}}])
+            cache = PaidCache(root, 200, 0)
+            self.addCleanup(cache.db.close)
+            payload = {'keyword': 'tutor Amersham'}
+            key = request_key('organic', payload)
+            cache.reserve(key, 'organic', payload, 100)
+            cache.settle(key, {'status_code': 20000, 'cost': .002, 'tasks': [{'id': 'new', 'status_code': 20000,
+                'cost': .002, 'result': [{'items': [{'url': url}, {'url': junk}]}]}]})
+            item = metrics(root, cache, [{'key': key, 'tactic': 'own_sites'}])['tactics']['own_sites']
+            self.assertEqual(item['newResultUrls'], 2)
+            self.assertEqual(item['classifiedLocalTutorCandidates'], 1)
+            self.assertEqual(item['auditedNewIdentitiesAttributed'], 0)
+
     def test_delta_does_not_count_new_adverts_or_name_collisions_as_new_people(self):
         from new_leads import classify_delta
         def row(key, name, members=None):

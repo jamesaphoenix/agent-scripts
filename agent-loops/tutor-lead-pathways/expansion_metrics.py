@@ -33,9 +33,22 @@ def metrics(root, cache, plan):
             inherited.update(result_urls(cache.receipt(row)))
     by_key = {r['key']: r for r in plan}
     audited_sources = {}
+    qualified_sources = set()
     manifest_path = root / 'manifest.json'
     if manifest_path.exists():
-        profile_root = json.loads(manifest_path.read_text()).get('profileRunDir')
+        manifest = json.loads(manifest_path.read_text())
+        for folder in manifest.get('focusedRoots', []):
+            path = Path(folder) / 'research-candidates.json'
+            if not path.exists():
+                continue
+            for candidate in json.loads(path.read_text()):
+                decision = candidate.get('classification', {})
+                kind = decision.get('kind')
+                if (kind == 'independent_tutor' or kind == 'directory' and candidate.get('profileKey')) and (
+                        decision.get('niche', 0) >= .75 and decision.get('kindProbability', 0) >= .65
+                        and decision.get('local', 0) >= .7 and decision.get('outside', 1) < .8):
+                    qualified_sources.add(candidate['url'])
+        profile_root = manifest.get('profileRunDir')
         review = Path(profile_root) / 'review/latest-expansion.json' if profile_root else None
         if review and review.exists():
             audit = json.loads(review.read_text())
@@ -45,6 +58,7 @@ def metrics(root, cache, plan):
                     for url in person.get('sourceUrls', []):
                         audited_sources[website_key(url)] = person['canonicalId']
     accepted = collections.defaultdict(set)
+    qualified = collections.defaultdict(set)
     totals = collections.defaultdict(lambda: {'requests': 0, 'successfulRequests': 0, 'failedRequests': 0,
         'uncertainRequests': 0, 'emptySuccessfulRequests': 0, 'newResultUrls': 0, 'chargedCents': 0})
     observed = set(inherited)
@@ -56,6 +70,7 @@ def metrics(root, cache, plan):
         item['requests'] += 1
         item['chargedCents'] += row['cost_cents']
         urls = result_urls(cache.receipt(row)) if row['receipt'] else set()
+        qualified[tactic].update((urls - inherited) & qualified_sources)
         accepted[tactic].update(audited_sources[key] for url in urls if (key := website_key(url)) in audited_sources)
         item['newResultUrls'] += len(urls - observed)
         observed.update(urls)
@@ -72,6 +87,7 @@ def metrics(root, cache, plan):
         item['newUrlsPerRequest'] = item['newResultUrls'] / item['requests']
         item['usdPerNewUrl'] = item['chargedCents'] / 100 / item['newResultUrls'] if item['newResultUrls'] else None
         item['auditedNewIdentitiesAttributed'] = len(accepted[tactic])
+        item['classifiedLocalTutorCandidates'] = len(qualified[tactic])
         item['usdPerAttributedAuditedIdentity'] = item['chargedCents'] / 100 / len(accepted[tactic]) if accepted[tactic] else None
     return {'observedAt': now_iso(), 'tactics': dict(totals), 'budget': cache.usage(),
             'inheritedResultUrls': len(inherited), 'newResultUrls': len(observed - inherited),

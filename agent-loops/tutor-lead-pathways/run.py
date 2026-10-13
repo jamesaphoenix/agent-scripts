@@ -161,7 +161,8 @@ def next_query(lane, plan, cache, state):
             if attempts < 3:
                 return (0, counts[name], 0)
             contacts = observed.get('auditedNewIdentitiesAttributed', 0)
-            reward = contacts * 10 + observed.get('newResultUrls', 0) * .02
+            reward = (contacts * 10 + observed.get('classifiedLocalTutorCandidates', 0)
+                      + observed.get('newResultUrls', 0) * .02)
             cost = max(1, observed.get('chargedCents', 0))
             return (1, -reward / cost, counts[name])
         choices.sort(key=measured_priority if feedback else lambda item: counts[group(item)])

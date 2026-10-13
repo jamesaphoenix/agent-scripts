@@ -54,6 +54,13 @@ service ID, advertised locality, tuition and contact route. Each export links to
 public page and retains the API receipt and record hash. Adjacent records, inactive services
 and ambiguous IDs cannot supply a contact. This source does not call a paid provider.
 
+TutorHunt's current profile header uses `profilenametxt` rather than an embedded heading.
+The collector supports both layouts and requires the same profile's locality, subject table
+and named information card. On restart, a versioned cache replay checks saved HTTP status,
+receipt and body hashes before recovering profiles missed by the old parser. It records
+progress every fifty pages without fetching again or resetting the page counter, queue or
+deadline. Unavailable and outside-area adverts remain excluded from qualified exports.
+
 From the runtime repository:
 
 ```bash

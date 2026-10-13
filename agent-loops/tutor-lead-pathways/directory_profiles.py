@@ -17,6 +17,7 @@ import urllib.parse
 import urllib.request
 import urllib.robotparser
 from discovery import tls_context
+from configuration import loaded_source_sha
 
 HOSTS = {"www.findtutors.co.uk", "tutorperch.com", "www.childcare.co.uk", "tutordex.net", "tutorextra.co.uk", "www.uktutors.com", "www.tutorhunt.com", "www.tuitionlist.co.uk"}
 AGENT = "TutorResearch/1.0"
@@ -350,12 +351,15 @@ def profile_record(text, url):
         if not re.fullmatch(r"/users/[a-z0-9-]{1,64}/", p.path):
             return None
         header = document.first(lambda n: n.attrs.get("id") == "profilenameinfo")
-        name = header.first(lambda n: n.tag == "h1") if header else None
+        names = [n for n in header.walk() if n.attrs.get('id') == 'profilenametxt'] if header else []
+        if len(names) > 1:
+            return None
+        name = names[0] if names else header.first(lambda n: n.tag == "h1") if header else None
         location = header.first(lambda n: n.attrs.get("id") == "profileloc") if header else None
         table = document.first(lambda n: n.tag == "table" and n.has_class("profilesubjectstattable"))
         info = document.first(lambda n: n.has_class("card") and name and n.first(
             lambda c: c.tag == "h2" and c.text().casefold() == "information about " + name.text().casefold()))
-        subjects = [n.text() for n in table.walk() if n.tag == "td" and n.has_class("marksub")] if table else []
+        subjects = [n.text() for n in table.walk() if n.tag == "td" and n.has_class("marksub") and n.text()] if table else []
         if not name or not name.text() or not location or not location.text() or not subjects or not info:
             return None
         row = annotate_advert(public_person(p.hostname, p.path.split('/')[2], name.text(), location.text(), subjects, url), description=info.text())
@@ -684,6 +688,72 @@ def source_still_producing(job):
     return not path.exists() or json.loads(path.read_text()).get("phase") != "complete"
 
 
+def write_profile_exports(root, state, phase='running'):
+    profiles = merge_profiles(state['records'])
+    qualified = [r for r in profiles if profile_locality_status(r) == 'advertised_bucks_locality'
+                 and not r.get('locationConflict') and not exclusion_reason(r)]
+    save(root / 'profiles.json', profiles)
+    save(root / 'bucks-private-tutors.json', qualified)
+    export_csv(root, qualified)
+    state['updatedAt'] = now()
+    save(root / 'state.json', state)
+    save(root / 'status.json', {'observedAt': now(), 'pid': os.getpid(), 'phase': phase,
+        'attempts': state['attempts'], 'queue': len(state['queue']), 'namedProfiles': len(profiles),
+        'bucksPrivateProfiles': len(qualified), 'errors': len(state['errors']), 'paidCostUsd': 0,
+        'effectiveSourceSha': state.get('effectiveSourceSha'),
+        'cacheReplays': {key: {k: v for k, v in value.items() if k != 'processedKeys'}
+                        for key, value in state.get('cacheReplays', {}).items()}})
+    return qualified
+
+
+def replay_cached_profiles(root, state, deadline, clock=time.time):
+    """Recover pages missed by an older layout parser, without fetching or resetting counters."""
+    progress = state.setdefault('cacheReplays', {}).setdefault('tutorhunt-profile-name-v2',
+        {'processedKeys': [], 'processedPages': 0, 'recoveredRecords': 0, 'heldPages': 0})
+    done = set(progress['processedKeys'])
+    known = {url for row in state['records'] for url in row.get('sourceUrls', [])}
+    cache = PageCache(root)
+    changed = 0
+    for url in state['seen']:
+        if clock() >= deadline:
+            break
+        if not isinstance(url, str) or not url.startswith('https://www.tutorhunt.com/users/') or admitted_url(url) != url:
+            continue
+        key = cache.key(url)
+        if key in done:
+            continue
+        try:
+            if url not in known:
+                receipt_path = root / 'receipts' / (key + '.json')
+                receipt = json.loads(receipt_path.read_text())
+                page = cache.body_path(url)
+                if page.stat().st_size > 8 * 1024 * 1024:
+                    raise ValueError('Cached page exceeded eight MB')
+                body = page.read_bytes()
+                if (receipt.get('error') or receipt.get('status') != 200 or receipt.get('url') != url
+                    or hashlib.sha256(body).hexdigest() != receipt.get('sha256')):
+                    raise ValueError('Cached profile receipt or body mismatch')
+                row = profile_record(decode_page(body, receipt.get('contentType', '')), url)
+                if not row:
+                    raise ValueError('Cached page did not establish its own profile identity')
+                row['pageEvidence'] = [{'url': url, 'observedAt': receipt['observedAt'],
+                    'sha256': receipt['sha256'], 'receipt': str(receipt_path)}]
+                state['records'].append(row)
+                known.add(url)
+                progress['recoveredRecords'] += 1
+        except (OSError, ValueError, KeyError, TypeError, AttributeError):
+            progress['heldPages'] += 1
+        done.add(key)
+        progress['processedKeys'].append(key)
+        progress['processedPages'] += 1
+        changed += 1
+        if changed % 50 == 0:
+            write_profile_exports(root, state, 'replaying_cached_profiles')
+    progress['updatedAt'] = now()
+    write_profile_exports(root, state, 'replaying_cached_profiles')
+    return {k: v for k, v in progress.items() if k != 'processedKeys'}
+
+
 def run(root, seeds, hours, page_limit, target):
     root.mkdir(parents=True, exist_ok=True, mode=0o700)
     with (root / "owner.lock").open("a") as lock:
@@ -701,6 +771,8 @@ def run(root, seeds, hours, page_limit, target):
                    "scope": "Public individual tutor profiles across subjects in Bucks and Milton Keynes; exclude institutions. Locality is advertised tuition locality, not verified residence."}
             save(job_path, job)
         state = json.loads(state_path.read_text()) if state_path.exists() else {"queue": job["seeds"], "seen": [], "records": [], "attempts": 0, "errors": [], "phase": "running"}
+        state['effectiveSourceSha'] = loaded_source_sha()
+        replay_cached_profiles(root, state, job['deadlineUnix'])
         cache, robots = PageCache(root), {}
         while state["attempts"] < job["pageLimit"] and time.time() < job["deadlineUnix"]:
             try:
@@ -711,9 +783,12 @@ def run(root, seeds, hours, page_limit, target):
                 if source_still_producing(job):
                     state["updatedAt"] = now()
                     save(state_path, state)
-                    save(root / "status.json", {"observedAt": now(), "pid": os.getpid(), "phase": "awaiting_sources",
-                        "attempts": state["attempts"], "queue": 0, "errors": len(state["errors"]),
-                        "bucksPrivateProfiles": len(json.loads((root / "bucks-private-tutors.json").read_text())), "paidCostUsd": 0})
+                    save(root / 'status.json', {'observedAt': now(), 'pid': os.getpid(), 'phase': 'awaiting_sources',
+                        'attempts': state['attempts'], 'queue': 0, 'errors': len(state['errors']),
+                        'bucksPrivateProfiles': len(json.loads((root / 'bucks-private-tutors.json').read_text())),
+                        'paidCostUsd': 0, 'effectiveSourceSha': state.get('effectiveSourceSha'),
+                        'cacheReplays': {key: {k: v for k, v in value.items() if k != 'processedKeys'}
+                                        for key, value in state.get('cacheReplays', {}).items()}})
                     time.sleep(5)
                     continue
                 break
@@ -756,15 +831,7 @@ def run(root, seeds, hours, page_limit, target):
                     state["errors"].append({"url": url, "reason": "fetch_failed"})
             except (OSError, ValueError, KeyError, TypeError) as error:
                 state["errors"].append({"url": url, "reason": type(error).__name__})
-            profiles = merge_profiles(state["records"])
-            qualified = [r for r in profiles if profile_locality_status(r) == "advertised_bucks_locality" and not r.get("locationConflict") and not exclusion_reason(r)]
-            save(root / "profiles.json", profiles)
-            save(root / "bucks-private-tutors.json", qualified)
-            export_csv(root, qualified)
-            state["updatedAt"] = now()
-            save(state_path, state)
-            save(root / "status.json", {"observedAt": now(), "pid": os.getpid(), "phase": "running", "attempts": state["attempts"], "queue": len(state["queue"]),
-                                        "namedProfiles": len(profiles), "bucksPrivateProfiles": len(qualified), "errors": len(state["errors"]), "paidCostUsd": 0})
+            qualified = write_profile_exports(root, state)
             if len(qualified) >= job["target"] and not job.get('continueUntilDeadline'):
                 break
         state["phase"] = "stage_complete"
@@ -772,7 +839,8 @@ def run(root, seeds, hours, page_limit, target):
         rows = json.loads((root / "bucks-private-tutors.json").read_text()) if (root / "bucks-private-tutors.json").exists() else []
         export_csv(root, rows)
         save(root / "status.json", {"observedAt": now(), "pid": os.getpid(), "phase": state["phase"], "attempts": state["attempts"], "queue": len(state["queue"]),
-                                    "bucksPrivateProfiles": len(rows), "errors": len(state["errors"]), "paidCostUsd": 0})
+                                    "bucksPrivateProfiles": len(rows), "errors": len(state["errors"]), "paidCostUsd": 0,
+                                    "effectiveSourceSha": state.get('effectiveSourceSha')})
 
 
 if __name__ == "__main__":

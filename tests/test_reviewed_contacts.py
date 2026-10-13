@@ -67,6 +67,31 @@ class ReviewedContactTests(unittest.TestCase):
                     self.assertEqual(report['newResearchContacts'], 0)
                     self.assertEqual(report['held'], 1)
 
+    def test_own_county_claim_is_valid_without_inventing_a_town(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            path, item = self.fixture(root)
+            saved = json.loads(path.read_text())
+            text = item['unitText'].replace('Haddenham, Buckinghamshire', 'Buckinghamshire, UK')
+            saved['results'][0]['evidence']['text'] = text
+            atomic_json(path, saved)
+            item.update(unitText=text, localityClaim='Buckinghamshire',
+                        localityQuote='I am based in Buckinghamshire, UK.',
+                        checkpointSha256=hashlib.sha256(path.read_bytes()).hexdigest())
+            report = self.run_review(root, [item])
+            self.assertEqual(report['newResearchContacts'], 1)
+            row = json.loads((root / 'review/public-contacts/new.json').read_text())[0]
+            self.assertEqual(row['localityClaim'], 'Buckinghamshire')
+            self.assertFalse(row['localVerified'])
+            self.assertFalse(row['outreachEligible'])
+
+    def test_county_name_cannot_be_used_as_a_town_substring(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _, item = self.fixture(root)
+            item.update(localityClaim='Buckingham', localityQuote='Buckinghamshire')
+            self.assertEqual(self.run_review(root, [item])['held'], 1)
+
     def test_known_business_host_or_phone_is_not_an_additional_contact(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

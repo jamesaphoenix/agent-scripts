@@ -147,7 +147,7 @@ all requested rows will be returned.
 Save reviewed own-site or public-advert contacts in
 `review/public-contact-reviews.json`, outside the published lead-import folder.
 `reviewed_contacts.py` requires a campaign Go
-checkpoint, its SHA256 and result index, a contiguous source unit, literal name, town and service
+checkpoint, its SHA256 and result index, a contiguous source unit, literal name, town or county and service
 quotes, an advertised email or phone, and reviewer/time provenance. Classified parent-frontier
 evidence can also be reused by page key and evidence SHA256 after its Go fetch scratch has been
 cleaned up. SQLite is opened read-only and

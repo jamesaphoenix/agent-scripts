@@ -89,8 +89,11 @@ def verified_contact(root, item):
     services = [normal(s) for s in item['services']]
     if not name or name not in name_quote or name_quote not in unit:
         raise ValueError('Name is not advertised in this source unit')
-    if town.casefold() not in BUCKS or town.casefold() not in local_quote.casefold() or local_quote not in unit:
-        raise ValueError('Missing own local town claim')
+    locality = town.casefold()
+    if (locality not in BUCKS | {'buckinghamshire', 'bucks'}
+            or not re.search(r'(?<!\w)' + re.escape(locality) + r'(?!\w)', local_quote.casefold())
+            or local_quote not in unit):
+        raise ValueError('Missing own local town or county claim')
     if not services or any(not s or s not in unit or not ACADEMIC.search(s) for s in services):
         raise ValueError('Missing advertised academic tuition service')
     email = item.get('email')

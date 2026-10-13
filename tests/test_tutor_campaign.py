@@ -128,6 +128,20 @@ class CampaignNoveltyTests(unittest.TestCase):
             self.assertIn('11%2B', result[0]['payload']['keyword'])
             cache.db.close()
 
+    def test_engine_failure_gets_one_simpler_subject_query_with_a_distinct_cache_key(self):
+        from run import directory_fallback
+        payload = {'keyword': 'site:tutorhunt.com "Flackwell Heath" ("11 plus" OR "eleven plus" OR "entrance exam")'}
+        item = {'lane': 'directories', 'payload': payload}
+        error = {'status_code': 20000, 'tasks': [{'status_code': 40101}]}
+        fallback = directory_fallback(item, error)
+        self.assertEqual(fallback['keyword'], 'site:tutorhunt.com "Flackwell Heath" "11 plus"')
+        self.assertNotEqual(request_key('directories', payload), request_key('directories', fallback))
+        self.assertIsNone(directory_fallback(dict(item, payload=fallback), error))
+        self.assertIsNone(directory_fallback(item, None))
+        self.assertIsNone(directory_fallback(item, {'status_code': 20000, 'tasks': [{'status_code': 40102}]}))
+        organic = {'lane': 'organic', 'payload': {'keyword': '"Amersham" tutor (inurl:newsletter OR filetype:pdf)'}}
+        self.assertEqual(directory_fallback(organic, error)['keyword'], '"Amersham" tutor inurl:newsletter')
+
     def test_successful_receipt_over_the_reservation_stays_held(self):
         with tempfile.TemporaryDirectory() as temporary:
             cache = PaidCache(Path(temporary), 3065, 6935)

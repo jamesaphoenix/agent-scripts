@@ -219,15 +219,20 @@ def provider_is_failure(response, row):
 
 
 def directory_fallback(item, response):
-    if item["lane"] != "directories" or not response or response.get("status_code") != 20000:
+    if item["lane"] not in ("directories", "organic") or not response or response.get("status_code") != 20000:
         return None
     tasks = response.get("tasks") or []
     if len(tasks) != 1 or tasks[0].get("status_code") != 40101:
         return None
     keyword = item["payload"].get("keyword", "")
-    # A different single-source query may avoid an engine error on grouped site
-    # operators. Its separate semantic hash and receipt preserve cost attribution.
-    simplified = re.sub(r"\((site:[^\s()]+)(?:\s+OR\s+site:[^\s()]+)+\)", r"\1", keyword)
+    # A simpler query may avoid engine failures on grouped source, subject or
+    # document operators. It is a different paid identity, never a replay of an
+    # uncertain request. The caller admits it against the deadline and budget.
+    def first_alternative(match):
+        terms = re.split(r'\s+OR\s+', match.group(1))
+        operators = all(re.match(r'(?:site:|inurl:|filetype:|")', term) for term in terms)
+        return terms[0] if len(terms) > 1 and operators else match.group(0)
+    simplified = re.sub(r'\(([^()]+)\)', first_alternative, keyword)
     return dict(item["payload"], keyword=simplified) if simplified != keyword else None
 
 

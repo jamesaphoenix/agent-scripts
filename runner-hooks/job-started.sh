@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Preserve disk admission and bound all runner slots to two physical-host jobs.
+# Preserve disk admission and limit resource-heavy work to two host-wide jobs.
 set -euo pipefail
 export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:${PATH:-}"
 hook_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

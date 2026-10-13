@@ -13,7 +13,7 @@ import time
 role = sys.argv[1]
 if role not in ['render', 'media-staging', 'media-prod', 'qwen', 'fleet-watch']:
     raise SystemExit('Invalid role')
-state = Path(os.environ.get('OCTOSPARK_COMPUTE_STATE', str(Path.home() / '.local/state/octospark-compute')))
+state = Path(os.environ.get('OCTOSPARK_COMPUTE_STATE', str(Path.home() / '.local/state/octospark-compute') if platform.system() == 'Darwin' else '/var/lib/octospark-compute'))
 (state / 'logs').mkdir(parents=True, exist_ok=True)
 runner = Path(__file__).with_name('run.py').resolve()
 python = shutil.which('python3')
@@ -38,8 +38,12 @@ if platform.system() == 'Darwin':
 else:
     if os.geteuid() != 0:
         raise SystemExit('Systemd installation requires root')
+    account = pwd.getpwnam('octospark-compute')
+    if account.pw_uid != 10001 or account.pw_gid != 10001:
+        raise SystemExit('Unexpected compute account identity')
+    os.chown(state / 'logs', account.pw_uid, account.pw_gid)
     name = 'octospark-compute-' + role + '.service'
     dest = Path('/etc/systemd/system') / name
-    dest.write_text('[Unit]\nDescription=Octospark native ' + role + '\nAfter=docker.service tailscaled.service network-online.target\nWants=network-online.target\n\n[Service]\nType=simple\nExecStart=' + python + ' ' + str(runner) + ' ' + role + ' ' + str(state) + '\nRestart=on-failure\nRestartSec=30\nTimeoutStopSec=60\nKillMode=mixed\n\n[Install]\nWantedBy=multi-user.target\n')
+    dest.write_text('[Unit]\nDescription=Octospark native ' + role + '\nAfter=docker.service tailscaled.service network-online.target\nWants=network-online.target\n\n[Service]\nType=simple\nUser=octospark-compute\nGroup=octospark-compute\nSupplementaryGroups=docker\nEnvironment=HOME=/var/lib/octospark-compute\nUMask=0077\nExecStart=' + python + ' ' + str(runner) + ' ' + role + ' ' + str(state) + '\nRestart=on-failure\nRestartSec=30\nTimeoutStopSec=60\nKillMode=mixed\n\n[Install]\nWantedBy=multi-user.target\n')
     subprocess.run(['systemctl', 'daemon-reload'], check=True)
     subprocess.run(['systemctl', 'enable', '--now', name], check=True)

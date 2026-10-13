@@ -10,6 +10,39 @@ import unittest
 sys.path.insert(0, str(Path(__file__).parents[1] / 'agent-loops/tutor-lead-pathways'))
 from discovery import atomic_json
 from reviewed_contacts import replay
+from directory_profiles import Document
+
+
+class HtmlAdvertUnitTests(unittest.TestCase):
+    def test_source_unit_without_an_id_has_a_complete_bounded_dom_path(self):
+        from reviewed_contacts import html_advert_unit
+        doc = Document('<main><article>Jane: piano lessons in Milton Keynes.</article><article>Alex: London.</article></main>')
+        text, proof = html_advert_unit(doc, {'unitPath': [0, 0]})
+        self.assertEqual(text, 'Jane: piano lessons in Milton Keynes.')
+        self.assertEqual(proof, {'unitPath': [0, 0]})
+
+    def test_contiguous_sibling_range_excludes_the_next_adverts_contact(self):
+        from reviewed_contacts import html_advert_unit
+        doc = Document('<main id="ads"><h2>Jane Smith</h2><p>Milton Keynes piano lessons</p><p>07700 900123</p><h2>Alex Jones</h2><p>alex@example.net</p></main>')
+        text, proof = html_advert_unit(doc, {'unitId': 'ads', 'childRange': [0, 3]})
+        self.assertEqual(text, 'Jane Smith Milton Keynes piano lessons 07700 900123')
+        self.assertNotIn('alex@example.net', text)
+        self.assertEqual(proof['childRange'], [0, 3])
+
+    def test_ambiguous_or_unbounded_selectors_are_rejected(self):
+        from reviewed_contacts import html_advert_unit
+        doc = Document('<main id="ads"><p>Jane</p></main>')
+        for bad in [{}, {'unitId': 'ads', 'unitPath': [0]}, {'unitPath': [False]},
+                    {'unitPath': [-1]}, {'unitPath': [5]}, {'unitPath': [0] * 21},
+                    {'unitId': 'ads', 'childRange': [0, 65]}, {'unitId': 'ads', 'childRange': [1, 0]},
+                    {'unitId': 'ads', 'childRange': [False, 1]}, {'unitId': 'ads', 'childRange': [0, 2]}]:
+            with self.subTest(bad=bad), self.assertRaises(ValueError):
+                html_advert_unit(doc, bad)
+
+    def test_repeated_html_ids_remain_ambiguous(self):
+        from reviewed_contacts import html_advert_unit
+        with self.assertRaises(ValueError):
+            html_advert_unit(Document('<p id="ads">Jane</p><p id="ads">Alex</p>'), {'unitId': 'ads'})
 
 
 class ReviewedContactTests(unittest.TestCase):
@@ -44,6 +77,27 @@ class ReviewedContactTests(unittest.TestCase):
             self.assertEqual(row['email'], 'jane@example.net')
             self.assertFalse(row['outreachEligible'])
             self.assertEqual(row['pageEvidence'][0]['checkpointSha256'], item['checkpointSha256'])
+
+    def test_hashed_html_sibling_advert_replays_without_borrowing_neighbour_details(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _, item = self.fixture(root)
+            body = ('<main><h2>Jane Smith</h2><p>I am based in Haddenham, Buckinghamshire.</p>'
+                    '<p>GCSE English tuition. Contact 07700 900123.</p>'
+                    '<h2>Alex Jones</h2><p>alex@example.net</p></main>').encode()
+            page = root / 'public-source-review/list/page.html'
+            page.parent.mkdir(parents=True)
+            page.write_bytes(body)
+            receipt = page.with_name('receipt.json')
+            atomic_json(receipt, {'status': 200, 'url': 'https://village.example.org/services',
+                                 'sha256': hashlib.sha256(body).hexdigest()})
+            item.update(sourceType='html_advert', page=str(page.relative_to(root)),
+                        receipt=str(receipt.relative_to(root)), receiptSha256=hashlib.sha256(receipt.read_bytes()).hexdigest(),
+                        unitPath=[0], childRange=[0, 3], email=None,
+                        unitText='Jane Smith I am based in Haddenham, Buckinghamshire. GCSE English tuition. Contact 07700 900123.')
+            self.assertEqual(self.run_review(root, [item])['newResearchContacts'], 1)
+            self.assertEqual(self.run_review(root, [dict(item, email='alex@example.net')])['held'], 1)
+            self.assertEqual(self.run_review(root, [dict(item, unitText='Jane Smith GCSE English tuition. Contact 07700 900123.')])['held'], 1)
 
     def test_one_bad_or_tampered_item_does_not_stop_other_reviews(self):
         with tempfile.TemporaryDirectory() as tmp:

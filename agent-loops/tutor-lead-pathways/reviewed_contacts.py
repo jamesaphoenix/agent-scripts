@@ -9,7 +9,7 @@ import sqlite3
 from urllib.parse import urlsplit
 
 from audit_directory_identities import normalize_name
-from directory_profiles import ACADEMIC, BUCKS, Document, decode_page
+from directory_profiles import ACADEMIC, BUCKS, Document, Node, decode_page
 from discovery import atomic_json, clean_emails, file_hash, now_iso, phone_key
 from new_leads import classify_delta
 
@@ -23,6 +23,41 @@ def host(value):
     if parsed.scheme not in ('https', 'http') or parsed.username or parsed.password:
         return None
     return (parsed.hostname or '').removeprefix('www.').casefold() or None
+
+
+def html_advert_unit(document, item):
+    """Replay a complete element or contiguous sibling range from a hashed body."""
+    selectors = [key for key in ('unitId', 'unitPath') if key in item]
+    if len(selectors) != 1:
+        raise ValueError('Expected one unambiguous HTML advert selector')
+    if selectors[0] == 'unitId':
+        units = [n for n in document.root.walk() if n.attrs.get('id') == item['unitId']]
+        if len(units) != 1:
+            raise ValueError('Expected one complete source advert unit')
+        node, proof = units[0], {'unitId': item['unitId']}
+    else:
+        path = item['unitPath']
+        if (not isinstance(path, list) or not 1 <= len(path) <= 20
+                or any(type(index) is not int or index < 0 for index in path)):
+            raise ValueError('Invalid bounded HTML advert path')
+        node = document.root
+        for index in path:
+            if not isinstance(node, Node) or index >= len(node.children):
+                raise ValueError('HTML advert path is absent')
+            node = node.children[index]
+        if not isinstance(node, Node):
+            raise ValueError('HTML advert path must identify an element')
+        proof = {'unitPath': path}
+    if 'childRange' not in item:
+        return node.text(), proof
+    span = item['childRange']
+    if (not isinstance(span, list) or len(span) != 2
+            or any(type(index) is not int or index < 0 for index in span)
+            or not 1 <= span[1] - span[0] <= 64 or span[1] > len(node.children)):
+        raise ValueError('Invalid bounded contiguous HTML advert range')
+    text = normal(' '.join(child.text() if isinstance(child, Node) else child
+                          for child in node.children[span[0]:span[1]]))
+    return text, dict(proof, childRange=span)
 
 
 def verified_contact(root, item):
@@ -41,13 +76,12 @@ def verified_contact(root, item):
         receipt = json.loads(receipt_path.read_text())
         if receipt.get('status') != 200 or file_hash(page) != receipt.get('sha256'):
             raise ValueError('HTML body hash or response status mismatch')
-        units = [n for n in Document(decode_page(page.read_bytes(), receipt.get('contentType', ''))).root.walk()
-                 if n.attrs.get('id') == item['unitId']]
-        if len(units) != 1 or normal(units[0].text()) != normal(item['unitText']):
+        unit_text, selector = html_advert_unit(Document(decode_page(page.read_bytes(), receipt.get('contentType', ''))), item)
+        if normal(unit_text) != normal(item['unitText']):
             raise ValueError('Expected one complete source advert unit')
-        evidence = {'url': receipt['url'], 'contentHash': receipt['sha256'], 'text': units[0].text()}
+        evidence = {'url': receipt['url'], 'contentHash': receipt['sha256'], 'text': unit_text}
         proof = {'page': str(page), 'receipt': str(receipt_path), 'receiptSha256': item['receiptSha256'],
-                 'unitId': item['unitId'], 'observedAt': receipt.get('observedAt')}
+                 **selector, 'observedAt': receipt.get('observedAt')}
         if item['sourceKind'] != 'public_advert':
             raise ValueError('HTML advert review requires a public advert source')
     elif item.get('sourceType') == 'focused_page':

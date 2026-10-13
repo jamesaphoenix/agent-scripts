@@ -172,11 +172,14 @@ def ensure_op_service_account(task: dict[str, Any]) -> None:
     # Only wrappers that explicitly source the shared profile may use its exported
     # token. Existing keychain-only jobs retain their original installation gate.
     if task.get("opServiceAccountSource") == "profile-or-keychain" and os.environ.get("OP_SERVICE_ACCOUNT_TOKEN"):
-        op = shutil.which("op")
-        if not op:
+        if not shutil.which("op"):
             raise SystemExit("Missing op CLI for service-account authentication")
-        subprocess.run([op, "vault", "list", "--format", "json"],
-                       check=True, stdout=subprocess.DEVNULL)
+        helper = ROOT / 'lib/op-cli.sh'
+        if not helper.exists():
+            raise SystemExit('Missing bounded 1Password CLI helper')
+        command = 'source "$1"; OP_CALL_TIMEOUT_SECONDS=20; trap op_cli_cleanup_isolated_home EXIT; run_op vault list --format json'
+        subprocess.run(['/bin/bash', '-c', command, 'launchd-service-account-check', str(helper)],
+                       check=True, stdout=subprocess.DEVNULL, timeout=50)
         print("  authenticated existing profile service account; no keychain write needed")
         return
     script = ROOT / "scripts" / "cache-op-service-account-token.sh"

@@ -25,9 +25,17 @@ def profile_fields(document):
             continue
         labels = [n for n in node.walk() if n.has_class('fieldLabel')]
         bodies = [n for n in node.walk() if n.has_class('fieldBody')]
-        if len(labels) != 1 or len(bodies) != 1 or labels[0].text() in fields:
+        if not labels and not bodies:
+            continue
+        if len(labels) != 1 or len(bodies) != 1:
             return None
-        fields[labels[0].text()] = bodies[0].text()
+        label, body = labels[0].text(), bodies[0].text()
+        # Wild Apricot repeats blank placeholder rows between visible fields.
+        if not label and not body:
+            continue
+        if not label or label in fields:
+            return None
+        fields[label] = body
     return fields
 
 

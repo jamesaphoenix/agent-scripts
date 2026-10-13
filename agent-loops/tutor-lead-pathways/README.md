@@ -31,6 +31,9 @@ and platform affiliations remain excluded. The national index is a source cache;
 the campaign export still requires Buckinghamshire or Milton Keynes locality,
 the configured subjects, evidence replay and conservative identity deduplication.
 No directory total or contact route grants permission to send outreach.
+Wild Apricot's repeated empty field placeholders are ignored, while duplicate
+named fields fail closed. A versioned replay recovers previously downloaded
+profiles from verified cache receipts without new requests or counter resets.
 
 ## Keyword expansion and upstream classification
 

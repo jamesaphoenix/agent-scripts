@@ -776,9 +776,14 @@ def write_profile_exports(root, state, phase='running'):
     return qualified
 
 
-def replay_cached_profiles(root, state, deadline, clock=time.time):
+def replay_cached_profiles(root, state, deadline, clock=time.time, platform='tutorhunt'):
     """Recover pages missed by an older layout parser, without fetching or resetting counters."""
-    progress = state.setdefault('cacheReplays', {}).setdefault('tutorhunt-profile-name-v2',
+    sources = {'tutorhunt': ('tutorhunt-profile-name-v2', 'https://www.tutorhunt.com/users/'),
+               'tta': ('tta-public-fields-v1', 'https://thetutorsassociation.wildapricot.org/Sys/PublicProfile/')}
+    if platform not in sources:
+        raise ValueError('Unsupported cached profile replay source')
+    version, prefix = sources[platform]
+    progress = state.setdefault('cacheReplays', {}).setdefault(version,
         {'processedKeys': [], 'processedPages': 0, 'recoveredRecords': 0, 'heldPages': 0})
     done = set(progress['processedKeys'])
     known = {url for row in state['records'] for url in row.get('sourceUrls', [])}
@@ -787,7 +792,7 @@ def replay_cached_profiles(root, state, deadline, clock=time.time):
     for url in state['seen']:
         if clock() >= deadline:
             break
-        if not isinstance(url, str) or not url.startswith('https://www.tutorhunt.com/users/') or admitted_url(url) != url:
+        if not isinstance(url, str) or not url.startswith(prefix) or admitted_url(url) != url:
             continue
         key = cache.key(url)
         if key in done:
@@ -848,6 +853,7 @@ def run(root, seeds, hours, page_limit, target):
         scope = load_scope(Path(job['seedSourceRun'])) if job.get('seedSourceRun') else None
         state['discoveryScopeSha256'] = hashlib.sha256((Path(job['seedSourceRun']) / 'discovery-scope.json').read_bytes()).hexdigest() if scope else None
         replay_cached_profiles(root, state, job['deadlineUnix'])
+        replay_cached_profiles(root, state, job['deadlineUnix'], platform='tta')
         cache, robots = PageCache(root), {}
         while state["attempts"] < job["pageLimit"] and time.time() < job["deadlineUnix"]:
             try:

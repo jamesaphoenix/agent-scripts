@@ -34,6 +34,36 @@ class TtaTests(unittest.TestCase):
         self.assertFalse(row['outreachEligible'])
         self.assertIsNone(row['email'])
 
+    def test_empty_repeated_wildapricot_placeholders_do_not_hide_the_person(self):
+        empty = '<div class="fieldContainer"><div class="fieldLabel"></div><div class="fieldBody"></div></div>'
+        html = profile().replace('<div class="fieldContainer">', empty + '<div class="fieldContainer">')
+        row = directory.profile_record(html, self.url)
+        self.assertEqual(row['name'], 'Jane Example')
+        self.assertIn('11+ NVR', row['services'])
+        duplicate = '<div class="fieldContainer"><div class="fieldLabel">First Name</div><div class="fieldBody">Alex</div></div>'
+        self.assertIsNone(directory.profile_record(html.replace('</div><footer>', duplicate + '</div><footer>'), self.url))
+
+    def test_tta_cached_layout_replay_recovers_own_profile_without_requests_or_counter_reset(self):
+        from unittest.mock import patch
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            cache = directory.PageCache(root)
+            empty = '<div class="fieldContainer"><div class="fieldLabel"></div><div class="fieldBody"></div></div>'
+            body = profile().replace('<div class="fieldContainer">', empty + '<div class="fieldContainer">').encode()
+            page = cache.body_path(self.url)
+            page.parent.mkdir();page.write_bytes(body)
+            directory.save(root / 'receipts' / (cache.key(self.url) + '.json'), {'url': self.url, 'status': 200,
+                'sha256': hashlib.sha256(body).hexdigest(), 'contentType': 'text/html', 'observedAt': '2026-10-13T20:00:00Z'})
+            state = {'seen': [self.url], 'queue': [], 'records': [], 'attempts': 123, 'errors': []}
+            with patch.object(directory.PageCache, 'download', side_effect=AssertionError('Replay must not fetch')):
+                result = directory.replay_cached_profiles(root, state, 2000, clock=lambda:1000, platform='tta')
+                repeated = directory.replay_cached_profiles(root, state, 2000, clock=lambda:1000, platform='tta')
+            self.assertEqual(result['recoveredRecords'], 1)
+            self.assertEqual(repeated['processedPages'], 1)
+            self.assertEqual(len(state['records']), 1)
+            self.assertEqual(state['attempts'], 123)
+            self.assertEqual(state['records'][0]['name'], 'Jane Example')
+
     def test_other_county_and_subjects_cannot_borrow_bucks_directory_heading(self):
         row = directory.profile_record('<h1>Buckinghamshire Maths Tutors</h1>' + profile(
             **{'City': 'Reading', 'County': 'Berkshire', 'Subject Specialisms': 'Piano'}), self.url)

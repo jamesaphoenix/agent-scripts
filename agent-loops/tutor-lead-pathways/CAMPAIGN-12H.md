@@ -144,6 +144,10 @@ each request and records verified provider receipts; it does not assume that
 all requested rows will be returned.
 # Reviewing public contact adverts
 
+The paid owner captures its loaded Git SHA at startup. Deployment checkpoint reports are
+observations, never runtime inputs: changing or damaging them cannot stop discovery or
+relabel a running owner's version. An unavailable version is reported as unknown.
+
 Save reviewed own-site or public-advert contacts in
 `review/public-contact-reviews.json`, outside the published lead-import folder.
 `reviewed_contacts.py` requires a campaign Go

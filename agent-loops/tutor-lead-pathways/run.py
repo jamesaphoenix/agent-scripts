@@ -28,6 +28,16 @@ INTERVALS = {"maps": 120, "business": 240, "organic": 240, "directories": 240}
 OFFSETS = {"maps": 0, "business": 25, "organic": 50, "directories": 75}
 
 
+def loaded_source_sha():
+    try:
+        result = subprocess.run(['git', 'rev-parse', 'HEAD'], cwd=HERE.parents[1],
+                                capture_output=True, text=True, check=True, timeout=10)
+        value = result.stdout.strip()
+        return value if re.fullmatch(r'[0-9a-f]{40}', value) else None
+    except (OSError, subprocess.SubprocessError):
+        return None
+
+
 def request_intervals(job):
     value = job.get("requestIntervals", INTERVALS)
     if not isinstance(value, dict) or set(value) != set(INTERVALS) or any(type(v) is not int or not 15 <= v <= 900 for v in value.values()):
@@ -265,8 +275,10 @@ def runner_snapshot(root, job, cache, state):
              "exports": summary, "crawlBatches": state["crawlNumber"], "recentErrors": state["errors"][-8:]}
     value["lastCrawlerSuccessAt"] = state.get("lastCrawlerSuccessAt")
     value['preparedSourceSha'] = job.get('sourceSha')
-    deployment = root / 'deployment/latest.json'
-    value['effectiveSourceSha'] = json.loads(deployment.read_text())['sourceSha'] if deployment.exists() else job.get('sourceSha')
+    # Deployment reports describe future checkouts too. Capture the owner's
+    # version once at startup; mutable reporting files must not stop discovery
+    # or relabel code that is already loaded in a running process.
+    value['effectiveSourceSha'] = state.get('effectiveSourceSha')
     value["consecutivePathFailures"] = dict(state["pathFailures"])
     atomic_json(root / "status.json", value)
     return value
@@ -461,6 +473,7 @@ def run(root):
             return
         state["pid"] = os.getpid()
         state["phase"] = "running"
+        state['effectiveSourceSha'] = loaded_source_sha()
         state['adaptiveTactics'] = job.get('adaptiveTactics', False)
         state['blockedProfileSites'] = held_profile_sources(focused_roots(job))['sites']
         plan = json.loads((root / "plan.json").read_text())

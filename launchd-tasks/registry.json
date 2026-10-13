@@ -420,6 +420,25 @@
         ]
       },
       "notes": "Native shared render controller or activity-only OpenRouter Pi worker. Qwen gateway measures whole-host pressure and response latency, yielding inference to rendering. Runtime secrets are private resolved deployment files."
+    },
+    {
+      "id": "octospark-compute-fleet-watch",
+      "name": "Octospark and Trace Learn fleet health and delayed Studio cleanup",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.octospark-compute.fleet-watch",
+      "schedule": "one long-running observer, checks every 60 seconds",
+      "requiresOpServiceAccount": false,
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
+        "command": [
+          "python3",
+          "agent-loops/octospark-compute/install.py",
+          "fleet-watch"
+        ]
+      },
+      "notes": "A single locked native observer checks NAS releases, public APIs and native compute. After 48 continuous healthy hours on unchanged releases, removes only obsolete Studio observability and stopped migrated application containers. Keeps CI databases, Redis, Temporal, all volumes, images, unrelated jobs and reusable caches. No agent dispatch or workflow starts from health probes."
     }
   ]
 }

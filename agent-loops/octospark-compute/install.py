@@ -8,6 +8,7 @@ import plistlib
 import shutil
 import subprocess
 import sys
+import time
 
 role = sys.argv[1]
 if role not in ['render', 'media-staging', 'media-prod', 'qwen']:
@@ -26,6 +27,11 @@ if platform.system() == 'Darwin':
     uid = str(os.getuid())
     subprocess.run(['launchctl', 'bootout', 'gui/' + uid + '/' + label], check=False, stderr=subprocess.DEVNULL)
     subprocess.run(['launchctl', 'unload', str(dest)], check=False, stderr=subprocess.DEVNULL)
+    deadline = time.monotonic() + 90
+    while subprocess.run(['launchctl', 'list', label], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode == 0:
+        if time.monotonic() >= deadline:
+            raise SystemExit('Previous compute service did not finish shutdown')
+        time.sleep(1)
     loaded = subprocess.run(['launchctl', 'bootstrap', 'gui/' + uid, str(dest)], check=False, stderr=subprocess.DEVNULL)
     if loaded.returncode:
         subprocess.run(['launchctl', 'load', '-w', str(dest)], check=True)

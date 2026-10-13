@@ -13,6 +13,13 @@ DIRECTORY_URL = 'https://' + HOST + '/Findatutor?tab=1'
 PROFILE_PATH = re.compile(r'/Sys/PublicProfile/([1-9]\d{0,15})/6119301')
 MEMBER_ID = re.compile(r'[1-9]\d{0,15}')
 AGENCY = re.compile(r'\b(?:tutor doctor|sherpa[ -]?online)\b', re.I)
+# Public records occasionally assign a Bucks county to a town in another authority.
+# Keep those profiles for review rather than accepting the conflicting county.
+OUTSIDE_BUCKS_TOWNS = {
+    'leighton buzzard': 'https://www.centralbedfordshire.gov.uk/business/leighton-buzzard-and-linslade',
+    'linslade': 'https://www.centralbedfordshire.gov.uk/business/leighton-buzzard-and-linslade',
+    'wicken': 'https://www.westnorthants.gov.uk/roads-and-paths-maintenance/street-lighting',
+}
 
 
 def profile_fields(document):

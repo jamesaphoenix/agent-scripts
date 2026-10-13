@@ -73,6 +73,18 @@ class TtaTests(unittest.TestCase):
         self.assertEqual(row['services'], ['Physics'])
         self.assertNotIn('KS2 (8-11 yrs)', row['services'])
 
+    def test_verified_outside_town_cannot_be_overridden_by_a_bucks_county_field(self):
+        for city in ('Leighton Buzzard', 'Linslade', 'Wicken'):
+            row = directory.profile_record(profile(**{'City': city, 'County': 'Bucks'}), self.url)
+            self.assertEqual(directory.profile_locality_status(row), 'outside_or_unresolved')
+        # Unknown local villages retain their explicit own county evidence.
+        local = directory.profile_record(profile(**{'City': 'South Heath', 'County': 'Buckinghamshire'}), self.url)
+        self.assertEqual(directory.profile_locality_status(local), 'advertised_bucks_locality')
+
+    def test_own_primary_specialism_survives_the_academic_gate(self):
+        row = directory.profile_record(profile(**{'Subject Specialisms': 'KS2'}), self.url)
+        self.assertIsNone(directory.exclusion_reason(row))
+
     def test_public_fields_require_one_complete_person_and_reject_franchises(self):
         self.assertIsNone(directory.profile_record(profile(**{'Last Name': ''}), self.url))
         self.assertIsNone(directory.profile_record(profile() + profile(), self.url))

@@ -34,6 +34,10 @@ No directory total or contact route grants permission to send outreach.
 Wild Apricot's repeated empty field placeholders are ignored, while duplicate
 named fields fail closed. A versioned replay recovers previously downloaded
 profiles from verified cache receipts without new requests or counter resets.
+Conflicting city/county claims stay outside the accepted export when the named
+town is evidenced in another authority. Initial checks cover Leighton Buzzard,
+Linslade and Wicken, with council references alongside the rules. Existing cached
+records receive the same check at export time.
 
 ## Keyword expansion and upstream classification
 

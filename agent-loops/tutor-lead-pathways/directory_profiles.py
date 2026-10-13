@@ -190,6 +190,9 @@ def locality_status(value):
 
 def profile_locality_status(row):
     if row.get('platform') == 'thetutorsassociation.wildapricot.org' and row.get('evidenceKind') == 'public_person_profile':
+        from tta_scraper import OUTSIDE_BUCKS_TOWNS
+        if row.get('profileCity', '').split(',', 1)[0].strip().casefold() in OUTSIDE_BUCKS_TOWNS:
+            return 'outside_or_unresolved'
         county = row.get('profileCounty', '').strip().casefold()
         if county:
             return 'advertised_bucks_locality' if county in ('bucks', 'buckinghamshire', 'milton keynes') else 'outside_or_unresolved'
@@ -213,7 +216,7 @@ def exclusion_reason(row):
     services = " ".join(row.get("services", []))
     if NON_TUITION.search(services) and not ACADEMIC.search(services):
         return "non_tuition_lessons"
-    if not ACADEMIC.search(services):
+    if not ACADEMIC.search(services) and not re.search(r'\b(?:KS[12]|key stage [12])\b', services, re.I):
         return "needs_subject_review"
     return None
 

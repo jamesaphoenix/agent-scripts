@@ -102,8 +102,6 @@ def verified_contact(root, item):
         raise ValueError('Email is not advertised in this source unit')
     if phone and (not phone_key(phone) or normal(phone) not in unit):
         raise ValueError('Phone is not advertised in this source unit')
-    if not email and not phone:
-        raise ValueError('No advertised contact route')
     source_kind = item['sourceKind']
     if source_kind not in ('own_site', 'public_advert'):
         raise ValueError('Unsupported reviewed source kind')
@@ -112,17 +110,30 @@ def verified_contact(root, item):
         raise ValueError('Own-site contact must belong to the evidence host')
     if source_kind == 'own_site' and not website:
         raise ValueError('Own-site review requires its website')
+    contact_url, contact_link = item.get('contactUrl'), None
+    if contact_url:
+        if source_kind != 'own_site' or host(contact_url) != host(website):
+            raise ValueError('Contact page must belong to the reviewed own site')
+        contact_link = next((link for link in evidence.get('links', [])
+            if link.get('url') == contact_url
+            and re.search(r'\b(?:contact|enquire|enquiry|enquiries)\b', link.get('anchor', ''), re.I)), None)
+        if not contact_link:
+            raise ValueError('Contact page is not advertised as a contact or enquiry link')
+    if not email and not phone and not contact_link:
+        raise ValueError('No advertised contact route')
     if not item.get('reviewer') or not item.get('reviewedAt'):
         raise ValueError('Missing review provenance')
     key = hashlib.sha256(json.dumps([normalize_name(name), host(website), phone_key(phone), email],
                                    ensure_ascii=False).encode()).hexdigest()
     return {'canonicalId': 'reviewed:' + key, 'memberKeys': ['reviewed:' + key], 'name': name,
         'localityClaim': town, 'services': services, 'email': email.lower() if email else None,
-        'phone': phone, 'website': website, 'sourceUrls': [evidence['url']], 'outreachEligible': False,
+        'phone': phone, 'website': website, 'contactUrl': contact_url,
+        'sourceUrls': [evidence['url']], 'outreachEligible': False,
         'independentVerified': False, 'localVerified': False,
         'elevenPlusServiceClaim': any(re.search(r'11\s*\+|11[ -]plus|eleven[ -]plus', s, re.I) for s in services),
         'pageEvidence': [{'url': evidence['url'], 'contentHash': evidence['contentHash'],
-            **proof, 'unitTextSha256': hashlib.sha256(unit.encode()).hexdigest()}],
+            **proof, 'unitTextSha256': hashlib.sha256(unit.encode()).hexdigest(),
+            **({'contactLink': contact_link} if contact_link else {})}],
         'review': {'reviewer': item['reviewer'], 'reviewedAt': item['reviewedAt'], 'sourceKind': source_kind,
                    'nameQuote': name_quote, 'localityQuote': local_quote},
         'qualification': 'Reviewed public advert or own-site claims. Availability, ownership and consent unverified.'}

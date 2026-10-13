@@ -112,6 +112,51 @@ class ReviewedContactTests(unittest.TestCase):
             report = self.run_review(root, [dict(item, sourceKind='own_site', website='https://other.example.net/')])
             self.assertEqual(report['held'], 1)
 
+    def test_own_site_can_advertise_a_contact_page_without_email_or_phone(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            path, item = self.fixture(root)
+            saved = json.loads(path.read_text())
+            url = 'https://village.example.org/contact/'
+            saved['results'][0]['evidence']['links'] = [{'url': url, 'anchor': 'Contact Jane'}]
+            atomic_json(path, saved)
+            item.update(checkpointSha256=hashlib.sha256(path.read_bytes()).hexdigest(),
+                        sourceKind='own_site', website='https://village.example.org/',
+                        email=None, phone=None, contactUrl=url)
+            self.assertEqual(self.run_review(root, [item])['newResearchContacts'], 1)
+            row = json.loads((root / 'review/public-contacts/new.json').read_text())[0]
+            self.assertEqual(row['contactUrl'], url)
+            self.assertEqual(row['pageEvidence'][0]['contactLink']['anchor'], 'Contact Jane')
+            self.assertIsNone(row['email'])
+            self.assertFalse(row['outreachEligible'])
+            from new_leads import run
+            output = root / 'exports/contact-delta'
+            run(root / 'baseline/contacts.json', root / 'review/public-contacts/new.json', output)
+            import csv
+            with (output / 'new.csv').open() as stream:
+                exported = list(csv.DictReader(stream))[0]
+            self.assertEqual(exported['contactUrl'], url)
+
+    def test_contact_route_cannot_be_invented_or_taken_from_a_neighbour(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            path, item = self.fixture(root)
+            saved = json.loads(path.read_text())
+            good = 'https://village.example.org/contact/'
+            saved['results'][0]['evidence']['links'] = [
+                {'url': good, 'anchor': 'Contact Jane'},
+                {'url': 'https://village.example.org/terms/', 'anchor': 'Terms'},
+                {'url': 'https://neighbour.example.net/contact/', 'anchor': 'Contact neighbour'}]
+            atomic_json(path, saved)
+            item.update(checkpointSha256=hashlib.sha256(path.read_bytes()).hexdigest(),
+                        sourceKind='own_site', website='https://village.example.org/', email=None, phone=None)
+            for bad in [dict(item, contactUrl='https://village.example.org/unadvertised/'),
+                        dict(item, contactUrl='https://village.example.org/terms/'),
+                        dict(item, contactUrl='https://neighbour.example.net/contact/'),
+                        dict(item, contactUrl=good, sourceKind='public_advert', website=None)]:
+                with self.subTest(bad=bad):
+                    self.assertEqual(self.run_review(root, [bad])['held'], 1)
+
     def test_aggregate_rechecks_current_run_duplicates(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

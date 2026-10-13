@@ -54,7 +54,7 @@ def run(baseline_path, current_path, output):
         atomic_json(output / (key + '.json'), rows)
         path = output / (key + '.csv')
         with path.open('w', newline='') as stream:
-            writer = csv.DictWriter(stream, fieldnames=['canonicalId', 'name', 'email', 'phone', 'localityClaim', 'services',
+            writer = csv.DictWriter(stream, fieldnames=['canonicalId', 'name', 'email', 'phone', 'contactUrl', 'localityClaim', 'services',
                                                        'sourceUrls', 'elevenPlusServiceClaim', 'outreachEligible'])
             writer.writeheader()
             for row in rows:

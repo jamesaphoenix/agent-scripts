@@ -16,6 +16,13 @@ def card(name, location, service, email):
 
 
 class RegisterTests(unittest.TestCase):
+    def test_website_in_phone_styled_field_is_not_exported_as_a_phone_number(self):
+        text = card('Jane Smith', 'Buckinghamshire, HP7', 'Literacy tuition', 'jane@example.net')
+        text = text.replace('</div>', '<span class="contact-info__icon--phone">www.janes-tutoring.co.uk</span></div>', 1)
+        rows, held = parse_bda(text, {'url': BDA_URL, 'status': 200, 'sha256': 'fixture', 'observedAt': 'fixture'})
+        self.assertEqual(held, [])
+        self.assertIsNone(rows[0]['phone'])
+
     def test_same_name_with_different_contact_routes_is_held_for_identity_review(self):
         text = (card('Jane Smith', 'Buckinghamshire, HP7', 'Literacy tuition', 'first@example.net') +
                 card('Jane Smith', 'Buckinghamshire, HP7', 'Maths tuition', 'second@example.net'))

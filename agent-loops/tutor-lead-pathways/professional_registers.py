@@ -9,7 +9,7 @@ import re
 
 from audit_directory_identities import normalize_name
 from directory_profiles import Document, Node, decode_page
-from discovery import atomic_json, clean_emails, now_iso
+from discovery import atomic_json, clean_emails, now_iso, phone_key
 from new_leads import classify_delta
 
 BDA_URL = 'https://www.bdadyslexia.org.uk/dyslexia/tutor-list/search'
@@ -46,17 +46,18 @@ def parse_bda(text, receipt):
         email_values = [n.attrs['href'].removeprefix('mailto:').split('?')[0] for n in card.walk()
                         if n.tag == 'a' and n.attrs.get('href', '').startswith('mailto:')]
         emails = clean_emails(email_values)
-        phone = card.first(lambda n: n.has_class('contact-info__icon--phone'))
+        phone = next((n.text() for n in card.walk() if n.has_class('contact-info__icon--phone')
+                      and phone_key(n.text()) and re.fullmatch(r'[+()\d\s.-]+', n.text())), None)
         card_text = card.text().replace('\u2014', '-')
         reason = ('missing_professional_name' if len(normalize_name(name).split()) < 2 else
                   'assessment_only_without_advertised_teaching' if not any(TEACHING.search(s) for s in subject_claims) else
                   'no_advertised_contact_route' if not emails and not phone else None)
         identity_key = hashlib.sha256(json.dumps([normalize_name(name), locality, emails,
-                                      phone.text() if phone else None], ensure_ascii=False).encode()).hexdigest()
+                                      phone], ensure_ascii=False).encode()).hexdigest()
         row = {'canonicalId': 'bda:' + identity_key, 'memberKeys': ['bda:' + identity_key],
                'name': name, 'localityClaim': locality, 'services': subject_claims,
                'sourceUrls': [BDA_URL], 'email': emails[0] if emails else None, 'emails': emails,
-               'phone': phone.text() if phone else None, 'website': None, 'outreachEligible': False,
+               'phone': phone, 'website': None, 'outreachEligible': False,
                'elevenPlusServiceClaim': False, 'independentVerified': False, 'localVerified': False,
                'pageEvidence': [{'url': BDA_URL, 'sha256': receipt['sha256'],
                                  'observedAt': receipt['observedAt'], 'cardTextSha256': hashlib.sha256(card_text.encode()).hexdigest()}],

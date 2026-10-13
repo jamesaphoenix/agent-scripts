@@ -23,6 +23,12 @@ existing SHA256 cache. Native launchd owns the worker and its fifteen-minute
 checks. The separately authorised continuation inherits unvisited URLs, cached
 pages and attempt counts.
 
+Profile scheduling rotates among hosts ready to fetch, keeping individual
+profiles ahead of town and subject indexes. A long cooldown on one directory
+does not delay another ready host. When all hosts need to wait, the earliest
+candidate is selected. Cached receipts need no host wait or repeat request.
+The downloader still enforces each host's persisted cooldown and robots rules.
+
 Qualification reads only the profile's labelled personal and business fields.
 County claims supply locality, while subject specialisms supply services. Age
 levels, qualifications, navigation and neighbouring members cannot establish a

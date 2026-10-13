@@ -239,6 +239,54 @@ class ProfileTests(unittest.TestCase):
         self.assertEqual(counts, {host: 3 for host in hosts})
         self.assertEqual(len(state["queue"]), 51)
 
+    def test_ready_directory_does_not_wait_for_another_hosts_persisted_cooldown(self):
+        import urllib.robotparser
+        slow = 'https://thetutorsassociation.wildapricot.org/Sys/PublicProfile/123/6119301'
+        ready = 'https://www.findtutors.co.uk/tutors-aylesbury/maths-456'
+        robot = urllib.robotparser.RobotFileParser()
+        robot.parse(['User-agent: *', 'Request-rate: 1/60'])
+        with tempfile.TemporaryDirectory() as tmp, patch('directory_profiles.time.time', return_value=120):
+            root = Path(tmp)
+            directory.save(root / 'request-times.json', {'thetutorsassociation.wildapricot.org': 100})
+            cache = directory.PageCache(root)
+            cache.configure_robots('thetutorsassociation.wildapricot.org', robot)
+            state = {'queue': [slow, ready], 'lastHost': 'www.tutorhunt.com'}
+            self.assertEqual(directory.next_page(state, cache), ready)
+            self.assertEqual(state['queue'], [slow])
+            self.assertEqual(cache.request_delay(slow), 40)
+            self.assertFalse(cache.can_start_before(slow, 150))
+            self.assertEqual(json.loads((root / 'request-times.json').read_text()),
+                             {'thetutorsassociation.wildapricot.org': 100})
+
+    def test_when_all_hosts_wait_the_earliest_one_is_selected_without_losing_pages(self):
+        from types import SimpleNamespace
+        slow = 'https://thetutorsassociation.wildapricot.org/Sys/PublicProfile/123/6119301'
+        sooner = 'https://www.findtutors.co.uk/tutors-aylesbury/maths-456'
+        cache = SimpleNamespace(fetch_delay=lambda url: 40 if url == slow else 2)
+        state = {'queue': [slow, sooner], 'lastHost': 'www.tutorhunt.com'}
+        self.assertEqual(directory.next_page(state, cache), sooner)
+        self.assertEqual(state['queue'], [slow])
+        self.assertEqual(state['lastHost'], 'www.findtutors.co.uk')
+
+    def test_cached_profile_can_be_selected_during_its_hosts_cooldown(self):
+        import urllib.robotparser
+        slow = 'https://thetutorsassociation.wildapricot.org/Sys/PublicProfile/123/6119301'
+        ready = 'https://www.findtutors.co.uk/tutors-aylesbury/maths-456'
+        robot = urllib.robotparser.RobotFileParser()
+        robot.parse(['User-agent: *', 'Request-rate: 1/60'])
+        with tempfile.TemporaryDirectory() as tmp, patch('directory_profiles.time.time', return_value=120):
+            root = Path(tmp)
+            directory.save(root / 'request-times.json', {'thetutorsassociation.wildapricot.org': 100})
+            cache = directory.PageCache(root)
+            cache.configure_robots('thetutorsassociation.wildapricot.org', robot)
+            directory.save(root / 'receipts' / (cache.key(slow) + '.json'), {'url': slow, 'error': 'HTTPError'})
+            self.assertEqual(cache.fetch_delay(slow), 0)
+            state = {'queue': [slow, ready], 'lastHost': 'www.tutorhunt.com'}
+            self.assertEqual(directory.next_page(state, cache), slow)
+            with patch.object(cache, 'download') as download:
+                self.assertIsNone(cache.fetch(slow))
+                download.assert_not_called()
+
     def test_unvisited_town_roots_get_coverage_before_more_subject_indexes(self):
         subject = "https://www.findtutors.co.uk/chemistry-tutors-marlow/"
         page = "https://www.findtutors.co.uk/tutors-new-denham/?page=5"

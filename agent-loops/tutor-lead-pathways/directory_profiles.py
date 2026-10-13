@@ -588,6 +588,11 @@ class PageCache:
         # Cached observations need no HTTP request or host delay.
         return (self.root / 'receipts' / (self.key(url) + '.json')).exists() or time.time() + self.request_delay(url) < deadline
 
+    def fetch_delay(self, url):
+        if (self.root / 'receipts' / (self.key(url) + '.json')).exists():
+            return 0
+        return self.request_delay(url)
+
     def key(self, url):
         return hashlib.sha256(url.encode()).hexdigest()
 
@@ -743,22 +748,34 @@ def import_seed_batches(root, state):
         imported.append(path.stem)
 
 
-def next_page(state):
+def next_page(state, cache=None):
     queue = state["queue"]
-    hosts = sorted(set(urllib.parse.urlsplit(url).hostname for url in queue))
-    previous = state.get("lastHost")
-    host = next((value for value in hosts if value > previous), hosts[0]) if previous else urllib.parse.urlsplit(queue[0]).hostname
-    indices = [index for index, url in enumerate(queue) if urllib.parse.urlsplit(url).hostname == host]
+    by_host = {}
+    for index, url in enumerate(queue):
+        by_host.setdefault(urllib.parse.urlsplit(url).hostname, []).append(index)
     def person_page(index):
         path = urllib.parse.urlsplit(queue[index]).path
         return path.startswith(("/profile/", "/t/", "/tutor/", "/users/", "/Sys/PublicProfile/")) or bool(re.search(r"-\d+/?$", path))
     def town_root(index):
         parsed = urllib.parse.urlsplit(queue[index])
         return parsed.hostname == "www.findtutors.co.uk" and not parsed.query and bool(re.fullmatch(r"/tutors-[a-z0-9-]+/", parsed.path))
-    index = next((index for index in indices if person_page(index)),
-                 next((index for index in indices if town_root(index)), indices[0]))
+    candidates = {host: next((index for index in indices if person_page(index)),
+        next((index for index in indices if town_root(index)), indices[0]))
+        for host, indices in by_host.items()}
+    hosts = sorted(by_host)
+    if cache:
+        delays = {host: cache.fetch_delay(queue[index]) for host, index in candidates.items()}
+        ready = [host for host in hosts if delays[host] <= 0]
+        earliest = min(delays.values())
+        hosts = ready or [host for host in hosts if delays[host] == earliest]
+    previous = state.get('lastHost')
+    first = urllib.parse.urlsplit(queue[0]).hostname
+    if previous:
+        host = next((value for value in hosts if value > previous), hosts[0])
+    else:
+        host = first if first in hosts else hosts[0]
     state["lastHost"] = host
-    return queue.pop(index)
+    return queue.pop(candidates[host])
 
 
 def source_still_producing(job):
@@ -883,7 +900,7 @@ def run(root, seeds, hours, page_limit, target):
                     time.sleep(5)
                     continue
                 break
-            url = next_page(state)
+            url = next_page(state, cache)
             if url in state["seen"]:
                 continue
             state["seen"].append(url)

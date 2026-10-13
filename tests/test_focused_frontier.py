@@ -127,5 +127,83 @@ class FrontierTests(unittest.TestCase):
         self.assertEqual(self.queue.db.execute("SELECT count(*) FROM pages WHERE site='tutorperch.com'").fetchone()[0], 200)
         self.assertEqual(self.queue.db.execute("SELECT count(*) FROM pages WHERE site='solo.co.uk'").fetchone()[0], 8)
 
+    def test_named_tutorhunt_profiles_expand_without_tutor_words_in_the_link(self):
+        row = self.seed('https://www.tutorhunt.com/locations/amersham/')
+        self.complete(row, decision('directory'), [
+            {'url': 'https://www.tutorhunt.com/users/jane/', 'anchor': 'Jane'},
+            {'url': 'https://www.tutorhunt.com/login.asp', 'anchor': 'Login'}])
+        child = self.queue.claim()
+        self.assertEqual(child['url'], 'https://www.tutorhunt.com/users/jane/')
+        self.complete(child, decision('directory'))
+        self.assertEqual(self.queue.summary()['localProfileCandidates'], 1)
+        self.assertEqual(self.queue.summary()['localTutorDomains'], 0)
+
+    def test_profile_candidates_on_one_directory_are_counted_separately(self):
+        for name in ('jane-smith', 'joe-smith'):
+            row = self.seed('https://tutorperch.com/t/' + name)
+            self.complete(row, decision('directory'))
+        self.assertEqual(self.queue.summary()['localProfileCandidates'], 2)
+        self.assertEqual(self.queue.summary()['localTutorDomains'], 0)
+
+    def test_three_access_denials_hold_host_without_retrying_other_paths(self):
+        for i in range(6):
+            self.queue.add(f'https://blocked.co.uk/tutor/{i}', {'title': 'Tutor'})
+        for _ in range(3):
+            self.queue.hold(self.queue.claim()['key'], 'Go fetch: page status 403', state='error')
+        self.queue.add('https://good.co.uk/', {'title': 'Tutor'})
+        self.assertEqual(self.queue.claim()['site'], 'good.co.uk')
+        self.assertIsNone(self.queue.claim())
+        self.assertEqual(self.queue.summary()['states']['blocked'], 3)
+
+    def test_404_does_not_block_whole_host(self):
+        for i in range(5):
+            self.queue.add(f'https://active.co.uk/tutor/{i}', {'title': 'Tutor'})
+        for _ in range(3):
+            self.queue.hold(self.queue.claim()['key'], 'Go fetch: page status 404', state='error')
+        self.assertIsNotNone(self.queue.claim())
+
+    def test_queue_selection_queries_do_not_grow_with_pending_page_count(self):
+        for i in range(400):
+            self.queue.add(f'https://tutor{i}.co.uk/', {'title': 'Tutor in Amersham'})
+        queries = []
+        self.queue.db.set_trace_callback(queries.append)
+        try:
+            self.assertIsNotNone(self.queue.claim())
+        finally:
+            self.queue.db.set_trace_callback(None)
+        self.assertLess(len(queries), 25)
+
+    def test_concurrent_claims_exclude_active_host(self):
+        self.queue.add('https://solo.co.uk/about', {'title': 'Tutor'})
+        self.queue.add('https://solo.co.uk/contact', {'title': 'Tutor'})
+        self.queue.add('https://other.co.uk/', {'title': 'Tutor'})
+        first = self.queue.claim()
+        second = self.queue.claim(exclude_sites={first['site']})
+        self.assertNotEqual(first['site'], second['site'])
+
+    def test_missing_link_url_does_not_stop_expansion(self):
+        row = self.seed()
+        self.complete(row, links=[{'anchor': 'Tutor'}, {'url': row['url']+'about', 'anchor': 'About'}])
+        self.assertIsNotNone(self.queue.claim())
+
+    def test_audited_profile_urls_are_skipped_without_losing_existing_evidence(self):
+        url = 'https://tutorperch.com/t/jane-smith'
+        self.queue.add(url, {'title': 'Tutor'})
+        self.queue.known_profiles = frozenset({'tutorperch.com/t/jane-smith'})
+        self.assertIsNone(self.queue.claim())
+        self.assertEqual(self.queue.summary()['states'], {'known': 1})
+        self.queue.known_profiles = frozenset({'tutorperch.com/t/jane-smith', 'tutorperch.com/t/joe-smith'})
+        self.assertIsNone(self.queue.add('https://tutorperch.com/t/joe-smith', {'title': 'Tutor'}))
+
+    def test_county_service_claim_does_not_require_one_particular_town(self):
+        row = self.seed()
+        self.queue.complete(row['key'], {'text': 'I offer private maths tuition across Buckinghamshire.', 'links': []}, decision())
+        self.assertEqual(self.queue.summary()['localTutorDomains'], 1)
+
+    def test_url_locality_without_page_text_is_not_accepted(self):
+        row = self.seed('https://solo.co.uk/buckinghamshire/')
+        self.queue.complete(row['key'], {'text': 'I offer private maths tuition.', 'links': []}, decision())
+        self.assertEqual(self.queue.summary()['localTutorDomains'], 0)
+
 
 if __name__ == '__main__': unittest.main()

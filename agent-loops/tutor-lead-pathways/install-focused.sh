@@ -3,6 +3,9 @@ set -euo pipefail
 [[ "$(id -un)" == jamesphoenix ]] || { echo "Install on Mac Studio only." >&2; exit 1; }
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
+if [[ -n "${3:-}" ]]; then
+  ROOT_DIR="$(cd "$3" && pwd)"
+fi
 PYTHON_BIN="$(command -v python3)"
 MODE="${1:?Choose run or watch}"
 STAGE="${2:?Choose a prepared stage}"

@@ -5,13 +5,14 @@ from pathlib import Path
 import sqlite3
 import sys
 import tempfile
+import threading
 import time
 import unittest
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'agent-loops/tutor-lead-pathways'))
 import focused_run
-from decisions_classifier import DecisionsCache
+from decisions_classifier import APIUnavailable, DecisionsCache
 from discovery import atomic_json, file_hash
 from focused_frontier import Frontier, Policy
 from test_decisions_classifier import response
@@ -109,6 +110,78 @@ checkpoint.write_text(json.dumps({'results':[result],'pages':1}))
         self.run_stage()
         result = json.loads((self.stage / 'research-candidates.json').read_text())[0]
         self.assertEqual(len(result['textSha256']), 64)
+
+    def test_fetches_overlap_on_different_hosts(self):
+        self.job['fetchWorkers'] = 2
+        atomic_json(self.stage / 'job.json', self.job)
+        for host in ('first.co.uk', 'second.co.uk'):
+            self.frontier.add('https://' + host + '/', {'title': 'Tutor in Amersham'})
+        barrier = threading.Barrier(2)
+        def overlapping_fetch(job, root, row):
+            barrier.wait(timeout=3)
+            return {'url': row['url'], 'text': 'I tutor in Amersham. ' * 15, 'links': []}
+        with patch('focused_run.fetch', side_effect=overlapping_fetch):
+            self.run_stage()
+        status = json.loads((self.stage / 'status.json').read_text())
+        self.assertEqual(status['states'], {'classified': 2})
+
+    def test_continuation_preserves_lineage_decisions_errors_and_old_deadline(self):
+        self.frontier.add('https://good.co.uk/', {'title': 'Tutor in Amersham'})
+        self.frontier.add('https://broken.co.uk/', {'title': 'Tutor in Amersham'})
+        self.run_stage()
+        old_job = (self.stage / 'job.json').read_bytes()
+        new_stage = self.root / 'continuation'
+        new_stage.mkdir()
+        policy = Policy(['Amersham'], max_pages=10000, directory_per_site=2000)
+        copied = focused_run.carry_frontier(new_stage, self.stage, policy, self.cache.path)
+        continued = Frontier(new_stage / 'frontier.sqlite', policy)
+        try:
+            self.assertEqual(continued.summary()['attempts'], 2)
+            self.assertEqual(continued.summary()['states'], {'classified': 1, 'error': 1})
+            self.assertEqual(copied['initialAttempts'], 2)
+            self.assertEqual((self.stage / 'job.json').read_bytes(), old_job)
+            self.assertIsNotNone(continued.db.execute('SELECT decision FROM pages WHERE state=\'classified\'').fetchone()[0])
+        finally:
+            continued.close()
+
+    def test_active_stage_cannot_be_cloned(self):
+        new_stage = self.root / 'continuation'
+        new_stage.mkdir()
+        with self.assertRaises(ValueError):
+            focused_run.carry_frontier(new_stage, self.stage, self.policy, self.cache.path)
+
+    def test_api_failure_stops_submissions_and_keeps_other_fetched_evidence(self):
+        self.job['fetchWorkers'] = 2
+        atomic_json(self.stage / 'job.json', self.job)
+        for host in ('first.co.uk', 'second.co.uk'):
+            self.frontier.add('https://' + host + '/', {'title': 'Tutor in Amersham'})
+        with patch.object(self.cache, 'classify', side_effect=APIUnavailable('API unavailable')) as classify:
+            self.run_stage()
+        self.assertEqual(classify.call_count, 1)
+        status = json.loads((self.stage / 'status.json').read_text())
+        self.assertEqual(status['status'], 'api_unavailable')
+        self.assertEqual(status['states'], {'held': 2})
+        self.assertEqual(self.frontier.db.execute('SELECT count(*) FROM pages WHERE evidence IS NOT NULL').fetchone()[0], 2)
+
+    def test_slow_host_does_not_block_next_page_on_a_fast_host(self):
+        self.job['fetchWorkers'] = 2
+        atomic_json(self.stage / 'job.json', self.job)
+        for url in ('https://slow.co.uk/', 'https://fast.co.uk/about', 'https://fast.co.uk/contact'):
+            self.frontier.add(url, {'title': 'Tutor in Amersham'})
+        fast_finished = threading.Event()
+        fast_calls = []
+        def fetch(job, root, row):
+            if row['site'] == 'slow.co.uk':
+                if not fast_finished.wait(timeout=5):
+                    raise ValueError('Slow host blocked the second fast page')
+            else:
+                fast_calls.append(row['url'])
+                if len(fast_calls) == 2:
+                    fast_finished.set()
+            return {'url': row['url'], 'text': 'I tutor in Amersham. ' * 15, 'links': []}
+        with patch('focused_run.fetch', side_effect=fetch):
+            self.run_stage()
+        self.assertEqual(json.loads((self.stage / 'status.json').read_text())['states'], {'classified': 3})
 
 
 if __name__ == '__main__': unittest.main()

@@ -37,7 +37,12 @@
       "install": {
         "kind": "command",
         "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
-        "command": ["bash", "agent-loops/tutor-lead-pathways/install-directory-profiles.sh", "run", "bucks-private-tutors-20261011-extension-1"]
+        "command": [
+          "bash",
+          "agent-loops/tutor-lead-pathways/install-directory-profiles.sh",
+          "run",
+          "bucks-private-tutors-20261011-extension-1"
+        ]
       },
       "notes": "Prepare only after the original profile stage is terminal. Preserve its immutable job, limits and evidence. Reuse hash-verified cached successful and failed GET observations in the new stage. Pursue the user's one-thousand-person goal after holding possible duplicates and ambiguous localities. No provider spending, contact unlocks, accounts, messages, purchases or tenant imports."
     },
@@ -53,7 +58,12 @@
       "install": {
         "kind": "command",
         "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
-        "command": ["bash", "agent-loops/tutor-lead-pathways/install-directory-profiles.sh", "watch", "bucks-private-tutors-20261011-extension-1"]
+        "command": [
+          "bash",
+          "agent-loops/tutor-lead-pathways/install-directory-profiles.sh",
+          "watch",
+          "bucks-private-tutors-20261011-extension-1"
+        ]
       },
       "notes": "Same read-only process and checkpoint checks as the original profile stage, at most three registered recovery requests without killing owners. No paid calls. A raw source-profile target does not complete the user's distinct private-tutor goal."
     },
@@ -69,7 +79,11 @@
       "install": {
         "kind": "command",
         "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
-        "command": ["bash", "agent-loops/tutor-lead-pathways/install-directory-profiles.sh", "watch"]
+        "command": [
+          "bash",
+          "agent-loops/tutor-lead-pathways/install-directory-profiles.sh",
+          "watch"
+        ]
       },
       "notes": "User requested fifteen-minute monitoring. Read-only progress and actual process checks, at most three registered recovery requests without killing owners. No paid calls. A stage ending below one thousand does not complete the discovery goal."
     },
@@ -85,7 +99,10 @@
       "install": {
         "kind": "command",
         "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
-        "command": ["bash", "agent-loops/tutor-lead-pathways/install-directory-profiles.sh"]
+        "command": [
+          "bash",
+          "agent-loops/tutor-lead-pathways/install-directory-profiles.sh"
+        ]
       },
       "notes": "User authorised 11 October 2026: pursue at least one thousand private tutors in Buckinghamshire across subjects, excluding institutions. This stage collects public professional profiles without provider spending. Cache successful and failed GET observations by SHA256, obey source robots rules, retain tutor IDs and advertised tuition locality. Never equate directory headline totals with local people. No accounts, contact unlock purchases, outreach or tenant imports."
     },
@@ -662,6 +679,50 @@
         ]
       },
       "notes": "Existing Maps/organic URL seeds and cached Go evidence. Relevance and unique-domain yield ranking; fifteen-site branches, two external hops. OpenAI Decisions classification USD3 cap within original USD100 allowance; USD43 uncertain DataForSEO holds retained. No new DataForSEO calls or outreach. Cleanup retains evidence, shared caches and exports."
+    },
+    {
+      "id": "tutor-focused-20261013-1",
+      "name": "Tutor discovery continuation",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.tutor-focused-20261013-1",
+      "schedule": "finite six-hour stage",
+      "requiresOpServiceAccount": true,
+      "opServiceAccountSource": "profile-or-keychain",
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
+        "command": [
+          "bash",
+          ".worktrees/tutor-continuation-20261013/agent-loops/tutor-lead-pathways/install-focused.sh",
+          "run",
+          "tutor-focused-20261013-1",
+          "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts"
+        ]
+      },
+      "notes": "Authorised continuation of the completed six-hour stage, preserving its evidence, lineage and all paid holds. Four concurrent hosts, profile-first ranking, 2000 pages per known directory, access-denied host holds, and separate unaudited profile/domain counts. Same shared Decisions cache and original USD100 cap; no new DataForSEO calls. Fifteen-minute health checks and terminal scratch cleanup."
+    },
+    {
+      "id": "tutor-focused-20261013-1-watch",
+      "name": "Tutor discovery continuation health checks",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.tutor-focused-20261013-1-watch",
+      "schedule": "every fifteen minutes until the finite stage ends",
+      "requiresOpServiceAccount": false,
+      "opServiceAccountSource": null,
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
+        "command": [
+          "bash",
+          ".worktrees/tutor-continuation-20261013/agent-loops/tutor-lead-pathways/install-focused.sh",
+          "watch",
+          "tutor-focused-20261013-1",
+          "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts"
+        ]
+      },
+      "notes": "Authorised continuation of the completed six-hour stage, preserving its evidence, lineage and all paid holds. Four concurrent hosts, profile-first ranking, 2000 pages per known directory, access-denied host holds, and separate unaudited profile/domain counts. Same shared Decisions cache and original USD100 cap; no new DataForSEO calls. Fifteen-minute health checks and terminal scratch cleanup."
     }
   ]
 }

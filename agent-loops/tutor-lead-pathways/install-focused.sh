@@ -27,9 +27,9 @@ scripts=pathlib.Path(job['sourceDir'])
 assert 0 < job['classificationCapNano'] <= 3_000_000_000
 assert job['priorExposureCents'] * 10_000_000 + job['classificationCapNano'] <= 100_000_000_000
 assert all((scripts/f).is_file() for f in ['focused_run.py','focused.zsh','focused_frontier.py','decisions_classifier.py'])
-value={'Label':label,'ProgramArguments':['/bin/zsh',str(scripts/'focused.zsh'),root,sys.executable,'--run-dir',state],
+value={'Label':label,'ProgramArguments':['/bin/zsh','-f',str(scripts/'focused.zsh'),root,sys.executable,'--run-dir',state],
        'WorkingDirectory':root,'RunAtLoad':True,'KeepAlive':{'SuccessfulExit':False},'ThrottleInterval':120,
-       'ProcessType':'Background','StandardOutPath':state+'/stdout.log','StandardErrorPath':state+'/stderr.log',
+       'ProcessType':'Adaptive','StandardOutPath':state+'/stdout.log','StandardErrorPath':state+'/stderr.log',
        'EnvironmentVariables':{'PATH':'/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin','PYTHONUNBUFFERED':'1'}}
 if mode=='watch':
  value['ProgramArguments']=[sys.executable,str(scripts/'focused_run.py'),'watch','--run-dir',state,

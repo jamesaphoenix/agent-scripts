@@ -107,6 +107,34 @@ class HygieneTests(unittest.TestCase):
                     hygiene.main()
             self.assertIn('already running',output.getvalue())
 
+    def run_main_in_fixture(self, **patches):
+        with tempfile.TemporaryDirectory() as name:
+            root=Path(name)
+            with mock.patch.object(hygiene,'ROOT',root), mock.patch('sys.argv',['maintenance.py','--state-dir',str(root/'reports')]), contextlib.ExitStack() as stack, contextlib.redirect_stdout(io.StringIO()) as output:
+                for target,value in patches.items():stack.enter_context(mock.patch.object(hygiene,target,value))
+                code=0
+                try:hygiene.main()
+                except SystemExit as exit:code=exit.code
+            return code,output.getvalue()
+
+    def test_overloaded_host_defers_without_inspecting_or_mutating(self):
+        code,output=self.run_main_in_fixture(host_overloaded=mock.Mock(return_value=(120.0,16)),snapshot=mock.Mock(side_effect=AssertionError('Deferred run must not inspect or mutate')))
+        self.assertEqual(code,0)
+        self.assertIn('Deferred',output)
+
+    def test_inventory_timeout_refuses_cleanly_with_tempfail(self):
+        timeout=subprocess.TimeoutExpired(['docker','context','ls'],60)
+        code,output=self.run_main_in_fixture(host_overloaded=mock.Mock(return_value=None),snapshot=mock.Mock(side_effect=timeout))
+        self.assertEqual(code,75)
+        self.assertIn('Refused this run',output)
+        self.assertIn('docker context ls',output)
+
+    def test_overload_threshold_scales_with_cpu_count(self):
+        with mock.patch.object(hygiene.os,'getloadavg',return_value=(47.0,0,0)), mock.patch.object(hygiene.os,'cpu_count',return_value=16):
+            self.assertIsNone(hygiene.host_overloaded())
+        with mock.patch.object(hygiene.os,'getloadavg',return_value=(49.0,0,0)), mock.patch.object(hygiene.os,'cpu_count',return_value=16):
+            self.assertEqual(hygiene.host_overloaded(),(49.0,16))
+
     def test_storage_flag_supports_both_cli_generations(self):
         helper=ROOT/'agent-loops/docker-cleanup/lib/cache-storage-flag.sh'
         for expected in ('--max-used-space','--keep-storage'):

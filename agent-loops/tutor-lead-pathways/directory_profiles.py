@@ -180,8 +180,15 @@ def named_section(document, heading):
 
 
 def locality_status(value):
-    primary = value.split(",", 1)[0].strip().lower()
+    primary = ' '.join(value.split(",", 1)[0].casefold().split())
+    primary = re.sub(r'\bst\.(?=\s)', 'st', primary)
     if primary in BUCKS or primary in ("buckinghamshire", "bucks", "milton keynes (buckinghamshire)"):
+        return "advertised_bucks_locality"
+    # Some own headers omit the comma or qualify a town with Milton Keynes.
+    # Recognise the same known local town, never a later nearby place in a list.
+    qualified = re.fullmatch(r'(.+?)\s+(?:\((buckinghamshire|bucks|milton keynes)\)|'
+                             r'(buckinghamshire|bucks|milton keynes))', primary)
+    if qualified and qualified[1] in BUCKS:
         return "advertised_bucks_locality"
     if re.fullmatch(r"(?:[a-z -]+) \(buckinghamshire\)", primary):
         return "advertised_bucks_locality"

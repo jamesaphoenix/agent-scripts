@@ -136,6 +136,19 @@ class ProfileTests(unittest.TestCase):
         for town in ["Westcroft", "Crownhill", "Brill", "Walters Ash", "Old Haversham"]:
             self.assertEqual(directory.locality_status(town), "outside_or_unresolved")
 
+    def test_own_locality_formats_preserve_explicit_region_and_saint_abbreviation(self):
+        for value in ["Denham Buckinghamshire", "Denham Bucks", "Wolverton (Milton Keynes)",
+                      "Wolverton Milton Keynes, Abbey Hill, Bradwell", "Chalfont St. Giles",
+                      "Chalfont St. Peter, Buckinghamshire", "  Denham   Buckinghamshire  "]:
+            with self.subTest(value=value):
+                self.assertEqual(directory.locality_status(value), "advertised_bucks_locality")
+        # A nearby town elsewhere in a list never establishes the primary locality.
+        for value in ["London, Wolverton (Milton Keynes)", "Uxbridge, Denham Buckinghamshire",
+                      "Wolverton Northamptonshire", "Denham Suffolk", "Oxford Buckinghamshire",
+                      "London Milton Keynes", "Bourne End", "Lane End", "Halton", "Wing", "Calverton"]:
+            with self.subTest(value=value):
+                self.assertEqual(directory.locality_status(value), "outside_or_unresolved")
+
     def test_academic_subject_categories_include_art_and_school_tuition(self):
         for subject in ["Contemporary Art", "After-school tuition", "Secondary school", "Theology", "Anatomy", "Polish"]:
             self.assertIsNone(directory.exclusion_reason({"name": "Jane Example", "services": [subject]}))

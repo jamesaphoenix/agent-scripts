@@ -48,6 +48,11 @@ town is evidenced in another authority. Initial checks cover Leighton Buzzard,
 Linslade and Wicken, with council references alongside the rules. Existing cached
 records receive the same check at export time.
 
+Own locality headers can omit a comma before Buckinghamshire or qualify a known
+town with Milton Keynes. The locality check accepts those formats and `St.`
+abbreviations while retaining the original source text. A later nearby town in a
+list cannot establish the primary locality. Bare ambiguous places remain held.
+
 ## Public PDF adverts
 
 `pdf_adverts.py` inspects an already cached public newsletter. It makes no network

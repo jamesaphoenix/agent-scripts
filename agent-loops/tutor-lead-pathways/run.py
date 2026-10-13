@@ -15,7 +15,7 @@ import sqlite3
 import subprocess
 import time
 
-from configuration import launchd_settings
+from configuration import launchd_settings, campaign_window
 
 from discovery import (UTC, PaidCache, atomic_json, collect_records, file_hash, hold_reason,
                        merge_businesses, now_iso, parse_time, provider_request,
@@ -41,14 +41,21 @@ def initialize_job(root):
             if job.get(key) != value:
                 raise ValueError("Original job manifest changed: " + key)
     else:
-        started = datetime.datetime.now(UTC)
-        job = dict(manifest, startedAt=started.isoformat(), deadline=(started + datetime.timedelta(hours=6)).isoformat(),
-                   discoveryDeadline=(started + datetime.timedelta(hours=5, minutes=45)).isoformat())
+        started, deadline, cutoff = campaign_window(manifest)
+        job = dict(manifest, startedAt=started.isoformat(), deadline=deadline.isoformat(), discoveryDeadline=cutoff.isoformat())
         atomic_json(root / "job.json", job)
-    if parse_time(job["deadline"]) - parse_time(job["startedAt"]) != datetime.timedelta(hours=6):
-        raise ValueError("Original six-hour window changed")
-    if parse_time(job["discoveryDeadline"]) - parse_time(job["startedAt"]) != datetime.timedelta(hours=5, minutes=45):
+    if manifest.get('authorizationSha256') and file_hash(root / 'authorization.json') != manifest['authorizationSha256']:
+        raise ValueError('Original campaign authorization changed')
+    if manifest.get('crawlerSha256') and file_hash(Path(manifest['crawlerBinary'])) != manifest['crawlerSha256']:
+        raise ValueError('Reviewed crawler binary changed')
+    if parse_time(job["deadline"]) - parse_time(job["startedAt"]) != datetime.timedelta(hours=job.get('hours', 6)):
+        raise ValueError("Original research window changed")
+    if parse_time(job["deadline"]) - parse_time(job["discoveryDeadline"]) != datetime.timedelta(minutes=15):
         raise ValueError("Original paid research cutoff changed")
+    if job.get('hours') == 12:
+        campaign_window(manifest)
+        if job['startedAt'] != manifest['authorizedStartedAt'] or job['deadline'] != manifest['authorizedDeadline']:
+            raise ValueError('Restart changed the request-anchored window')
     validate_plan(root, job)
     crawl_limits(job)
     launchd_settings(job)
@@ -144,7 +151,20 @@ def next_query(lane, plan, cache, state):
     counts = collections.Counter(group(item) for item in plan if item['lane'] == lane and item['key'] in completed)
     choices = [item for item in plan if item['lane'] == lane]
     if any('tactic' in item for item in choices):
-        choices.sort(key=lambda item: counts[group(item)])
+        feedback = state.get('tacticFeedback', {}) if state.get('adaptiveTactics') else {}
+        def measured_priority(item):
+            name = group(item)
+            observed = feedback.get(name, {})
+            attempts = observed.get('requests', 0)
+            # Explore every group before following observed yield. A query URL
+            # is a provisional reward until the identity audit can attribute it.
+            if attempts < 3:
+                return (0, counts[name], 0)
+            contacts = observed.get('auditedNewIdentitiesAttributed', 0)
+            reward = contacts * 10 + observed.get('newResultUrls', 0) * .02
+            cost = max(1, observed.get('chargedCents', 0))
+            return (1, -reward / cost, counts[name])
+        choices.sort(key=measured_priority if feedback else lambda item: counts[group(item)])
     for item in choices:
         if item["lane"] != lane or item["key"] in completed:
             continue
@@ -164,6 +184,30 @@ def next_query(lane, plan, cache, state):
             continue
         return item
     return None
+
+
+def sdk_query_supplements(root, job, cache):
+    """Model suggestions become bounded data, with approved geography attached."""
+    queries = []
+    seen = set()
+    for path in sorted((root / 'sdk/results').glob('slot-*.json')):
+        for keyword in json.loads(path.read_text()).get('nextQueries', [])[:12]:
+            if (not isinstance(keyword, str) or not 3 <= len(keyword) <= 700 or
+                    re.search(r'[\x00-\x1f]|https?://', keyword) or
+                    not re.search(r'\btutor\w*\b|\btuition\b|\b11[ +%-]|\beleven plus\b', keyword, re.I)):
+                continue
+            town = next((town for town in job['towns'] if re.search(r'\b' + re.escape(town['name']) + r'\b', keyword, re.I)), None)
+            if not town:
+                continue
+            payload = {'keyword': keyword.replace('11+', '11%2B'), 'location_coordinate': town['coordinate'] + ',200',
+                       'language_code': 'en', 'se_domain': 'google.co.uk', 'depth': 30}
+            lane = 'directories' if 'site:' in keyword else 'organic'
+            key = request_key(lane, payload)
+            if key not in seen:
+                seen.add(key)
+                queries.append({'lane': lane, 'town': town['name'], 'tactic': 'sdk_expansion',
+                                'key': key, 'payload': payload, 'sdkResultSha256': file_hash(path)})
+    return queries
 
 
 def provider_is_failure(response, row):
@@ -396,10 +440,11 @@ def run(root):
         cache.recover_interrupted()
         state = load_runtime(root, job)
         if state["phase"] == "complete":
-            print("Original six-hour run is already complete")
+            print("Original research run is already complete")
             return
         state["pid"] = os.getpid()
         state["phase"] = "running"
+        state['adaptiveTactics'] = job.get('adaptiveTactics', False)
         plan = json.loads((root / "plan.json").read_text())
         intervals = request_intervals(job)
         original_deadline = parse_time(job["deadline"]).timestamp()
@@ -445,11 +490,16 @@ def run(root):
                 except (OSError, ValueError, subprocess.SubprocessError) as error:
                     save_error(state, "crawler", error)
             due = [lane for lane in INTERVALS if current >= state["nextDue"][lane]]
+            if cache.usage()['remainingCents'] < 100:
+                for lane in due:
+                    state['nextDue'][lane] = paid_deadline
+                due = []
             if due:
                 lane = min(due, key=lambda name: state["nextDue"][name])
                 selection_failed = False
                 try:
-                    item = next_query(lane, plan, cache, state)
+                    supplementary = sdk_query_supplements(root, job, cache) if job.get('adaptiveTactics') else []
+                    item = next_query(lane, plan + supplementary, cache, state)
                 except (OSError, ValueError, sqlite3.Error) as error:
                     save_error(state, lane, error)
                     state["nextDue"][lane] = time.time() + 900
@@ -489,7 +539,8 @@ def run(root):
                 if job.get("strategy") == "expansion":
                     try:
                         from expansion_metrics import write_metrics
-                        write_metrics(root, cache, plan)
+                        measured = write_metrics(root, cache, plan + sdk_query_supplements(root, job, cache))
+                        state['tacticFeedback'] = measured['tactics']
                         if job.get("profileRunDir"):
                             from profile_seeds import write_seed_batch
                             write_seed_batch(root, Path(job["profileRunDir"]), cache)
@@ -538,7 +589,7 @@ def run(root):
 
 def final_report(root, job, cache, state, summary, cleaning):
     sdk = json.loads((root / "sdk/status.json").read_text()) if (root / "sdk/status.json").exists() else {}
-    lines = ["# Six-hour Buckinghamshire tutor discovery", "", "Original start: " + job["startedAt"],
+    lines = [f"# {job.get('hours', 6)}-hour Buckinghamshire tutor discovery", "", "Original start: " + job["startedAt"],
              "Original deadline: " + job["deadline"], "", "## Results", "",
              f"- {summary['businessIdentities']} deduplicated business/research identities; {summary['research']} research and {summary['held']} held.",
              "- These are research records, not an asserted count of qualified independent 11+ tutors.",

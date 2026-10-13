@@ -9,6 +9,7 @@ from discovery import atomic_json, file_hash, now_iso
 
 def classify_delta(baseline, current):
     member_keys = {k for r in baseline for k in r.get('memberKeys', [r['canonicalId']])}
+    source_urls = {url.rstrip('/') for row in baseline for url in row.get('sourceUrls', [])}
     def names(row):
         return set(row.get('aliases', [])) | {normalize_name(row['name'])}
     def possible_match(row):
@@ -23,7 +24,7 @@ def classify_delta(baseline, current):
         if row.get('outreachEligible'):
             raise ValueError('Research export cannot grant outreach eligibility')
         members = set(row.get('memberKeys', [row['canonicalId']]))
-        if members & member_keys:
+        if members & member_keys or any(url.rstrip('/') in source_urls for url in row.get('sourceUrls', [])):
             result['known'].append(row)
         elif possible_match(row):
             result['needsReview'].append(dict(row, deltaHoldReason='possible_baseline_name_match'))

@@ -2,7 +2,7 @@
 set -euo pipefail
 [[ "$(id -un)" == "jamesphoenix" ]] || { echo "Install this task on Mac Studio only." >&2; exit 1; }
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ROOT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
+ROOT_DIR="${3:-$(cd "$SCRIPT_DIR/../.." && pwd)}"
 PYTHON_BIN="$(command -v python3)"
 [[ "$PYTHON_BIN" == /* && -x "$PYTHON_BIN" ]] || { echo "An installed Python 3 interpreter is required." >&2; exit 1; }
 MODE="${1:-run}"
@@ -29,8 +29,8 @@ if job_path.exists():
  hours=(job["deadlineUnix"]-datetime.datetime.fromisoformat(job["startedAt"]).timestamp())/3600
  pages,target=job["pageLimit"],job["target"]
  # Earlier prepared jobs used two clock reads, differing by microseconds.
- assert 0<hours<=6+1/3600000 and 1<=pages<=10000 and 1<=target<=5000
- hours=min(hours,6)
+ assert 0<hours<=12+1/3600000 and 1<=pages<=20000 and 1<=target<=5000
+ hours=min(hours,12)
 value={"Label":label,"ProgramArguments":[sys.executable,scripts+"/directory_profiles.py",
        "--run-dir",state,"--hours",str(hours),"--pages",str(pages),"--target",str(target),
        "--seed","https://www.findtutors.co.uk/buckinghamshire-tutors/",

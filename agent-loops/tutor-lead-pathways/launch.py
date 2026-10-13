@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Resolve only the required 1Password credentials with bounded CLI reads."""
 import argparse
+import datetime
+import json
 import os
 from pathlib import Path
 import subprocess
@@ -40,6 +42,11 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--run-dir", type=Path, default=root / "state/tutor-lead-pathways-20261011")
     args = parser.parse_args()
+    manifest = json.loads((args.run_dir / 'manifest.json').read_text())
+    deadline = manifest.get('authorizedDeadline')
+    if deadline and datetime.datetime.now(datetime.timezone.utc) >= datetime.datetime.fromisoformat(deadline):
+        print('Original campaign deadline reached; no credential read or restart')
+        raise SystemExit(0)
     try:
         environment = runner_environment(os.environ)
     except (RuntimeError, OSError, subprocess.TimeoutExpired) as error:

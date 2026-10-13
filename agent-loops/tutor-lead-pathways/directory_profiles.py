@@ -709,7 +709,7 @@ def run(root, seeds, hours, page_limit, target):
             save(state_path, state)
             save(root / "status.json", {"observedAt": now(), "pid": os.getpid(), "phase": "running", "attempts": state["attempts"], "queue": len(state["queue"]),
                                         "namedProfiles": len(profiles), "bucksPrivateProfiles": len(qualified), "errors": len(state["errors"]), "paidCostUsd": 0})
-            if len(qualified) >= job["target"]:
+            if len(qualified) >= job["target"] and not job.get('continueUntilDeadline'):
                 break
         state["phase"] = "stage_complete"
         save(state_path, state)
@@ -727,6 +727,6 @@ if __name__ == "__main__":
     parser.add_argument("--pages", type=int, default=5000)
     parser.add_argument("--target", type=int, default=1000)
     args = parser.parse_args()
-    if not 0 < args.hours <= 6 or not 1 <= args.pages <= 10000 or not 1 <= args.target <= 5000:
-        parser.error("Choose a bounded stage: up to six hours and ten thousand pages")
+    if not 0 < args.hours <= 12 or not 1 <= args.pages <= 20000 or not 1 <= args.target <= 5000:
+        parser.error("Choose a bounded stage: up to twelve hours and twenty thousand pages")
     run(args.run_dir, args.seed, args.hours, args.pages, args.target)

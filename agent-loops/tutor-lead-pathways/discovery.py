@@ -139,7 +139,8 @@ class PaidCache:
                 "sharedExposureCents": self.prior_cents + spent + reserved + uncertain,
                 "succeeded": sum(r["status"] == "succeeded" for r in rows),
                 "failed": sum(r["status"] == "failed" for r in rows),
-                "importedReceipts": self.db.execute("SELECT count(*) FROM requests WHERE imported=1").fetchone()[0]}
+                "importedReceipts": self.db.execute("SELECT count(*) FROM requests WHERE imported=1 AND receipt IS NOT NULL").fetchone()[0],
+                "importedUnsettledRequests": self.db.execute("SELECT count(*) FROM requests WHERE imported=1 AND status='uncertain'").fetchone()[0]}
 
     def get(self, key):
         row = self.db.execute("SELECT * FROM requests WHERE key=?", (key,)).fetchone()
@@ -178,6 +179,8 @@ class PaidCache:
             task = tasks[0]
             if not cost.is_finite() or cost < 0 or cost > 10000 or Decimal(str(task["cost"])) != cost:
                 raise ValueError("Paid task cost mismatch")
+            if cost * 100 > row['reservation']:
+                raise ValueError('Paid charge exceeded the reviewed reservation')
         except (KeyError, TypeError, ArithmeticError) as error:
             raise ValueError("Paid cost cannot be verified") from error
         receipt = self.root / "receipts" / (key + ".json")
@@ -215,6 +218,15 @@ class PaidCache:
         status = "succeeded" if envelope.get("status_code") == 20000 and task.get("status_code") in (20000, 40106) else "failed"
         self.db.execute("INSERT INTO requests(key,lane,payload,status,reservation,task_id,receipt,receipt_hash,imported,created_at,updated_at) VALUES(?,?,?,?,0,?,?,?,1,?,?)",
                         (key, lane, json.dumps(payload, sort_keys=True), status, task["id"], str(receipt), file_hash(receipt), now_iso(), now_iso()))
+        self.db.commit()
+
+    def import_unsettled(self, lane, payload, reason):
+        """The inherited exposure includes this hold. Preserve its no-repeat identity."""
+        key = request_key(lane, payload)
+        if self.get(key):
+            return
+        self.db.execute("INSERT INTO requests(key,lane,payload,status,reservation,error,imported,created_at,updated_at) VALUES(?,?,?,'uncertain',0,?,1,?,?)",
+                        (key, lane, json.dumps(payload, sort_keys=True), reason[:250], now_iso(), now_iso()))
         self.db.commit()
 
     def receipt(self, row):

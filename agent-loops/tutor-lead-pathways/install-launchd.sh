@@ -2,7 +2,7 @@
 set -euo pipefail
 [[ "$(id -un)" == "jamesphoenix" ]] || { echo "Install this task on the Mac Studio only." >&2; exit 1; }
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ROOT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
+ROOT_DIR="${3:-$(cd "$SCRIPT_DIR/../.." && pwd)}"
 PYTHON_BIN="$(command -v python3)"
 [[ "$PYTHON_BIN" == /* && -x "$PYTHON_BIN" ]] || { echo "An installed Python 3 interpreter is required." >&2; exit 1; }
 RUN_NAME="${2:-tutor-lead-pathways-20261011}"

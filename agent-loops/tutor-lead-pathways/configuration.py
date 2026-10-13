@@ -1,5 +1,23 @@
 """Validate the finite job's registered owner, monitor and observation schedule."""
 import re
+import datetime
+
+
+def campaign_window(manifest):
+    """New windows are request-anchored; legacy runs keep their six-hour contract."""
+    hours = manifest.get('hours', 6)
+    if type(hours) is not int or hours not in (6, 12):
+        raise ValueError('Choose a six-hour or explicitly authorised twelve-hour window')
+    supplied = manifest.get('authorizedStartedAt'), manifest.get('authorizedDeadline')
+    if hours == 12 and not all(supplied):
+        raise ValueError('Twelve-hour stages require the original request and deadline')
+    if any(supplied) and not all(supplied):
+        raise ValueError('Both original timestamps are required')
+    start = datetime.datetime.fromisoformat(supplied[0]) if supplied[0] else datetime.datetime.now(datetime.timezone.utc)
+    deadline = datetime.datetime.fromisoformat(supplied[1]) if supplied[1] else start + datetime.timedelta(hours=hours)
+    if start.tzinfo is None or deadline.tzinfo is None or deadline - start != datetime.timedelta(hours=hours):
+        raise ValueError('Original authorised duration changed')
+    return start, deadline, deadline - datetime.timedelta(minutes=15)
 
 
 def launchd_settings(manifest):

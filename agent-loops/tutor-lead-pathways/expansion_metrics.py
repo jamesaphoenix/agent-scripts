@@ -3,7 +3,7 @@ import argparse
 import collections
 import json
 from pathlib import Path
-from discovery import PaidCache, atomic_json, now_iso, public_url
+from discovery import PaidCache, atomic_json, now_iso, public_url, website_key
 
 
 def result_urls(response):
@@ -32,6 +32,19 @@ def metrics(root, cache, plan):
         if row['imported'] and row['receipt']:
             inherited.update(result_urls(cache.receipt(row)))
     by_key = {r['key']: r for r in plan}
+    audited_sources = {}
+    manifest_path = root / 'manifest.json'
+    if manifest_path.exists():
+        profile_root = json.loads(manifest_path.read_text()).get('profileRunDir')
+        review = Path(profile_root) / 'review/latest-expansion.json' if profile_root else None
+        if review and review.exists():
+            audit = json.loads(review.read_text())
+            delta = Path(audit['outputDirectory']) / 'this-stage-delta/new.json'
+            if delta.exists():
+                for person in json.loads(delta.read_text()):
+                    for url in person.get('sourceUrls', []):
+                        audited_sources[website_key(url)] = person['canonicalId']
+    accepted = collections.defaultdict(set)
     totals = collections.defaultdict(lambda: {'requests': 0, 'successfulRequests': 0, 'failedRequests': 0,
         'uncertainRequests': 0, 'emptySuccessfulRequests': 0, 'newResultUrls': 0, 'chargedCents': 0})
     observed = set(inherited)
@@ -43,6 +56,7 @@ def metrics(root, cache, plan):
         item['requests'] += 1
         item['chargedCents'] += row['cost_cents']
         urls = result_urls(cache.receipt(row)) if row['receipt'] else set()
+        accepted[tactic].update(audited_sources[key] for url in urls if (key := website_key(url)) in audited_sources)
         item['newResultUrls'] += len(urls - observed)
         observed.update(urls)
         if row['status'] == 'succeeded':
@@ -52,11 +66,13 @@ def metrics(root, cache, plan):
             item['failedRequests'] += 1
         else:
             item['uncertainRequests'] += 1
-    for item in totals.values():
+    for tactic, item in totals.items():
         settled = item['successfulRequests'] + item['failedRequests']
         item['successRate'] = item['successfulRequests'] / settled if settled else None
         item['newUrlsPerRequest'] = item['newResultUrls'] / item['requests']
         item['usdPerNewUrl'] = item['chargedCents'] / 100 / item['newResultUrls'] if item['newResultUrls'] else None
+        item['auditedNewIdentitiesAttributed'] = len(accepted[tactic])
+        item['usdPerAttributedAuditedIdentity'] = item['chargedCents'] / 100 / len(accepted[tactic]) if accepted[tactic] else None
     return {'observedAt': now_iso(), 'tactics': dict(totals), 'budget': cache.usage(),
             'inheritedResultUrls': len(inherited), 'newResultUrls': len(observed - inherited),
             'urlCountsAreVerifiedTutors': False}

@@ -18,8 +18,9 @@ def digest(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def prepare(parent, output, hours, new_pages, target, seed_batch=None, source_run_dir=None):
-    if not 0 < hours <= 6 or not 1 <= new_pages <= 5000 or not 1 <= target <= 5000:
+def prepare(parent, output, hours, new_pages, target, seed_batch=None, source_run_dir=None, requested_start=None):
+    maximum_hours, maximum_pages = (12, 12000) if requested_start else (6, 5000)
+    if not 0 < hours <= maximum_hours or not 1 <= new_pages <= maximum_pages or not 1 <= target <= 5000:
         raise ValueError("Choose bounded duration, additional attempts and target")
     if output.exists():
         raise ValueError("Follow-on stage already exists; resume it without re-preparing")
@@ -34,7 +35,7 @@ def prepare(parent, output, hours, new_pages, target, seed_batch=None, source_ru
         if seed_batch and (seed_batch.stat().st_size > 2 * 1024 * 1024 or digest(seed_batch) != seed_batch.stem):
             raise ValueError("New source seed batch hash changed or exceeded its bound")
         page_limit = state["attempts"] + new_pages
-        if page_limit > 10000:
+        if page_limit > (20000 if requested_start else 10000):
             raise ValueError("Inherited and additional attempts exceed the stage ceiling")
         receipts = []
         for path in sorted((parent / "receipts").glob("*.json")):
@@ -78,7 +79,9 @@ def prepare(parent, output, hours, new_pages, target, seed_batch=None, source_ru
                 import_seed_batches(temporary, state)
             if not state["queue"]:
                 raise ValueError("Follow-on stage has no new public frontier")
-            started = datetime.datetime.now(datetime.timezone.utc)
+            started = requested_start or datetime.datetime.now(datetime.timezone.utc)
+            if started.tzinfo is None:
+                raise ValueError('Original request time must have a timezone')
             job = {"startedAt": started.isoformat(), "deadlineUnix": started.timestamp() + hours * 3600,
                    "pageLimit": page_limit, "initialAttemptCount": state["attempts"], "newAttemptLimit": new_pages,
                    "target": target, "seeds": list(state["queue"]), "paidBudget": 0, "parentStage": provenance,

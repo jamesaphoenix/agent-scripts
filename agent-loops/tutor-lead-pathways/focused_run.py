@@ -61,9 +61,9 @@ def carry_frontier(root, previous, policy, cache):
 
 
 def prepare(root, index_path, cache, crawler, history, hours, pages, sites, source_sha,
-            previous=None, directory_pages=200, workers=1, baseline=None):
+            previous=None, directory_pages=200, workers=1, baseline=None, authorized_deadline=None):
     root = Path(root).resolve()
-    if not 0 < hours <= 6 or not 1 <= workers <= 4 or root.exists():
+    if not 0 < hours <= (12 if authorized_deadline is not None else 6) or not 1 <= workers <= 4 or root.exists():
         raise ValueError('Prepare a new finite stage; never reset an existing deadline')
     history = Path(history).resolve()
     prior = exposure(history / 'paid.sqlite')
@@ -118,7 +118,9 @@ def prepare(root, index_path, cache, crawler, history, hours, pages, sites, sour
                                                             'upstreamUrlKey': row['key']}), row['key']))
                     reused += 1
         started = time.time()
-        job = {'version': 1, 'startedAt': now_iso(), 'deadlineUnix': started + hours * 3600,
+        if authorized_deadline is not None and not started < authorized_deadline <= started + 12 * 3600:
+            raise ValueError('Authorised deadline must remain within the original campaign')
+        job = {'version': 1, 'startedAt': now_iso(), 'deadlineUnix': authorized_deadline if authorized_deadline is not None else started + hours * 3600,
                'policy': policy.__dict__, 'keywordIndex': str(index_path), 'cache': str(Path(cache).resolve()),
                'crawler': str(Path(crawler).resolve()), 'crawlerSha256': file_hash(crawler),
                'paidLedger': str(history / 'paid.sqlite'), 'priorExposureCents': prior,
@@ -336,7 +338,7 @@ def run(root):
             if STOP:
                 state, reason = 'interrupted', 'Checkpoint retained with the original deadline'
             elif time.time() >= job['deadlineUnix']:
-                reason = 'Original six-hour deadline reached'
+                reason = 'Original stage deadline reached'
             export(root, frontier)
             if state != 'interrupted':
                 cleanup(root, frontier)

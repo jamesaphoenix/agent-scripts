@@ -12,6 +12,7 @@ from audit_directory_identities import normalize_name
 from directory_profiles import ACADEMIC, BUCKS, Document, Node, decode_page
 from discovery import atomic_json, clean_emails, file_hash, now_iso, phone_key
 from new_leads import classify_delta
+from pdf_adverts import reviewed_unit as reviewed_pdf_unit
 
 
 def normal(value):
@@ -79,7 +80,9 @@ def verified_contact(root, item):
         raise ValueError('Expected a structured contact review')
     if item.get('manualHoldReason'):
         raise ValueError(item['manualHoldReason'])
-    if item.get('sourceType') == 'council_advert':
+    if item.get('sourceType') == 'pdf_advert':
+        evidence, proof = reviewed_pdf_unit(root, item)
+    elif item.get('sourceType') == 'council_advert':
         source_root = (root / 'public-source-review').resolve(strict=True)
         page = (root / item['page']).resolve(strict=True)
         receipt_path = (root / item['receipt']).resolve(strict=True)
@@ -206,7 +209,8 @@ def verified_contact(root, item):
             **proof, 'unitTextSha256': hashlib.sha256(unit.encode()).hexdigest(),
             **({'contactLink': contact_link} if contact_link else {})}],
         'review': {'reviewer': item['reviewer'], 'reviewedAt': item['reviewedAt'], 'sourceKind': source_kind,
-                   'nameQuote': name_quote, 'localityQuote': local_quote},
+                   'nameQuote': name_quote, 'localityQuote': local_quote,
+                   **({'notes': item['notes']} if item.get('notes') else {})},
         'qualification': 'Reviewed public advert or own-site claims. Availability, ownership and consent unverified.'}
 
 

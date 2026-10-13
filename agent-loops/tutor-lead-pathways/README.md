@@ -48,6 +48,35 @@ town is evidenced in another authority. Initial checks cover Leighton Buzzard,
 Linslade and Wicken, with council references alongside the rules. Existing cached
 records receive the same check at export time.
 
+## Public PDF adverts
+
+`pdf_adverts.py` inspects an already cached public newsletter. It makes no network
+or provider requests. Supply its SHA256 receipt, a one-based PDF page and the
+complete advert rectangle in points at 72 dpi. Poppler (`pdfinfo`, `pdftotext` and
+`pdftoppm`) is required on the authoring and runtime machines.
+
+```bash
+python3 agent-loops/tutor-lead-pathways/pdf_adverts.py \
+  --run-dir state/my-campaign \
+  --pdf state/my-campaign/public-source-review/newsletter.pdf \
+  --receipt state/my-campaign/public-source-review/newsletter.receipt.json \
+  --page 28 --bounds 20 313 380 267 \
+  --output state/my-campaign/public-source-review/tutor-advert
+```
+
+The command saves a PNG and a review template. Inspect the complete advert,
+then add its own name, locality quote, subject claims and advertised contact
+route to `review/public-contact-reviews.json`, together with the reviewer and
+review time. Keep the issue date and any uncertainty in `notes`. A newsletter's
+circulation area does not establish the tutor's own locality.
+
+The campaign watcher replays the receipt, PDF bytes, page rectangle and image
+hash before exporting a contact. It rejects edited text, foreign cache paths
+and contact routes absent from that rectangle. One bad document is held without
+stopping other reviews. Existing identities and the configured subject scope
+still apply. Dated adverts remain research leads with unverified availability;
+no email permission is inferred. There is no automated admission from PDF text.
+
 ## Keyword expansion and upstream classification
 
 `keyword_expansion.py` keeps a shared `state/keyword-search.sqlite` alongside the separate paid

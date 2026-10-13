@@ -5,7 +5,7 @@ import tempfile
 import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'agent-loops/tutor-lead-pathways'))
-from focused_frontier import Frontier, Policy, link_signals
+from focused_frontier import Frontier, Policy, link_signals, site_identity
 
 
 def decision(kind='independent_tutor', niche=.98, local=.95, outside=.01):
@@ -91,6 +91,93 @@ class FrontierTests(unittest.TestCase):
             row = self.seed('https://solo.co.uk' + path)
             self.complete(row)
         self.assertEqual(self.queue.db.execute('SELECT count(*) FROM source_yield').fetchone()[0], 1)
+
+    def test_hosted_tutor_tenants_have_independent_page_allowances(self):
+        for tenant in ('jane', 'joe'):
+            for page in range(10):
+                self.queue.add(f'https://{tenant}.wixsite.com/tuition/page/{page}', {'title': 'Maths tutor'})
+        self.assertEqual(self.queue.summary()['pages'], 16)
+        self.assertEqual(site_identity('https://www.jane.weebly.com/'), 'jane.weebly.com')
+        self.assertEqual(site_identity('https://www.tutorperch.com/t/jane-smith'), 'tutorperch.com')
+        self.assertEqual(site_identity('https://shop.solo.co.uk/'), 'solo.co.uk')
+        self.assertEqual(site_identity('https://wixsite.com/'), 'wixsite.com')
+
+    def test_links_between_hosted_tenants_use_external_branch_limits(self):
+        row = self.seed('https://jane.ueniweb.com/')
+        self.complete(row, links=[{'url': f'https://tutor{i}.ueniweb.com/', 'anchor': 'Private tutor'}
+                                  for i in range(20)])
+        children = self.queue.db.execute('SELECT depth FROM pages WHERE parent=?', (row['key'],)).fetchall()
+        self.assertEqual(len(children), 15)
+        self.assertTrue(all(child['depth'] == 1 for child in children))
+
+    def test_hosted_site_migration_preserves_attempts_evidence_and_yield(self):
+        for tenant in ('jane', 'joe'):
+            row = self.seed(f'https://{tenant}.wixsite.com/')
+            self.complete(row)
+        before = self.queue.summary()['attempts']
+        proofs = self.queue.db.execute('SELECT key,evidence,decision FROM pages ORDER BY key').fetchall()
+        with self.queue.db:
+            self.queue.db.execute("UPDATE pages SET site='wixsite.com'")
+            self.queue.db.execute('DELETE FROM frontier_meta')
+        reopened = Frontier(self.queue.path, self.policy)
+        try:
+            self.assertEqual(reopened.summary()['attempts'], before)
+            self.assertEqual(reopened.db.execute('SELECT key,evidence,decision FROM pages ORDER BY key').fetchall(), proofs)
+            self.assertEqual(reopened.db.execute('SELECT count(*) FROM source_yield').fetchone()[0], 2)
+            self.assertEqual(reopened.summary()['localTutorDomains'], 2)
+            migration = reopened.db.execute("SELECT value FROM frontier_meta WHERE key='site_identity_version'").fetchone()[0]
+            self.assertEqual(json.loads(migration)['changedPages'], 2)
+        finally:
+            reopened.close()
+
+    def test_hosted_site_migration_holds_descendants_beyond_depth_without_resetting_lineage(self):
+        root = self.seed('https://jane.weebly.com/')
+        self.complete(root, links=[{'url': 'https://joe.weebly.com/', 'anchor': 'Tutor'}])
+        child = self.queue.claim()
+        self.complete(child, links=[{'url': 'https://third.co.uk/', 'anchor': 'Tutor'}])
+        third = self.queue.claim()
+        self.complete(third, links=[{'url': 'https://fourth.co.uk/', 'anchor': 'Tutor'}])
+        # The older shared-host identity treated Jane -> Joe as an internal hop.
+        # Reproduce that saved lineage without manufacturing new root IDs.
+        self.queue.add('https://fourth.co.uk/', {'title': 'Tutor'}, parent=dict(third, depth=1))
+        with self.queue.db:
+            self.queue.db.execute("UPDATE pages SET site='weebly.com',depth=0 WHERE site LIKE '%.weebly.com'")
+            self.queue.db.execute("UPDATE pages SET depth=1 WHERE site='third.co.uk'")
+            self.queue.db.execute("UPDATE pages SET depth=2 WHERE site='fourth.co.uk'")
+            self.queue.db.execute('DELETE FROM frontier_meta')
+        reopened = Frontier(self.queue.path, self.policy)
+        try:
+            fourth = reopened.db.execute("SELECT root,parent,depth,state FROM pages WHERE site='fourth.co.uk'").fetchone()
+            self.assertEqual((fourth['root'], fourth['parent'], fourth['depth'], fourth['state']),
+                             (root['key'], third['key'], 3, 'held'))
+            self.assertEqual(reopened.summary()['attempts'], 3)
+            self.assertIsNone(reopened.claim())
+        finally:
+            reopened.close()
+
+    def test_hosted_site_identity_migration_is_idempotent(self):
+        row = self.seed('https://jane.site123.me/')
+        self.complete(row)
+        before = [tuple(r) for r in self.queue.db.execute('SELECT * FROM pages')]
+        reopened = Frontier(self.queue.path, self.policy)
+        try:
+            self.assertEqual([tuple(r) for r in reopened.db.execute('SELECT * FROM pages')], before)
+        finally:
+            reopened.close()
+
+    def test_hosted_tenant_access_denials_do_not_block_other_tenants(self):
+        for i in range(3):
+            self.queue.add(f'https://blocked.weebly.com/page/{i}', {'title': 'Tutor'})
+            row = self.queue.claim()
+            self.queue.hold(row['key'], 'Go fetch: HTTP status 403', state='error')
+        self.queue.add('https://jane.weebly.com/', {'title': 'Tutor'})
+        self.assertEqual(self.queue.claim()['url'], 'https://jane.weebly.com/')
+
+    def test_a_newer_identity_version_cannot_be_downgraded(self):
+        with self.queue.db:
+            self.queue.db.execute("UPDATE frontier_meta SET value=?", (json.dumps({'version': 99}),))
+        with self.assertRaisesRegex(ValueError, 'cannot be downgraded'):
+            Frontier(self.queue.path, self.policy)
 
     def test_six_distinct_failed_domains_stop_recursive_branch(self):
         root = self.seed()

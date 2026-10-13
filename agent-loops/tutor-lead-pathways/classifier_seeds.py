@@ -5,7 +5,7 @@ from pathlib import Path
 
 from discovery import atomic_json, file_hash, now_iso
 from expansion_metrics import result_urls
-from focused_frontier import admitted
+from focused_frontier import SITE_IDENTITY_VERSION, admitted
 
 MAX_BATCH_BYTES = 8 * 1024 * 1024
 
@@ -50,7 +50,8 @@ def publish(root, destinations, cache):
     batches = []
     rows = [entries[url] for url in sorted(entries)]
     for offset in range(0, len(rows), 100):
-        raw = (json.dumps({'entries': rows[offset:offset + 100]}, indent=2, ensure_ascii=False) + '\n').encode()
+        batch = {'siteIdentityVersion': SITE_IDENTITY_VERSION, 'entries': rows[offset:offset + 100]}
+        raw = (json.dumps(batch, indent=2, ensure_ascii=False) + '\n').encode()
         if len(raw) > MAX_BATCH_BYTES:
             raise ValueError('Classifier seed batch exceeds its bound')
         digest = hashlib.sha256(raw).hexdigest()
@@ -59,7 +60,7 @@ def publish(root, destinations, cache):
                 continue
             path = destination / 'seed-batches' / (digest + '.json')
             if not path.exists():
-                atomic_json(path, {'entries': rows[offset:offset + 100]})
+                atomic_json(path, batch)
             if file_hash(path) != digest:
                 raise ValueError('Classifier seed batch changed')
         batches.append(digest)

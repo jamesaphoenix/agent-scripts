@@ -23,6 +23,10 @@ DIRECTORY_HOSTS = {'findtutors.co.uk', 'tutorful.co.uk', 'superprof.co.uk', 'tut
                    'tutorperch.com', 'tophelp.co.uk', 'cylex-uk.co.uk', 'hometutorsdirectory.co.uk',
                    'tutordex.net', 'tutorextra.co.uk', 'tuitionlist.co.uk'}
 WEBSITE = re.compile(r'^(?:website|visit(?: my| our| tutor)? (?:website|site)|view website)$', re.I)
+SITE_IDENTITY_VERSION = 2
+HOSTED_TENANT_DOMAINS = {'wixsite.com', 'weebly.com', 'wordpress.com', 'blogspot.com',
+                       'site123.me', 'ueniweb.com', 'vercel.app', 'netlify.app',
+                       'carrd.co', 'mymusicstaff.com', 'home.blog'}
 PROFILE_PATHS = {
     'tutorhunt.com': r'/users/[a-z0-9-]{1,64}/',
     'uktutors.com': r'/tutor/\d+/[a-z0-9-]+',
@@ -50,6 +54,8 @@ def profile_key(url):
 
 def site_identity(url):
     host = urllib.parse.urlsplit(url).hostname.removeprefix('www.')
+    if any(host.endswith('.' + provider) for provider in HOSTED_TENANT_DOMAINS):
+        return host
     labels = host.split('.')
     return '.'.join(labels[-3:]) if host.endswith(('.co.uk', '.org.uk', '.gov.uk', '.ac.uk', '.com.au')) else '.'.join(labels[-2:])
 
@@ -130,6 +136,7 @@ class Frontier:
                 success INTEGER NOT NULL, PRIMARY KEY(group_key,site));
             CREATE TABLE IF NOT EXISTS branch_yield (root TEXT NOT NULL, site TEXT NOT NULL,
                 success INTEGER NOT NULL, PRIMARY KEY(root,site));
+            CREATE TABLE IF NOT EXISTS frontier_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
         ''')
         raw = json.dumps(policy.__dict__, sort_keys=True)
         old = self.db.execute('SELECT value FROM policy WHERE id=1').fetchone()
@@ -137,7 +144,71 @@ class Frontier:
             self.db.close()
             raise ValueError('Frontier limits are immutable across restarts')
         with self.db: self.db.execute('INSERT OR IGNORE INTO policy VALUES(1,?)', (raw,))
+        try:
+            self.migrate_site_identities()
+        except Exception:
+            self.db.close()
+            raise
         os.chmod(self.path, 0o600)
+
+    def migrate_site_identities(self):
+        """Split saved hosted tenants without resetting evidence, attempts or lineage."""
+        self.db.execute('BEGIN IMMEDIATE')
+        try:
+            saved = self.db.execute("SELECT value FROM frontier_meta WHERE key='site_identity_version'").fetchone()
+            if saved and json.loads(saved[0])['version'] == SITE_IDENTITY_VERSION:
+                self.db.commit()
+                return
+            if saved and json.loads(saved[0])['version'] > SITE_IDENTITY_VERSION:
+                raise ValueError('A newer frontier site identity cannot be downgraded')
+            rows = [dict(row) for row in self.db.execute('SELECT * FROM pages ORDER BY hops,key')]
+            changed = [row for row in rows if row['site'] != site_identity(row['url'])]
+            held = 0
+            if changed:
+                parents = {}
+                for row in rows:
+                    row['site'] = site_identity(row['url'])
+                    if row['parent']:
+                        parent = parents[row['parent']]
+                        row['depth'] = max(row['depth'], parent['depth'] + int(row['site'] != parent['site']))
+                    parents[row['key']] = row
+                    self.db.execute('UPDATE pages SET site=?,depth=? WHERE key=?',
+                                    (row['site'], row['depth'], row['key']))
+                for table in ('branch_sites', 'root_sites', 'source_yield', 'branch_yield'):
+                    self.db.execute(f'DELETE FROM {table}')
+                for row in rows:
+                    parent = parents.get(row['parent'])
+                    if parent and row['site'] != parent['site']:
+                        self.db.execute('INSERT OR IGNORE INTO branch_sites VALUES(?,?)', (parent['key'], row['site']))
+                        self.db.execute('INSERT OR IGNORE INTO root_sites VALUES(?,?)', (row['root'], row['site']))
+                    success = int(row['reason'] in ('local tutor research candidate', 'local profile research candidate'))
+                    if row['state'] in ('classified', 'error'):
+                        self.db.execute('''INSERT INTO source_yield VALUES(?,?,?) ON CONFLICT(group_key,site)
+                            DO UPDATE SET success=max(success,excluded.success)''', (row['group_key'], row['site'], success))
+                    if row['state'] == 'classified':
+                        self.db.execute('''INSERT INTO branch_yield VALUES(?,?,?) ON CONFLICT(root,site)
+                            DO UPDATE SET success=max(success,excluded.success)''', (row['root'], row['site'], success))
+                branches = dict(self.db.execute('SELECT parent,count(*) FROM branch_sites GROUP BY parent'))
+                roots = dict(self.db.execute('SELECT root,count(*) FROM root_sites GROUP BY root'))
+                for row in rows:
+                    if row['state'] not in ('pending', 'fetching'):
+                        continue
+                    parent = parents.get(row['parent'])
+                    external = parent and row['site'] != parent['site']
+                    if (row['depth'] > self.policy.max_depth or row['hops'] > self.policy.max_hops
+                            or (external and (branches.get(row['parent'], 0) > self.policy.branch_sites
+                                              or roots.get(row['root'], 0) > self.policy.root_sites))):
+                        self.db.execute("UPDATE pages SET state='held',reason=? WHERE key=?",
+                                        ('Hosted tenant identity exposes an existing recursion limit', row['key']))
+                        held += 1
+            report = {'version': SITE_IDENTITY_VERSION, 'changedPages': len(changed),
+                      'heldPendingPages': held, 'preservedAttempts': sum(row['attempts'] for row in rows)}
+            self.db.execute('INSERT OR REPLACE INTO frontier_meta VALUES(?,?)',
+                            ('site_identity_version', json.dumps(report, sort_keys=True)))
+            self.db.commit()
+        except Exception:
+            self.db.rollback()
+            raise
 
     def close(self):
         self.db.close()

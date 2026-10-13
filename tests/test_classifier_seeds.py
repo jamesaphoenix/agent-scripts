@@ -98,6 +98,23 @@ class ClassifierSeedTests(unittest.TestCase):
             self.frontier.add_many([row, invalid])
         self.assertEqual(self.frontier.summary()['pages'], 0)
 
+    def test_identity_version_reconsiders_previously_dropped_tenants_without_paid_calls(self):
+        urls = [f'https://tutor{i}.weebly.com/' for i in range(10)]
+        for url in urls:
+            self.receipt(url)
+        with patch('classifier_seeds.SITE_IDENTITY_VERSION', 1):
+            first = publish(self.root, [self.stage], self.cache)
+        # Simulate the old shared-provider page cap: only eight were admitted.
+        with patch('focused_frontier.site_identity', return_value='weebly.com'):
+            self.assertEqual(ingest(self.stage, self.frontier), 8)
+        before = self.cache.usage()
+        second = publish(self.root, [self.stage], self.cache)
+        self.assertNotEqual(first['batches'], second['batches'])
+        self.assertEqual(ingest(self.stage, self.frontier), 2)
+        self.assertEqual(ingest(self.stage, self.frontier), 0)
+        self.assertEqual(self.frontier.summary()['pages'], 10)
+        self.assertEqual(self.cache.usage(), before)
+
 
 if __name__ == '__main__':
     unittest.main()

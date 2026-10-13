@@ -102,6 +102,17 @@ checkpoint.write_text(json.dumps({'results':[result],'pages':1}))
         self.run_stage()
         self.assertEqual(before, self.cache.summary())
 
+    def test_owner_reports_loaded_revision_without_changing_the_prepared_manifest(self):
+        self.frontier.add('https://good.co.uk/', {'title': 'Tutor in Amersham'})
+        before = file_hash(self.stage / 'job.json')
+        with patch('focused_run.loaded_source_sha', return_value='b' * 40) as revision:
+            self.run_stage()
+        result = json.loads((self.stage / 'status.json').read_text())
+        self.assertEqual(result['preparedSourceSha'], 'fixture')
+        self.assertEqual(result['effectiveSourceSha'], 'b' * 40)
+        revision.assert_called_once()
+        self.assertEqual(file_hash(self.stage / 'job.json'), before)
+
     def test_expired_deadline_finishes_without_fetch_or_api(self):
         self.frontier.add('https://good.co.uk/', {'title': 'Tutor in Amersham'})
         self.job['deadlineUnix'] = time.time() - 1

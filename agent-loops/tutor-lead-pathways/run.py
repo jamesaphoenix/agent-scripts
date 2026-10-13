@@ -15,7 +15,7 @@ import sqlite3
 import subprocess
 import time
 
-from configuration import launchd_settings, campaign_window, focused_roots
+from configuration import launchd_settings, campaign_window, focused_roots, loaded_source_sha
 from source_health import held_profile_sources, positive_sites
 from source_groups import tactic_group
 
@@ -26,16 +26,6 @@ from discovery import (UTC, PaidCache, atomic_json, collect_records, file_hash, 
 HERE = Path(__file__).resolve().parent
 INTERVALS = {"maps": 120, "business": 240, "organic": 240, "directories": 240}
 OFFSETS = {"maps": 0, "business": 25, "organic": 50, "directories": 75}
-
-
-def loaded_source_sha():
-    try:
-        result = subprocess.run(['git', 'rev-parse', 'HEAD'], cwd=HERE.parents[1],
-                                capture_output=True, text=True, check=True, timeout=10)
-        value = result.stdout.strip()
-        return value if re.fullmatch(r'[0-9a-f]{40}', value) else None
-    except (OSError, subprocess.SubprocessError):
-        return None
 
 
 def request_intervals(job):

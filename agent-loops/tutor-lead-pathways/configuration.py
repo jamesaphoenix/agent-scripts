@@ -2,6 +2,17 @@
 import re
 import datetime
 from pathlib import Path
+import subprocess
+
+
+def loaded_source_sha():
+    try:
+        result = subprocess.run(['git', 'rev-parse', 'HEAD'], cwd=Path(__file__).resolve().parents[2],
+                                capture_output=True, text=True, check=True, timeout=10)
+        value = result.stdout.strip()
+        return value if re.fullmatch(r'[0-9a-f]{40}', value) else None
+    except (OSError, subprocess.SubprocessError):
+        return None
 
 
 def focused_roots(manifest):

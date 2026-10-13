@@ -19,6 +19,7 @@ from decisions_classifier import APIUnavailable, BudgetExhausted, DecisionsCache
 from discovery import atomic_json, file_hash, now_iso
 from focused_frontier import DIRECTORY_HOSTS, Frontier, Policy, admitted, profile_key
 from classifier_seeds import ingest as ingest_seeds
+from configuration import loaded_source_sha
 
 STOP = False
 
@@ -201,6 +202,7 @@ def fetch(job, root, row):
 def status(root, job, frontier, cache, state='running', reason=None):
     summary = {'status': state, 'updatedAt': now_iso(), 'ownerPid': os.getpid(),
                'deadlineUnix': job['deadlineUnix'], 'sourceSha': job['sourceSha'],
+               'preparedSourceSha': job['sourceSha'], 'effectiveSourceSha': job.get('effectiveSourceSha'),
                'priorExposureUsd': job['priorExposureCents'] / 100, 'decisions': cache.summary(),
                **frontier.summary()}
     summary['sharedExposureUsd'] = summary['priorExposureUsd'] + summary['decisions']['spentUsd'] + summary['decisions']['heldUsd']
@@ -271,6 +273,7 @@ def run(root):
         previous = json.loads((root / 'status.json').read_text())
         if previous.get('status') in ('complete', 'api_unavailable', 'budget_exhausted'):
             return
+        job['effectiveSourceSha'] = loaded_source_sha()
         frontier = Frontier(root / 'frontier.sqlite', Policy(**job['policy']), job.get('knownProfileKeys', ()))
         cache = DecisionsCache(job['cache'], job['policy']['towns'], cap_nano=job['classificationCapNano'],
                                prior_exposure_cents=job['priorExposureCents'])

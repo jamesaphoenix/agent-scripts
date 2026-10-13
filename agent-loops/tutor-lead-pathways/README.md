@@ -29,6 +29,11 @@ does not delay another ready host. When all hosts need to wait, the earliest
 candidate is selected. Cached receipts need no host wait or repeat request.
 The downloader still enforces each host's persisted cooldown and robots rules.
 
+An observed local search subset can supply `priorityUrls` in its SHA256-bound
+seed batch. At most a hundred unique admitted URLs from that same batch move
+ahead of the pending queue. Seen URLs stay seen and repeated imports do nothing.
+This changes review order only; a search filter never qualifies a tutor.
+
 Qualification reads only the profile's labelled personal and business fields.
 County claims supply locality, while subject specialisms supply services. Age
 levels, qualifications, navigation and neighbouring members cannot establish a

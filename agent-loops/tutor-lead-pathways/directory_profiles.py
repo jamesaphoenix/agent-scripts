@@ -738,13 +738,26 @@ def import_seed_batches(root, state):
             raise ValueError("Seed batch hash changed or exceeded its bound")
         value = json.loads(raw)
         urls = value.get("urls") if isinstance(value, dict) else None
-        if not isinstance(urls, list) or len(urls) > 5000:
+        if not isinstance(urls, list) or len(urls) > 5000 or any(not isinstance(url, str) for url in urls):
             rejected.append(path.name)
             raise ValueError("Seed batch must contain bounded source URLs")
-        for candidate in urls:
-            url = admitted_url(candidate)
-            if url and url not in state["seen"] and url not in state["queue"] and len(state["queue"]) < 20000:
+        admitted = list(dict.fromkeys(url for candidate in urls if (url := admitted_url(candidate))))
+        priorities = value.get('priorityUrls', [])
+        if (not isinstance(priorities, list) or len(priorities) > 100
+                or any(not isinstance(url, str) for url in priorities)):
+            rejected.append(path.name)
+            raise ValueError('Expected at most a hundred priority source URLs')
+        priority_urls = [admitted_url(url) for url in priorities]
+        if (any(url not in admitted for url in priority_urls)
+                or len(set(priority_urls)) != len(priority_urls)):
+            rejected.append(path.name)
+            raise ValueError('Priority URLs must be unique admitted members of their seed batch')
+        for url in admitted:
+            if url not in state["seen"] and url not in state["queue"] and len(state["queue"]) < 20000:
                 state["queue"].append(url)
+        priority_set = set(priority_urls)
+        state['queue'] = [url for url in priority_urls if url in state['queue']] + [
+            url for url in state['queue'] if url not in priority_set]
         imported.append(path.stem)
 
 

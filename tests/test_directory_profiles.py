@@ -287,6 +287,60 @@ class ProfileTests(unittest.TestCase):
                 self.assertIsNone(cache.fetch(slow))
                 download.assert_not_called()
 
+    def test_priority_seed_batch_moves_pending_people_without_resetting_history(self):
+        first = 'https://thetutorsassociation.wildapricot.org/Sys/PublicProfile/123/6119301'
+        preferred = 'https://thetutorsassociation.wildapricot.org/Sys/PublicProfile/456/6119301'
+        seen = 'https://thetutorsassociation.wildapricot.org/Sys/PublicProfile/789/6119301'
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            value = {'urls': [preferred, seen], 'priorityUrls': [preferred, seen]}
+            raw = (json.dumps(value) + '\n').encode()
+            digest = hashlib.sha256(raw).hexdigest()
+            inbox = root / 'seed-batches'
+            inbox.mkdir()
+            (inbox / (digest + '.json')).write_bytes(raw)
+            state = {'queue': [first, preferred], 'seen': [seen], 'attempts': 42, 'records': []}
+            directory.import_seed_batches(root, state)
+            self.assertEqual(state['queue'], [preferred, first])
+            self.assertEqual(state['seen'], [seen])
+            self.assertEqual(state['attempts'], 42)
+            directory.import_seed_batches(root, state)
+            self.assertEqual(state['queue'], [preferred, first])
+            self.assertEqual(state['importedSeedBatches'], [digest])
+
+    def test_invalid_priority_batch_is_held_before_mutating_the_page_queue(self):
+        url = 'https://thetutorsassociation.wildapricot.org/Sys/PublicProfile/123/6119301'
+        for priorities in ['wrong', [url, url], ['https://private.invalid/profile'], [1],
+                           ['https://thetutorsassociation.wildapricot.org/Sys/PublicProfile/456/6119301']]:
+            with self.subTest(priorities=priorities), tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp)
+                raw = json.dumps({'urls': [url], 'priorityUrls': priorities}).encode()
+                digest = hashlib.sha256(raw).hexdigest()
+                inbox = root / 'seed-batches'
+                inbox.mkdir()
+                (inbox / (digest + '.json')).write_bytes(raw)
+                state = {'queue': [], 'seen': [], 'attempts': 42}
+                with self.assertRaises(ValueError):
+                    directory.import_seed_batches(root, state)
+                self.assertEqual(state['queue'], [])
+                self.assertEqual(state['attempts'], 42)
+                self.assertEqual(state['rejectedSeedBatches'], [digest + '.json'])
+
+    def test_priority_batch_cannot_exceed_a_hundred_urls(self):
+        urls = ['https://thetutorsassociation.wildapricot.org/Sys/PublicProfile/' + str(i) + '/6119301'
+                for i in range(1, 102)]
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            raw = json.dumps({'urls': urls, 'priorityUrls': urls}).encode()
+            digest = hashlib.sha256(raw).hexdigest()
+            inbox = root / 'seed-batches'
+            inbox.mkdir()
+            (inbox / (digest + '.json')).write_bytes(raw)
+            state = {'queue': [], 'seen': []}
+            with self.assertRaises(ValueError):
+                directory.import_seed_batches(root, state)
+            self.assertEqual(state['queue'], [])
+
     def test_unvisited_town_roots_get_coverage_before_more_subject_indexes(self):
         subject = "https://www.findtutors.co.uk/chemistry-tutors-marlow/"
         page = "https://www.findtutors.co.uk/tutors-new-denham/?page=5"

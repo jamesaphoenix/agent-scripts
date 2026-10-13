@@ -215,6 +215,32 @@ def sdk_query_supplements(root, job, cache):
     return queries
 
 
+def refresh_recursive_queries(job, cache, state, plan, paid_deadline):
+    if not job.get('adaptiveTactics') or not job.get('keywordIndexPath'):
+        return
+    current = time.time()
+    if current < state.get('nextKeywordRefreshAt', 0):
+        return
+    state['nextKeywordRefreshAt'] = current + 60
+    try:
+        from keyword_supplements import recursive_query_supplements
+        current_keys = {row['key'] for row in cache.db.execute('SELECT key FROM requests WHERE imported=0')}
+        result = recursive_query_supplements(job, excluded_keys={q['key'] for q in plan}, current_keys=current_keys)
+        state['recursiveQueries'] = result.pop('queries')
+        state['recursiveSearch'] = dict(result, observedAt=now_iso())
+        completed = set(state['completedQueries'])
+        if current < paid_deadline:
+            for item in state['recursiveQueries']:
+                if (item['key'] not in completed and not cache.get(item['key'])
+                    and state['nextDue'][item['lane']] >= paid_deadline):
+                    state['nextDue'][item['lane']] = current
+    except (OSError, ValueError, TypeError, KeyError, AttributeError, sqlite3.Error) as error:
+        # The frozen plan continues even when this optional shared index is unavailable.
+        state['recursiveQueries'] = []
+        state['recursiveSearch'] = {'observedAt': now_iso(), 'phase': 'held'}
+        save_error(state, 'recursive_keywords', error)
+
+
 def provider_is_failure(response, row):
     if not row or row["status"] not in ("failed", "uncertain"):
         return False
@@ -269,6 +295,7 @@ def runner_snapshot(root, job, cache, state):
     # version once at startup; mutable reporting files must not stop discovery
     # or relabel code that is already loaded in a running process.
     value['effectiveSourceSha'] = state.get('effectiveSourceSha')
+    value['recursiveSearch'] = state.get('recursiveSearch')
     value["consecutivePathFailures"] = dict(state["pathFailures"])
     atomic_json(root / "status.json", value)
     return value
@@ -467,6 +494,9 @@ def run(root):
         state['adaptiveTactics'] = job.get('adaptiveTactics', False)
         state['blockedProfileSites'] = held_profile_sources(focused_roots(job))['sites']
         plan = json.loads((root / "plan.json").read_text())
+        # A resumed owner validates the live index before using any saved supplements.
+        state.pop('nextKeywordRefreshAt', None)
+        state['recursiveQueries'] = []
         intervals = request_intervals(job)
         original_deadline = parse_time(job["deadline"]).timestamp()
         paid_deadline = parse_time(job["discoveryDeadline"]).timestamp()
@@ -510,6 +540,7 @@ def run(root):
                     crawl_child = start_crawl(root, job, cache, state, previous_urls)
                 except (OSError, ValueError, subprocess.SubprocessError) as error:
                     save_error(state, "crawler", error)
+            refresh_recursive_queries(job, cache, state, plan, paid_deadline)
             due = [lane for lane in INTERVALS if current >= state["nextDue"][lane]]
             if cache.usage()['remainingCents'] < 100:
                 for lane in due:
@@ -520,7 +551,7 @@ def run(root):
                 selection_failed = False
                 try:
                     supplementary = sdk_query_supplements(root, job, cache) if job.get('adaptiveTactics') else []
-                    item = next_query(lane, plan + supplementary, cache, state)
+                    item = next_query(lane, plan + supplementary + state.get('recursiveQueries', []), cache, state)
                 except (OSError, ValueError, sqlite3.Error) as error:
                     save_error(state, lane, error)
                     state["nextDue"][lane] = time.time() + 900
@@ -564,7 +595,8 @@ def run(root):
                 if job.get("strategy") == "expansion":
                     try:
                         from expansion_metrics import write_metrics
-                        measured = write_metrics(root, cache, plan + sdk_query_supplements(root, job, cache))
+                        measured = write_metrics(root, cache, plan + sdk_query_supplements(root, job, cache)
+                                                 + state.get('recursiveQueries', []))
                         state['tacticFeedback'] = measured['tactics']
                         if job.get("profileRunDir"):
                             from profile_seeds import write_seed_batch

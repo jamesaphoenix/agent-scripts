@@ -11,7 +11,7 @@ The approved location list fixes the geographic scope. The research loop is:
 2. Search Maps and organic listings through the existing budgeted runner.
 3. Cache outcomes and queue the returned public pages for Codex or Claude to classify.
 4. Ask the agent to think of new phrases that would find more leads for that target.
-5. Store those phrases as child queries, search them in a later budgeted run, and repeat.
+5. Store those phrases as child queries, feed them to the live budgeted runner, and repeat.
 
 Agents can propose customer wording, alternative role names, service specialisms and combinations,
 such as `KS2 home tutor`, `grammar school preparation tuition` and `dyslexia specialist tutor`.
@@ -40,6 +40,12 @@ the shared index and prioritise pending recursive expansions. Preparation freeze
 plan and its SHA256. Existing manifests and deadlines remain unchanged. During a new run the
 index observes paid receipts at export time; the fifteen-minute expansion watcher also syncs an
 existing shared index, including the current stage without changing its immutable plan.
+Adaptive runs refresh pending descendants every minute through a read-only connection. Each
+child needs a verified successful parent, an intact root and generation chain, the configured
+branch limit, and the exact approved town, coordinates and provider payload. All observed
+outcomes block repeat spending. Current-run receipts remain attributable to their recursive
+tactic. A corrupt child is held individually; an unavailable index holds the optional queue
+while the frozen plan continues. These supplements share the existing ledger and paid cutoff.
 
 From the runtime repository:
 

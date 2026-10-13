@@ -276,6 +276,7 @@ def run(root):
                                prior_exposure_cents=job['priorExposureCents'])
         try:
             frontier.recover()
+            status(root, job, frontier, cache)
             state, reason, processed, consecutive_held = 'complete', 'frontier exhausted or bounded page/site limit', 0, 0
             workers = job.get('fetchWorkers', 1)
             if type(workers) is not int or not 1 <= workers <= 4:

@@ -95,11 +95,7 @@ def ingest(root, frontier):
                     if (not isinstance(text, str) or not 80 <= len(text) <= 50000
                             or hashlib.sha256(text.encode()).hexdigest() != evidence.get('textSha256')):
                         raise ValueError('Classifier seed evidence hash mismatch')
-            before = frontier.summary()['pages']
-            for row in rows:
-                frontier.add(row['url'], row['context'], group=row['group'],
-                             provenance=row['provenance'], evidence=row.get('evidence'))
-            count = frontier.summary()['pages'] - before
+            count = frontier.add_many(rows)
             added += count
             status['admittedUrls'] += count
             status['processed'][path.name] = {'status': 'ingested', 'rows': len(rows), 'added': count}

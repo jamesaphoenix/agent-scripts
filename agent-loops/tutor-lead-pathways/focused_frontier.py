@@ -141,17 +141,30 @@ class Frontier:
     def close(self):
         self.db.close()
 
-    def add(self, url, context, group='cached-search', parent=None, drift=0, provenance=None, evidence=None):
+    def add_many(self, rows):
+        # A durable commit per batch avoids thousands of synchronous fsyncs
+        # while preserving all-or-nothing admission and the same page limits.
+        before = self.db.execute('SELECT count(*) FROM pages').fetchone()[0]
+        with self.db:
+            self.db.execute('BEGIN IMMEDIATE')
+            for row in rows:
+                self.add(row['url'], row['context'], group=row['group'],
+                         provenance=row['provenance'], evidence=row.get('evidence'), commit=False)
+        return self.db.execute('SELECT count(*) FROM pages').fetchone()[0] - before
+
+    def add(self, url, context, group='cached-search', parent=None, drift=0, provenance=None, evidence=None, commit=True):
         url = admitted(url)
         if not url:
             return None
         key, site = hashlib.sha256(url.encode()).hexdigest(), site_identity(url)
-        existing = self.db.execute('SELECT key FROM pages WHERE key=?', (key,)).fetchone()
+        existing = self.db.execute('SELECT key,evidence IS NULL AS needs_evidence FROM pages WHERE key=?', (key,)).fetchone()
         if existing:
             # Preserve discovery lineage and counters when a descendant also
             # appears in an upstream search result. Never manufacture a new root.
-            if evidence:
-                with self.db: self.db.execute('UPDATE pages SET evidence=coalesce(evidence,?) WHERE key=?', (json.dumps(evidence), key))
+            if evidence and existing['needs_evidence']:
+                self.db.execute('UPDATE pages SET evidence=? WHERE key=?', (json.dumps(evidence), key))
+                if commit:
+                    self.db.commit()
             return key
         if profile_key(url) in self.known_profiles:
             return None
@@ -182,7 +195,8 @@ class Frontier:
             VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)''', (key, url, site, root, parent['key'] if parent else None, group,
             depth, hops, drift, cue, locality, json.dumps(context), json.dumps(provenance or {}),
             json.dumps(evidence) if evidence else None))
-        self.db.commit()
+        if commit:
+            self.db.commit()
         return key
 
     def recover(self):

@@ -91,6 +91,13 @@ class ClassifierSeedTests(unittest.TestCase):
         self.assertEqual(tuple(child), (1, parent['key']))
         self.assertEqual(self.frontier.policy.branch_sites, 15)
 
+    def test_batch_failure_rolls_back_all_insertions(self):
+        row = {'url': 'https://goodtutor.co.uk/', 'context': {}, 'group': 'fresh', 'provenance': {}}
+        invalid = dict(row, url='https://broken.co.uk/', provenance={'invalid': object()})
+        with self.assertRaises(TypeError):
+            self.frontier.add_many([row, invalid])
+        self.assertEqual(self.frontier.summary()['pages'], 0)
+
 
 if __name__ == '__main__':
     unittest.main()

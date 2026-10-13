@@ -25,13 +25,15 @@ def continue_classifier(root, job):
             return 'previous_classifier_running_or_held'
         cache = json.loads((parent / 'job.json').read_text())['cache']
         deadline = parse_time(job['authorizedDeadline']).timestamp()
+        source_sha = subprocess.run(['git', 'rev-parse', 'HEAD'], cwd=HERE.parents[1],
+                                    capture_output=True, text=True, check=True, timeout=10).stdout.strip()
         with (parent / 'run.lock').open('a') as lock:
             try:
                 fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
             except BlockingIOError:
                 return 'previous_classifier_finalizing'
             prepare_focused(target, Path(job['keywordIndexPath']), Path(cache), Path(job['crawlerBinary']),
-                Path(job['focusedHistory']), (deadline - time.time()) / 3600, 10000, 2000, job['sourceSha'],
+                Path(job['focusedHistory']), (deadline - time.time()) / 3600, 10000, 2000, source_sha,
                 previous=parent, directory_pages=2000, workers=4, baseline=Path(job['identityBaselineCsv']),
                 authorized_deadline=deadline)
         atomic_json(root / 'classifier-continuation.json', {'preparedAt': now_iso(), 'runDir': str(target),

@@ -254,6 +254,9 @@ def runner_snapshot(root, job, cache, state):
              "completedPlanEntries": len(state["completedQueries"]), "sdk": sdk,
              "exports": summary, "crawlBatches": state["crawlNumber"], "recentErrors": state["errors"][-8:]}
     value["lastCrawlerSuccessAt"] = state.get("lastCrawlerSuccessAt")
+    value['preparedSourceSha'] = job.get('sourceSha')
+    deployment = root / 'deployment/latest.json'
+    value['effectiveSourceSha'] = json.loads(deployment.read_text())['sourceSha'] if deployment.exists() else job.get('sourceSha')
     value["consecutivePathFailures"] = dict(state["pathFailures"])
     atomic_json(root / "status.json", value)
     return value

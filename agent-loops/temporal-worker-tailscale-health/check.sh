@@ -362,21 +362,20 @@ main() {
   return 1
 }
 
-# Hand-rolled deadline: run main in the background and kill it if it hangs (a wedged
-# Docker daemon can make `docker exec` block forever).
-main "$@" &
-main_pid=$!
-elapsed=0
-while kill -0 "$main_pid" 2>/dev/null; do
-  if (( elapsed >= DEADLINE_SECONDS )); then
-    kill -9 "$main_pid" 2>/dev/null || true
-    wait "$main_pid" 2>/dev/null || true
-    rm -f "$STATE_DIR/.targets.$$"
-    write_status "timeout" "run exceeded ${DEADLINE_SECONDS}s and was killed"
-    log "run exceeded ${DEADLINE_SECONDS}s and was killed"
-    exit 124
+# The parent holds run-job.sh's lock until the complete process group is reaped.
+# Killing only the background shell left wedged Docker probes behind between ticks.
+if [[ "${TEMPORAL_HEALTH_CHILD:-0}" == "1" ]]; then
+  trap 'rm -f "$STATE_DIR/.targets.$$"' EXIT
+  main "$@"
+  exit $?
+fi
+if TEMPORAL_HEALTH_CHILD=1 python3 "$ROOT_DIR/lib/bounded-process.py" --timeout "$DEADLINE_SECONDS" -- "$SCRIPT_DIR/check.sh" "$@"; then
+  exit 0
+else
+  code=$?
+  if [[ "$code" == "124" ]]; then
+    write_status "timeout" "run and descendants exceeded ${DEADLINE_SECONDS}s and were stopped"
+    log "run and descendants exceeded ${DEADLINE_SECONDS}s and were stopped"
   fi
-  sleep 1
-  elapsed=$(( elapsed + 1 ))
-done
-wait "$main_pid"
+  exit "$code"
+fi

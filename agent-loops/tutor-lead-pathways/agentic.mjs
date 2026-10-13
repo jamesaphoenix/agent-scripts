@@ -20,6 +20,22 @@ export function researchSourceSha(readRevision) {
   } catch { return "unknown"; }
 }
 
+export function researchScope(job, runDirectory, readScope) {
+  const result = readScope ? readScope() : spawnSync("python3", [
+    fileURLToPath(new URL("lead_scope.py", import.meta.url)), "--run-dir", runDirectory, "--describe",
+  ], { env: oauthEnvironment(process.env), encoding: "utf8", timeout: 10_000, maxBuffer: 16_384 });
+  if (result.status !== 0) throw new Error("Discovery subject scope could not be verified");
+  const scope = JSON.parse(result.stdout);
+  if (scope.prompt !== null && (typeof scope.prompt !== "string" || scope.prompt.length > 2_000
+      || !/^[a-f0-9]{64}$/.test(scope.sha256 || ""))) throw new Error("Invalid discovery subject scope");
+  const fallback = job.researchPriority === "11_plus_and_private_academic"
+    ? "Research new independent 11 plus and private academic tutors in Buckinghamshire and Milton Keynes. Prioritise entrance exams, verbal and non-verbal reasoning, primary maths and English, then GCSE, A level, languages and SEND academic tuition. Use advertised local tutoring evidence on each person's own profile."
+    : job.strategy === "expansion"
+    ? "Research new independent private tutors across all academic subjects in Buckinghamshire and Milton Keynes. Include GCSE, A level, primary, languages, SEND and 11 plus. Focus on public person profiles from Superprof, First Tutors, Tutorhunt, Tutorful and named local tutors. Discover new source entry points as nextQueries. Do not constrain this search to primary tutors."
+    : "Research independent individual and small local 11 plus and primary tutors in Buckinghamshire, including Milton Keynes.";
+  return { prompt: scope.prompt ?? fallback, sha256: scope.sha256 };
+}
+
 export function recordUsage(status, previous, usage) {
   status.usage = usage;
   status.totalInputTokens = (previous.totalInputTokens || 0) + usage.input_tokens;
@@ -65,6 +81,7 @@ export const researchSchema = {
 
 export async function main(runDirectory, slot, transport = "direct") {
   const job = JSON.parse(await readFile(join(runDirectory, "job.json"), "utf8"));
+  const verifiedScope = researchScope(job, runDirectory);
   const statePath = join(runDirectory, "sdk/status.json");
   let previous = {};
   try { previous = JSON.parse(await readFile(statePath, "utf8")); } catch (error) {
@@ -83,11 +100,7 @@ export async function main(runDirectory, slot, transport = "direct") {
     webSearchMode: "live", networkAccessEnabled: false };
   const thread = researchThread(codex, options, previous, job);
   const towns = researchTowns(job, slot);
-  const scope = job.researchPriority === "11_plus_and_private_academic"
-    ? "Research new independent 11 plus and private academic tutors in Buckinghamshire and Milton Keynes. Prioritise entrance exams, verbal and non-verbal reasoning, primary maths and English, then GCSE, A level, languages and SEND academic tuition. Use advertised local tutoring evidence on each person's own profile."
-    : job.strategy === "expansion"
-    ? "Research new independent private tutors across all academic subjects in Buckinghamshire and Milton Keynes. Include GCSE, A level, primary, languages, SEND and 11 plus. Focus on public person profiles from Superprof, First Tutors, Tutorhunt, Tutorful and named local tutors. Discover new source entry points as nextQueries. Do not constrain this search to primary tutors."
-    : "Research independent individual and small local 11 plus and primary tutors in Buckinghamshire, including Milton Keynes.";
+  const scope = verifiedScope.prompt;
   const prompt = `${scope}
 This is slot ${slot + 1} of a finite ${job.hours || 6}-hour research workflow. Prioritise these actual towns and nearby villages: ${towns.map((town) => town.name).join(", ")}.
 Use live web search creatively. Combine business websites, named professional registers, parish/community directories, venue announcements, council family directories and newsletter PDF advertisements. Find tutors without standalone websites as well.
@@ -105,7 +118,8 @@ All DataForSEO spending is performed by separate scripts, not this session. Use 
   const startedAt = new Date().toISOString();
   const status = { ...previous, authentication: "chatgpt_oauth", model: job.codexModel,
     transport, threadMode: job.codexThreadMode || "resume", slot, startedAt, updatedAt: startedAt,
-    phase: "running", pid: process.pid, webSearches: 0, effectiveSourceSha: researchSourceSha() };
+    phase: "running", pid: process.pid, webSearches: 0, effectiveSourceSha: researchSourceSha(),
+    discoveryScopeSha256: verifiedScope.sha256 };
   await atomicJson(statePath, status);
   const eventsPath = join(runDirectory, `sdk/events/slot-${String(slot).padStart(2, "0")}.jsonl`);
   await mkdir(join(eventsPath, ".."), { recursive: true, mode: 0o700 });

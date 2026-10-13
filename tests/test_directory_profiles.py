@@ -15,6 +15,18 @@ spec.loader.exec_module(directory)
 
 
 class ProfileTests(unittest.TestCase):
+    def test_childcare_published_subject_facets_stay_bounded_to_bucks_tutors(self):
+        base = 'https://www.childcare.co.uk/search/Private-Tutors/Buckinghamshire'
+        for suffix in ['', '/2', '/11-Plus', '/11-Plus/2', '/Maths-Tutor', '/English-Tutor', '/Primary-up-to-11-years']:
+            url = base + suffix
+            self.assertEqual(directory.admitted_url(url), url)
+            self.assertTrue(directory.local_directory_link(url, base))
+        for url in [base + '/Music-Tutor', base + '/11-Plus/reviews', base + '/11-Plus/0',
+                    base.replace('Buckinghamshire', 'London') + '/11-Plus',
+                    base.replace('Private-Tutors', 'Babysitters') + '/11-Plus']:
+            self.assertIsNone(directory.admitted_url(url))
+            self.assertFalse(directory.local_directory_link(url, base))
+
     def test_tuitionlist_profile_uses_its_named_location_and_own_subject_section(self):
         url = 'https://www.tuitionlist.co.uk/tutor/jane-smith-maths-amersham-1234abcd'
         html = '''<nav>11 Plus Tutors in Aylesbury</nav><div><h1>Jane Smith</h1></div>
@@ -261,7 +273,7 @@ class ProfileTests(unittest.TestCase):
         self.assertEqual(directory.profile_locality_status(rows[0]), "outside_or_unresolved")
         self.assertNotIn("countyClaim", rows[0])
         self.assertTrue(directory.local_directory_link(url + "/2", url))
-        self.assertFalse(directory.local_directory_link(url + "/Maths-Tutor", url))
+        self.assertTrue(directory.local_directory_link(url + "/Maths-Tutor", url))
         self.assertFalse(directory.local_directory_link("https://www.childcare.co.uk/search/Private-Tutors/London/2", url))
         for path in ["/profile/123/reviews/456", "/login?ret=/profile/123", "/search/Parents/Buckinghamshire", "/message/123"]:
             self.assertIsNone(directory.admitted_url("https://www.childcare.co.uk" + path))

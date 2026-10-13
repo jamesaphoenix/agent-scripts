@@ -16,6 +16,7 @@ from directory_profiles import admitted_url
 from keyword_expansion import SearchIndex
 from prepare_profile_followon import prepare as prepare_profiles
 from tactics import campaign_plan
+from lead_scope import inherit_scope
 
 
 def archive_history(history):
@@ -105,6 +106,9 @@ def prepare(root, authorization, history, profile_parent, profile_root, identity
     if classifier_reserve != 300 or type(budget) is not int or budget < 0 or floor + budget > 10000:
         raise ValueError('Shared spending and classifier reserve exceed USD100')
     root.mkdir(parents=True, exist_ok=True, mode=0o700)
+    inherited_scope = inherit_scope(extension_parent, root) if extension_parent else None
+    if inherited_scope:
+        atomic_json(root / 'inherited-subject-scope.json', inherited_scope)
     atomic_json(root / 'authorization.json', auth)
     cache = PaidCache(root, budget, floor)
     try:

@@ -16,11 +16,13 @@ from professional_registers import replay as replay_register
 from reviewed_contacts import replay as replay_public_contacts
 from new_leads import classify_delta, run as publish_delta
 from watch_expansion import watch as audit_progress
+from lead_scope import load_scope, partition_contacts
 
 HERE = Path(__file__).resolve().parent
 
 
 def aggregate_contacts(root, report):
+    scope = load_scope(root)
     baseline = root / 'baseline/contacts.json'
     known = json.loads(baseline.read_text())
     rows = json.loads((Path(report['outputDirectory']) / 'this-stage-delta/new.json').read_text())
@@ -52,9 +54,17 @@ def aggregate_contacts(root, report):
         matches = classify_delta(known + rows, candidates)
         rows.extend(matches['new'])
         atomic_json(public_output / 'current-run-needs-review.json', matches['needsReview'])
+    subject_scope = None
+    if scope:
+        atomic_json(root / 'exports/additional-contacts-all-subjects.json', rows)
+        rows, held, subject_scope = partition_contacts(rows, scope)
+        subject_scope['policySha256'] = file_hash(root / 'discovery-scope.json')
+        atomic_json(root / 'exports/contacts-outside-subject-scope.json', held)
+        atomic_json(root / 'exports/subject-scope-summary.json', subject_scope)
     atomic_json(path, rows)
     value = publish_delta(baseline, path, root / 'exports/additional-contacts')
-    return {'delta': value, 'register': register_report, 'publicContacts': public_report, 'export': str(path)}
+    return {'delta': value, 'register': register_report, 'publicContacts': public_report, 'export': str(path),
+        'subjectScope': subject_scope}
 
 
 def prepare_classifier(root, job, parent, target, pages, record):

@@ -18,6 +18,7 @@ import urllib.request
 import urllib.robotparser
 from discovery import tls_context
 from configuration import loaded_source_sha
+from lead_scope import load_scope, query_priority, services_text
 
 HOSTS = {"www.findtutors.co.uk", "tutorperch.com", "www.childcare.co.uk", "tutordex.net", "tutorextra.co.uk", "www.uktutors.com", "www.tutorhunt.com", "www.tuitionlist.co.uk"}
 AGENT = "TutorResearch/1.0"
@@ -45,6 +46,7 @@ BUCKS = {
     "haversham", "grange farm", "tylers green",
 }
 CHILDCARE_DISTRICTS = {"aylesbury vale", "chiltern", "south bucks", "wycombe"}
+CHILDCARE_DIRECTORY_PATH = re.compile(r'/search/Private-Tutors/Buckinghamshire(?:/(?:11-Plus|Maths-Tutor|English-Tutor|Primary-up-to-11-years))?(?:/[1-9]\d{0,2})?')
 NON_TUITION = re.compile(r"\b(?:yoga|football|fitness|personal training|swimming|pilates|driving)\b", re.I)
 INSTITUTION = re.compile(r"\b(?:academy|university|college|grammar school|tuition centre|learning centre|kumon|mathnasium|explore learning)\b", re.I)
 ACADEMIC = re.compile(r"math|english|science|biology|chemistry|physics|history|geography|language|french|spanish|german|italian|arabic|mandarin|chinese|japanese|russian|latin|greek|portuguese|hindi|urdu|economics|business|accounting|comput|programming|coding|philosophy|psychology|sociology|law|statistics|primary|11\+|11.plus|eleven.plus|gcse|a.level|sat|reading|writing|literacy|phonics|dyslexia|study skills|special needs|send|efl|esol|ielts|piano|violin|guitar|singing|music|drum|flute|\b(?:art|anatomy|theology|polish|after[ -]school tuition|secondary school)\b", re.I)
@@ -100,7 +102,7 @@ def admitted_url(value):
             allowed = profile or p.path == "/robots.txt" or bool(re.fullmatch(r"/search/[a-z0-9-]+-lessons-in/[a-z0-9-]+", p.path))
         elif p.hostname == "www.childcare.co.uk":
             profile = bool(re.fullmatch(r"/profile/\d+", p.path))
-            allowed = profile or p.path == "/robots.txt" or bool(re.fullmatch(r"/search/Private-Tutors/Buckinghamshire(?:/\d+)?", p.path))
+            allowed = profile or p.path == "/robots.txt" or bool(CHILDCARE_DIRECTORY_PATH.fullmatch(p.path))
         elif p.hostname == "tutorperch.com":
             profile = bool(re.fullmatch(r"/t/[a-z0-9]+(?:-[a-z0-9]+)+/?", p.path))
             allowed = profile or p.path in ("/find/results", "/robots.txt")
@@ -596,10 +598,12 @@ def linked_pages(text, url):
     return list(dict.fromkeys(links))
 
 
-def listing_profile_urls(cards, host):
+def listing_profile_urls(cards, host, scope=None):
     """Queue local listing profiles without treating their role as a subject."""
     urls = []
     for row in cards:
+        if scope and query_priority(services_text(row), scope) == 2:
+            continue
         reason = exclusion_reason(row)
         # TutorExtra's dyslexia and home-education cards can advertise only a
         # tutor/teacher role. Fetch the person's profile to inspect its actual
@@ -640,7 +644,7 @@ def local_directory_link(value, source):
         match = re.fullmatch(r"/search/[a-z0-9-]+-lessons-in/([a-z0-9-]+)", parsed.path)
         return bool(match and locality_status(match.group(1).replace("-", " ")) == "advertised_bucks_locality")
     if parsed.hostname == "www.childcare.co.uk":
-        return bool(re.fullmatch(r"/search/Private-Tutors/Buckinghamshire(?:/\d+)?", parsed.path))
+        return bool(CHILDCARE_DIRECTORY_PATH.fullmatch(parsed.path))
     if parsed.hostname == "tutorperch.com":
         origin_filters = dict(urllib.parse.parse_qsl(origin.query))
         filters = dict(urllib.parse.parse_qsl(parsed.query))
@@ -796,6 +800,8 @@ def run(root, seeds, hours, page_limit, target):
             save(job_path, job)
         state = json.loads(state_path.read_text()) if state_path.exists() else {"queue": job["seeds"], "seen": [], "records": [], "attempts": 0, "errors": [], "phase": "running"}
         state['effectiveSourceSha'] = loaded_source_sha()
+        scope = load_scope(Path(job['seedSourceRun'])) if job.get('seedSourceRun') else None
+        state['discoveryScopeSha256'] = hashlib.sha256((Path(job['seedSourceRun']) / 'discovery-scope.json').read_bytes()).hexdigest() if scope else None
         replay_cached_profiles(root, state, job['deadlineUnix'])
         cache, robots = PageCache(root), {}
         while state["attempts"] < job["pageLimit"] and time.time() < job["deadlineUnix"]:
@@ -844,9 +850,12 @@ def run(root, seeds, hours, page_limit, target):
                     else:
                         cards = listing_records(text, url)
                         # Prefer actual local profiles, then pagination and linked local directories.
-                        local_urls = listing_profile_urls(cards, host)
+                        local_urls = listing_profile_urls(cards, host, scope)
                         links = linked_pages(text, url)
                         links = [link for link in links if local_directory_link(link, url)]
+                        if scope:
+                            links = [link for link in links if '/profile/' in link or '/users/' in link
+                                or '/tutor/' in link or query_priority(urllib.parse.urlsplit(link).path.replace('/', ' ').replace('-', ' '), scope) < 2]
                         if host == "www.findtutors.co.uk":
                             links = [link for link in links if "/tutor/" not in link and not re.search(r"-\d+/?$", urllib.parse.urlsplit(link).path)]
                         state["queue"].extend(link for link in [*local_urls, *links] if link not in state["seen"] and link not in state["queue"])

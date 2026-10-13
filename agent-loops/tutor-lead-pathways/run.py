@@ -18,6 +18,7 @@ import time
 from configuration import launchd_settings, campaign_window, focused_roots, loaded_source_sha
 from source_health import held_profile_sources, positive_sites
 from source_groups import tactic_group
+from lead_scope import load_scope, query_priority
 
 from discovery import (UTC, PaidCache, atomic_json, collect_records, file_hash, hold_reason,
                        merge_businesses, now_iso, parse_time, provider_request,
@@ -147,7 +148,9 @@ def next_query(lane, plan, cache, state):
     # Explore sources and tactics before buying another town from one source.
     # This changes selection order only; every payload and paid key stays fixed.
     counts = collections.Counter(tactic_group(item) for item in plan if item['lane'] == lane and item['key'] in completed)
-    choices = [item for item in plan if item['lane'] == lane]
+    scope = state.get('subjectScope')
+    choices = [item for item in plan if item['lane'] == lane and
+        (not scope or query_priority(item['payload'].get('keyword', ''), scope) < 2)]
     if any('tactic' in item for item in choices):
         feedback = state.get('tacticFeedback', {}) if state.get('adaptiveTactics') else {}
         def measured_priority(item):
@@ -165,6 +168,8 @@ def next_query(lane, plan, cache, state):
             cost = max(1, observed.get('chargedCents', 0))
             return (1, -reward / cost, counts[name])
         choices.sort(key=measured_priority if feedback else lambda item: counts[tactic_group(item)])
+    if scope:
+        choices.sort(key=lambda item: query_priority(item['payload'].get('keyword', ''), scope))
     for item in choices:
         if item["lane"] != lane or item["key"] in completed:
             continue
@@ -346,6 +351,7 @@ def seed_previous_urls(job):
 
 
 def prioritise_seed_records(records, job):
+    scope = job.get('discoveryScope')
     local, outside = set(), set()
     for folder in job.get("historicalEvidenceRoots", []):
         for filename, target in [("bucks-listings-research.csv", local), ("outside-recorded-area.csv", outside)]:
@@ -355,8 +361,11 @@ def prioritise_seed_records(records, job):
                     target.update(key for row in csv.DictReader(stream) if (key := website_key(row.get("website"))))
     def priority(record):
         key = website_key(record.get("website"))
-        return 0 if key in local else 2 if key in outside else 1
+        geography = 0 if key in local else 2 if key in outside else 1
+        subject = query_priority(record.get('name', ''), scope) if scope else 0
+        return subject, geography
     # A recorded address prioritises research; it never grants qualification.
+    records = [row for row in records if not scope or query_priority(row.get('name', ''), scope) < 2]
     return sorted(records, key=priority)
 
 
@@ -492,6 +501,9 @@ def run(root):
         state["phase"] = "running"
         state['effectiveSourceSha'] = loaded_source_sha()
         state['adaptiveTactics'] = job.get('adaptiveTactics', False)
+        state['subjectScope'] = load_scope(root)
+        state['discoveryScopeSha256'] = file_hash(root / 'discovery-scope.json') if state['subjectScope'] else None
+        job = dict(job, discoveryScope=state['subjectScope'])
         state['blockedProfileSites'] = held_profile_sources(focused_roots(job))['sites']
         plan = json.loads((root / "plan.json").read_text())
         # A resumed owner validates the live index before using any saved supplements.

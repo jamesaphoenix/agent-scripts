@@ -59,6 +59,34 @@ credentials. There is no Anthropic API key or fallback provider.
 
 ## Discovery and feedback
 
+The user's 13 October subject correction is recorded separately in the active
+campaign's `discovery-scope.json`. Its four subjects are English, maths, verbal
+reasoning and non-verbal reasoning, with explicit 11 plus and primary tuition
+also useful. Music-only teachers and other-subject-only tutors are excluded from
+the campaign contact export. A tutor offering maths and piano remains relevant.
+Names, search keywords, county headings and neighbouring adverts never supply
+the service claim. Generic GCSE or SEND tags alone require subject review.
+
+The optional policy keeps this infrastructure reusable for generic campaigns.
+Missing policy preserves their existing scope; an invalid policy fails closed.
+The SDK obtains its prompt from the same Python policy reader and records the
+policy SHA256. Paid selection favours requested subjects, retains generic tutor
+queries and holds explicit other-subject searches without marking them searched.
+Prepared manifests, query payloads, deadlines and spending ledgers stay intact.
+The extra window copies the validated policy from its sealed parent.
+
+`additional-contacts.json` and its CSV contain the matching contacts. The broad
+audit is retained as `additional-contacts-all-subjects.json`; excluded records
+and reasons are in `contacts-outside-subject-scope.json`. The separate scope
+summary reports these counts. Historical broad totals must not be presented as
+subject-qualified leads. Existing frozen checkpoints and caches are retained.
+
+Childcare's published Bucks subject routes for `11-Plus`, `Maths-Tutor`,
+`English-Tutor` and `Primary-up-to-11-years`, including their bounded pagination,
+are permitted seed pages. Other counties, childcare jobs, reviews and account
+routes remain excluded. A filtered directory page does not qualify its tutors:
+each person's own profile must still establish service and locality evidence.
+
 The paid runner interleaves Maps neighbourhood queries, Business Listings,
 subject-specific public profiles, independent practice sites, professional
 registers, specialist teachers and local adverts/newsletters. SDK research adds

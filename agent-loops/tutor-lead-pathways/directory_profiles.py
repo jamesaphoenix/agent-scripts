@@ -41,7 +41,7 @@ BUCKS = {
     "wavendon gate", "tattenhoe", "hanslope", "lavendon", "emberton", "north crawley", "shenley lodge",
     "edlesborough", "wingrave", "seer green", "weedon", "west wycombe", "naphill", "turville", "medmenham",
     "little horwood", "great horwood", "soulbury", "stoke hammond", "steeple claydon", "calvert", "gawcott",
-    "haversham", "grange farm",
+    "haversham", "grange farm", "tylers green",
 }
 CHILDCARE_DISTRICTS = {"aylesbury vale", "chiltern", "south bucks", "wycombe"}
 NON_TUITION = re.compile(r"\b(?:yoga|football|fitness|personal training|swimming|pilates|driving)\b", re.I)

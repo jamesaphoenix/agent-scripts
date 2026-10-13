@@ -1,5 +1,37 @@
 # Tutor lead discovery through five pathways
 
+## Tutors' Association public directory
+
+`tta_scraper.py` adds a source-specific scraper to the registered profile worker.
+Capture every rendered page of the public Find a Tutor directory, retaining its
+reported total, page offsets and observed member IDs in an index. The publisher
+rejects gaps, duplicate IDs and foreign routes. It writes one SHA256-bound seed
+batch, prioritising the observed Buckinghamshire subset. Repeating publication
+reuses that batch without resetting the worker's counters or deadline.
+
+```bash
+python3 agent-loops/tutor-lead-pathways/tta_scraper.py \
+  --index state/tutor-lead-pathways-20261013-12h/public-source-review/tta/public-index.json \
+  --profile-run-dir state/bucks-private-tutors-20261013-12h
+```
+
+The directory's internal bulk endpoint is disallowed by robots.txt and is not
+used. Index capture uses the published page controls. Public profile GETs obey
+both `Crawl-delay` and `Request-rate`; the current TTA rules require at least
+sixty seconds between requests. Successful and failed observations reuse the
+existing SHA256 cache. Native launchd owns the worker and its fifteen-minute
+checks. The separately authorised continuation inherits unvisited URLs, cached
+pages and attempt counts.
+
+Qualification reads only the profile's labelled personal and business fields.
+County claims supply locality, while subject specialisms supply services. Age
+levels, qualifications, navigation and neighbouring members cannot establish a
+subject. Only advertised contact fields supply email, phone or website. Franchise
+and platform affiliations remain excluded. The national index is a source cache;
+the campaign export still requires Buckinghamshire or Milton Keynes locality,
+the configured subjects, evidence replay and conservative identity deduplication.
+No directory total or contact route grants permission to send outreach.
+
 ## Keyword expansion and upstream classification
 
 `keyword_expansion.py` keeps a shared `state/keyword-search.sqlite` alongside the separate paid

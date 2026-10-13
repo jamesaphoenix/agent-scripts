@@ -7,6 +7,7 @@ import fcntl
 import hashlib
 from html.parser import HTMLParser
 import json
+import math
 import os
 from pathlib import Path
 import re
@@ -20,7 +21,7 @@ from discovery import tls_context
 from configuration import loaded_source_sha
 from lead_scope import load_scope, query_priority, services_text
 
-HOSTS = {"www.findtutors.co.uk", "tutorperch.com", "www.childcare.co.uk", "tutordex.net", "tutorextra.co.uk", "www.uktutors.com", "www.tutorhunt.com", "www.tuitionlist.co.uk"}
+HOSTS = {"www.findtutors.co.uk", "tutorperch.com", "www.childcare.co.uk", "tutordex.net", "tutorextra.co.uk", "www.uktutors.com", "www.tutorhunt.com", "www.tuitionlist.co.uk", "thetutorsassociation.wildapricot.org"}
 AGENT = "TutorResearch/1.0"
 BUCKS = {
     "amersham", "amersham on the hill", "aylesbury", "beaconsfield", "bierton", "buckingham",
@@ -85,7 +86,11 @@ def admitted_url(value):
         p = urllib.parse.urlsplit(value)
         if p.scheme != "https" or p.hostname not in HOSTS or p.port not in (None, 443) or p.username or p.password:
             return None
-        if p.hostname == "www.tutorhunt.com":
+        if p.hostname == 'thetutorsassociation.wildapricot.org':
+            from tta_scraper import PROFILE_PATH
+            profile = bool(PROFILE_PATH.fullmatch(p.path))
+            allowed = profile or p.path == '/robots.txt'
+        elif p.hostname == "www.tutorhunt.com":
             profile = bool(re.fullmatch(r"/users/[a-z0-9-]{1,64}/", p.path))
             allowed = profile or p.path == "/robots.txt" or bool(re.fullmatch(r"/(?:subjects/[a-z0-9-]+/)?locations/[a-z0-9-]+/", p.path))
         elif p.hostname == "www.uktutors.com":
@@ -184,6 +189,11 @@ def locality_status(value):
 
 
 def profile_locality_status(row):
+    if row.get('platform') == 'thetutorsassociation.wildapricot.org' and row.get('evidenceKind') == 'public_person_profile':
+        county = row.get('profileCounty', '').strip().casefold()
+        if county:
+            return 'advertised_bucks_locality' if county in ('bucks', 'buckinghamshire', 'milton keynes') else 'outside_or_unresolved'
+        return locality_status(re.sub(r'\bSt\.', 'St', row.get('profileCity', ''), flags=re.I))
     # These are the former Bucks district names used in Childcare's tutor header.
     # Its county breadcrumb can contradict that header and never supplies proof.
     if row.get("platform") == "childcare.co.uk" and row.get("evidenceKind") == "public_person_profile" and row.get("localityClaim", "").strip().lower() in CHILDCARE_DISTRICTS:
@@ -332,7 +342,10 @@ def profile_record(text, url):
         return None
     p = urllib.parse.urlsplit(url)
     document = Document(text).root
-    if p.hostname == 'www.tuitionlist.co.uk':
+    if p.hostname == 'thetutorsassociation.wildapricot.org':
+        from tta_scraper import parse_profile
+        return parse_profile(document, url)
+    elif p.hostname == 'www.tuitionlist.co.uk':
         if not re.fullmatch(r'/tutor/[a-z0-9-]+-[a-f0-9]{8}', p.path):
             return None
         names = [n for n in document.walk() if n.tag == 'h1']
@@ -537,6 +550,33 @@ class RestrictedRedirect(urllib.request.HTTPRedirectHandler):
 class PageCache:
     def __init__(self, root, spacing=2):
         self.root, self.spacing, self.last_request = root, spacing, {}
+        self.host_spacing = {}
+        self.request_times = {}
+        path = root / 'request-times.json'
+        if path.exists():
+            with path.open('rb') as stream:
+                raw = stream.read(16385)
+            values = json.loads(raw) if len(raw) <= 16384 else None
+            if (not isinstance(values, dict) or any(host not in HOSTS or type(stamp) not in (int, float)
+                or not math.isfinite(stamp) or stamp < 0 for host, stamp in values.items())):
+                raise ValueError('Invalid cached public request times')
+            self.request_times = values
+
+    def configure_robots(self, host, parser):
+        rate = parser.request_rate(AGENT)
+        interval = rate.seconds / rate.requests if rate and rate.requests > 0 else 0
+        self.host_spacing[host] = max(self.spacing, parser.crawl_delay(AGENT) or 0, interval)
+
+    def request_delay(self, url):
+        host = urllib.parse.urlsplit(url).hostname
+        interval = self.host_spacing.get(host, self.spacing)
+        recent = interval - (time.monotonic() - self.last_request.get(host, 0))
+        saved = interval - max(0, time.time() - self.request_times[host]) if host in self.request_times else 0
+        return max(0, recent, saved)
+
+    def can_start_before(self, url, deadline):
+        # Cached observations need no HTTP request or host delay.
+        return (self.root / 'receipts' / (self.key(url) + '.json')).exists() or time.time() + self.request_delay(url) < deadline
 
     def key(self, url):
         return hashlib.sha256(url.encode()).hexdigest()
@@ -546,10 +586,12 @@ class PageCache:
 
     def download(self, url):
         host = urllib.parse.urlsplit(url).hostname
-        delay = self.spacing - (time.monotonic() - self.last_request.get(host, 0))
+        delay = self.request_delay(url)
         if delay > 0:
             time.sleep(delay)
         self.last_request[host] = time.monotonic()
+        self.request_times[host] = time.time()
+        save(self.root / 'request-times.json', self.request_times)
         request = urllib.request.Request(url, headers={"User-Agent": AGENT, "Accept": "text/html,text/plain"})
         with urllib.request.build_opener(RestrictedRedirect(), urllib.request.HTTPSHandler(context=tls_context())).open(request, timeout=20) as response:
             body = response.read(8 * 1024 * 1024 + 1)
@@ -625,6 +667,9 @@ def local_directory_link(value, source):
     parsed, origin = urllib.parse.urlsplit(value), urllib.parse.urlsplit(source)
     if parsed.hostname != origin.hostname:
         return False
+    if parsed.hostname == 'thetutorsassociation.wildapricot.org':
+        from tta_scraper import PROFILE_PATH
+        return bool(PROFILE_PATH.fullmatch(parsed.path))
     if parsed.hostname == "www.tutorhunt.com":
         if parsed.path.startswith('/users/'):
             return True
@@ -696,7 +741,7 @@ def next_page(state):
     indices = [index for index, url in enumerate(queue) if urllib.parse.urlsplit(url).hostname == host]
     def person_page(index):
         path = urllib.parse.urlsplit(queue[index]).path
-        return path.startswith(("/profile/", "/t/", "/tutor/", "/users/")) or bool(re.search(r"-\d+/?$", path))
+        return path.startswith(("/profile/", "/t/", "/tutor/", "/users/", "/Sys/PublicProfile/")) or bool(re.search(r"-\d+/?$", path))
     def town_root(index):
         parsed = urllib.parse.urlsplit(queue[index])
         return parsed.hostname == "www.findtutors.co.uk" and not parsed.query and bool(re.fullmatch(r"/tutors-[a-z0-9-]+/", parsed.path))
@@ -828,15 +873,24 @@ def run(root, seeds, hours, page_limit, target):
             state["seen"].append(url)
             host = urllib.parse.urlsplit(url).hostname
             if host not in robots:
-                robot_text = cache.fetch("https://" + host + "/robots.txt")
+                robot_url = "https://" + host + "/robots.txt"
+                if not cache.can_start_before(robot_url, job['deadlineUnix']):
+                    state['seen'].remove(url)
+                    state['queue'].insert(0, url)
+                    break
+                robot_text = cache.fetch(robot_url)
                 parser = urllib.robotparser.RobotFileParser()
                 parser.parse(robot_text.splitlines() if robot_text else ["User-agent: *", "Disallow: /"])
                 robots[host] = parser
-                cache.spacing = max(cache.spacing, parser.crawl_delay(AGENT) or 0)
+                cache.configure_robots(host, parser)
             if not robots[host].can_fetch(AGENT, url):
                 state["errors"].append({"url": url, "reason": "robots_disallowed"})
                 save(state_path, state)
                 continue
+            if not cache.can_start_before(url, job['deadlineUnix']):
+                state['seen'].remove(url)
+                state['queue'].insert(0, url)
+                break
             state["attempts"] += 1
             try:
                 text = cache.fetch(url)

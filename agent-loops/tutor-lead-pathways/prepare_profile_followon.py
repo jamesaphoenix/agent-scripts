@@ -11,7 +11,7 @@ import shutil
 import tempfile
 import time
 
-from directory_profiles import admitted_url, decode_page, export_csv, import_seed_batches, merge_profiles, now, profile_locality_status, exclusion_reason, profile_record, save
+from directory_profiles import PageCache, admitted_url, decode_page, export_csv, import_seed_batches, merge_profiles, now, profile_locality_status, exclusion_reason, profile_record, save
 
 
 def digest(path):
@@ -69,6 +69,9 @@ def prepare(parent, output, hours, new_pages, target, seed_batch=None, source_ru
         try:
             for folder in ("pages", "receipts", "seed-batches"):
                 (temporary / folder).mkdir(mode=0o700)
+            if (parent / 'request-times.json').exists():
+                PageCache(parent)  # Validate the inherited host cooldowns before copying.
+                shutil.copy2(parent / 'request-times.json', temporary / 'request-times.json')
             for receipt, body in receipts:
                 # Cache bodies are immutable. New URLs get separate files in this stage.
                 # Receipts are copied so incidental metadata writes cannot affect history.

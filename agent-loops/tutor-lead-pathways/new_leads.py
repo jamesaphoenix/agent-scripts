@@ -4,6 +4,7 @@ import csv
 import json
 from collections import defaultdict
 from pathlib import Path
+import urllib.parse
 from audit_directory_identities import normalize_name
 from discovery import atomic_json, file_hash, now_iso, phone_key
 
@@ -11,6 +12,18 @@ from discovery import atomic_json, file_hash, now_iso, phone_key
 def classify_delta(baseline, current):
     member_keys = {k for r in baseline for k in r.get('memberKeys', [r['canonicalId']])}
     source_urls = {url.rstrip('/') for row in baseline for url in row.get('sourceUrls', [])}
+    def website_key(value):
+        if not isinstance(value, str):
+            return None
+        try:
+            url = urllib.parse.urlsplit(value)
+            if url.scheme not in ('http', 'https') or not url.hostname or url.username or url.password:
+                return None
+            return (url.hostname.removeprefix('www.'), url.path.rstrip('/'), url.query)
+        except ValueError:
+            return None
+    known_websites = {key for row in baseline for url in [row.get('website'), *row.get('sourceUrls', [])]
+                      if (key := website_key(url))}
     def contact_phone(row):
         value = row.get('phone')
         # Prepared campaign baselines encode the original business phone in
@@ -43,6 +56,8 @@ def classify_delta(baseline, current):
             result['known'].append(row)
         elif possible_match(row):
             result['needsReview'].append(dict(row, deltaHoldReason='possible_baseline_name_match'))
+        elif (key := website_key(row.get('website'))) and key in known_websites:
+            result['needsReview'].append(dict(row, deltaHoldReason='possible_baseline_website_match'))
         else:
             result['new'].append(row)
     return result

@@ -46,6 +46,8 @@ def audit_rows(root, rows):
         if not evidence or set(row["sourceUrls"]) != {e["url"] for e in evidence}:
             raise ValueError("Missing source evidence: " + key)
         hints = set()
+        if row['platform'] == 'thetutorsassociation.wildapricot.org':
+            hints.add(normalize_name(row['name']))
         replayed = []
         eleven_plus = any(ELEVEN_PLUS.search(service) for service in row["services"])
         for item in evidence:

@@ -543,8 +543,33 @@ def research_record(lead, source):
     return record
 
 
+def secondary_records(path, historical, lane, errors):
+    try:
+        result = json.loads(path.read_text())
+        if not isinstance(result, dict) or not isinstance(result.get('leads'), list):
+            raise ValueError('Expected a research object with a leads array')
+        digest = file_hash(path)
+    except (OSError, ValueError, TypeError) as error:
+        errors.append({'artifact': str(path), 'lane': lane, 'reason': type(error).__name__ + ': invalid research artifact'})
+        return []
+    rows = []
+    for index, lead in enumerate(result['leads']):
+        try:
+            if not isinstance(lead, dict):
+                raise ValueError('Expected a structured research lead')
+            record = research_record(lead, {'lane': lane, 'turn': path.name, 'artifact': str(path),
+                'artifactSha256': digest, 'historical': historical, 'observedAt': result.get('observedAt')})
+            if record:
+                rows.append(record)
+        except (ValueError, TypeError, AttributeError, KeyError) as error:
+            errors.append({'artifact': str(path), 'artifactSha256': digest, 'leadIndex': index,
+                           'lane': lane, 'reason': type(error).__name__ + ': invalid research lead'})
+    return rows
+
+
 def collect_records(cache, run_dir):
     records = []
+    import_errors = []
     manifest = json.loads((run_dir / "manifest.json").read_text()) if (run_dir / "manifest.json").exists() else {}
     evidence_roots = [Path(value) for value in manifest.get("historicalEvidenceRoots", [])]
     for row in cache.db.execute("SELECT * FROM requests WHERE receipt IS NOT NULL AND status='succeeded'").fetchall():
@@ -554,22 +579,12 @@ def collect_records(cache, run_dir):
     sdk_results = [(path, root != run_dir) for root in [run_dir, *evidence_roots]
                    for path in sorted((root / "sdk/results").glob("*.json"))]
     for path, historical in sdk_results:
-        result = json.loads(path.read_text())
-        for lead in result.get("leads", []):
-            record = research_record(lead, {"lane": "codex_oauth", "turn": path.name,
-                                           "artifact": str(path), "artifactSha256": file_hash(path),
-                                           "historical": historical})
-            if record:
-                records.append(record)
+        records.extend(secondary_records(path, historical, 'codex_oauth', import_errors))
     manual_results = [(path, root != run_dir) for root in [run_dir, *evidence_roots]
                       for path in sorted((root / "review/candidates").glob("*.json"))]
     for path, historical in manual_results:
-        result = json.loads(path.read_text())
-        for lead in result.get("leads", []):
-            record = research_record(lead, {"lane": "manual_source_review", "artifact": str(path), "historical": historical,
-                                           "artifactSha256": file_hash(path), "observedAt": result.get("observedAt")})
-            if record:
-                records.append(record)
+        records.extend(secondary_records(path, historical, 'manual_source_review', import_errors))
+    atomic_json(run_dir / 'review/candidate-import-errors.json', import_errors)
     # Reuse prior Go page evidence, then add this run's fetched pages. No website refetch is required.
     historical = list(Path(manifest["historyRoot"]).glob("tracelearn-tutors-*/discovery.json")) if manifest.get("historyRoot") else []
     historical.extend(path for root in evidence_roots for path in sorted((root / "crawls").glob("*/crawl.json")))

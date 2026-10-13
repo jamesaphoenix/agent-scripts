@@ -135,7 +135,8 @@ all requested rows will be returned.
 # Reviewing public contact adverts
 
 Save reviewed own-site or public-advert contacts in
-`review/candidates/public-contact-reviews.json`. `reviewed_contacts.py` requires a campaign Go
+`review/public-contact-reviews.json`, outside the published lead-import folder.
+`reviewed_contacts.py` requires a campaign Go
 checkpoint, its SHA256 and result index, a contiguous source unit, literal name, town and service
 quotes, an advertised email or phone, and reviewer/time provenance. Classified parent-frontier
 evidence can also be reused by page key and evidence SHA256 after its Go fetch scratch has been

@@ -35,7 +35,7 @@ def aggregate_contacts(root, report):
         rows.extend(matches['new'])
         atomic_json(register / 'contacts/current-run-needs-review.json', matches['needsReview'])
     path = root / 'exports/additional-contacts.json'
-    public_reviews = root / 'review/candidates/public-contact-reviews.json'
+    public_reviews = root / 'review/public-contact-reviews.json'
     public_report = None
     if public_reviews.exists():
         public_output = root / 'review/public-contacts'

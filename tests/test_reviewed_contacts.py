@@ -30,7 +30,7 @@ class ReviewedContactTests(unittest.TestCase):
         return path, item
 
     def run_review(self, root, items):
-        p = root / 'review/candidates/public-contact-reviews.json'
+        p = root / 'review/public-contact-reviews.json'
         atomic_json(p, items)
         return replay(root, p, root / 'baseline/contacts.json', root / 'review/public-contacts')
 
@@ -162,6 +162,24 @@ class ReviewedContactTests(unittest.TestCase):
             self.assertEqual(self.run_review(root, [dict(item, unitId='alex')])['held'], 1)
             page.write_text(page.read_text() + 'changed')
             self.assertEqual(self.run_review(root, [item])['held'], 1)
+
+    def test_malformed_secondary_candidate_artifact_does_not_stop_discovery(self):
+        from discovery import PaidCache, collect_records
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            cache = PaidCache(root, 100, 0)
+            atomic_json(root / 'review/candidates/bad.json', [{'reviewer': 'codex'}])
+            atomic_json(root / 'review/candidates/good.json', {'leads': [{'name': 'Jane Smith',
+                'website': 'https://jane.example.org/', 'sourceUrls': ['https://jane.example.org/'],
+                'services': ['English tuition'], 'outreachEligible': False}, None]})
+            try:
+                rows = collect_records(cache, root)
+                self.assertEqual([r['name'] for r in rows], ['Jane Smith'])
+                errors = json.loads((root / 'review/candidate-import-errors.json').read_text())
+                self.assertEqual(len(errors), 2)
+                self.assertEqual(cache.usage()['spentCents'], 0)
+            finally:
+                cache.db.close()
 
 
 if __name__ == '__main__':

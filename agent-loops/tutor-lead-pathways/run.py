@@ -18,7 +18,7 @@ import time
 from configuration import launchd_settings, campaign_window, focused_roots, loaded_source_sha
 from source_health import held_profile_sources, positive_sites
 from source_groups import tactic_group
-from lead_scope import load_scope, query_priority
+from lead_scope import load_scope, matching_subjects, query_priority, SUBJECTS
 
 from discovery import (UTC, PaidCache, atomic_json, collect_records, file_hash, hold_reason,
                        merge_businesses, now_iso, parse_time, provider_request,
@@ -362,7 +362,7 @@ def prioritise_seed_records(records, job):
     def priority(record):
         key = website_key(record.get("website"))
         geography = 0 if key in local else 2 if key in outside else 1
-        subject = query_priority(record.get('name', ''), scope) if scope else 0
+        subject = (0 if seed_subject_claim(record, scope) else query_priority(record.get('name', ''), scope)) if scope else 0
         return subject, geography
     # A recorded address prioritises research; it never grants qualification.
     records = [row for row in records if not scope or query_priority(row.get('name', ''), scope) < 2]
@@ -390,6 +390,14 @@ def launch_crawl(job, folder, arguments):
         process = subprocess.Popen([job["crawlerBinary"], "run", "--state", str(folder / "crawl.json"), *arguments],
                                    stdout=stdout, stderr=stderr, env=child_environment(), start_new_session=True)
     return process, folder
+
+
+def seed_subject_claim(record, scope):
+    claims = [claim for source in record.get('provenance', [])
+              if source.get('lane') in ('manual_source_review', 'codex_oauth')
+              for claim in (source.get('servicesClaim') or []) if isinstance(claim, str)]
+    policy = scope or {'subjects': list(SUBJECTS), 'includeElevenPlus': True, 'includePrimaryTutors': True}
+    return bool(matching_subjects({'services': list(dict.fromkeys(claims))}, policy))
 
 
 def start_crawl(root, job, cache, state, previous_urls):
@@ -435,7 +443,7 @@ def start_crawl(root, job, cache, state, previous_urls):
             source_count += 1
         elif record.get("websiteKind") != "professional_profile" and not re.search(
                 r"(?i)tutor|tuition|11\s*\+|11[\s-]*plus|eleven[\s-]*plus|education|dyslexia",
-                " ".join([record.get("name") or "", record.get("category") or "", url])):
+                " ".join([record.get("name") or "", record.get("category") or "", url])) and not seed_subject_claim(record, job.get('discoveryScope')):
             continue
         seeds.append(url)
         if len(seeds) >= 500:

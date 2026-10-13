@@ -144,6 +144,66 @@ def publish(index_path, profile_root):
     return report
 
 
+def publish_websites(profile_root, campaign_root):
+    """Re-read cached own fields before feeding advertised websites to the Go queue."""
+    from collections import Counter
+    from directory_profiles import PageCache, admitted_url, decode_page, exclusion_reason, now, profile_locality_status, profile_record, save
+    from lead_scope import load_scope, matching_subjects
+    state = json.loads((profile_root / 'state.json').read_text())
+    urls = sorted({url for url in state['seen'] if isinstance(url, str)
+                   and admitted_url(url) == url and urllib.parse.urlsplit(url).hostname == HOST
+                   and PROFILE_PATH.fullmatch(urllib.parse.urlsplit(url).path)})
+    cache = PageCache(profile_root)
+    scope = load_scope(campaign_root)
+    leads, held = [], Counter()
+    for url in urls:
+        try:
+            receipt_path = profile_root / 'receipts' / (cache.key(url) + '.json')
+            if receipt_path.stat().st_size > 65536:
+                raise ValueError('Oversized cached profile receipt')
+            receipt = json.loads(receipt_path.read_text())
+            with cache.body_path(url).open('rb') as stream:
+                body = stream.read(8 * 1024 * 1024 + 1)
+            if (len(body) > 8 * 1024 * 1024 or receipt.get('error') or receipt.get('status') != 200
+                or receipt.get('url') != url or hashlib.sha256(body).hexdigest() != receipt.get('sha256')):
+                raise ValueError('Cached profile receipt or body mismatch')
+            row = profile_record(decode_page(body, receipt.get('contentType', '')), url)
+            if not row:
+                raise ValueError('Cached page did not establish an own profile')
+            reason = exclusion_reason(row)
+            if (profile_locality_status(row) != 'advertised_bucks_locality' or row.get('locationConflict')
+                or reason not in (None, 'needs_subject_review')):
+                held['outside_or_excluded_profile'] += 1
+                continue
+            if scope and row['services'] and not matching_subjects(row, scope):
+                held['outside_subject_scope'] += 1
+                continue
+            website = row.get('website')
+            if not website:
+                held['no_advertised_website'] += 1
+                continue
+            leads.append({'name': row['name'], 'website': website, 'services': row['services'],
+                'localityClaim': row['localityClaim'], 'advertisedAddress': row['localityClaim'],
+                'sourceUrls': [url], 'phone': row.get('phone'), 'email': row.get('email'),
+                'notes': 'Own advertised website from a cached public member profile. Crawl seed only; subjects may need review. No outreach permission inferred.',
+                'outreachEligible': False, 'profilePageEvidence': {'url': url, 'sha256': receipt['sha256'],
+                    'receipt': str(receipt_path), 'observedAt': receipt['observedAt']}})
+        except (OSError, ValueError, KeyError, TypeError, AttributeError):
+            held['invalid_cached_profile'] += 1
+    # Stable content avoids manufacturing fresh candidates on every health check.
+    value = {'observedAt': max((lead['profilePageEvidence']['observedAt'] for lead in leads), default=None),
+             'collection': 'cached_public_profile_websites', 'leads': leads}
+    output = campaign_root / 'review/candidates/tta-advertised-websites.json'
+    if not output.exists() or json.loads(output.read_text()) != value:
+        save(output, value)
+    report = {'observedAt': now(), 'cachedProfilesReviewed': len(urls), 'websiteSeeds': len(leads),
+        'uniqueWebsites': len({lead['website'].lower().rstrip('/') for lead in leads}),
+        'held': dict(held), 'artifact': str(output), 'artifactSha256': hashlib.sha256(output.read_bytes()).hexdigest(),
+        'paidCalls': 0, 'outreachEligible': 0}
+    save(campaign_root / 'public-source-review/tta/website-seeds.json', report)
+    return report
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--index', type=Path, required=True)

@@ -17,6 +17,7 @@ from reviewed_contacts import replay as replay_public_contacts
 from new_leads import classify_delta, run as publish_delta
 from watch_expansion import watch as audit_progress
 from lead_scope import load_scope, partition_contacts
+from tta_scraper import publish_websites
 
 HERE = Path(__file__).resolve().parent
 
@@ -173,6 +174,10 @@ def watch(root, label):
         report = audit_progress(root, profile_root, root / 'baseline/contacts.json', root / 'baseline/contacts.json', new_only=True)
         report.update(classifier=classifier, deadline=job['authorizedDeadline'], errors=errors)
         report['classifierSeeds'] = classifier_seeds
+        try:
+            report['profileWebsiteSeeds'] = publish_websites(profile_root, root)
+        except (OSError, ValueError, KeyError, TypeError) as error:
+            errors.append(type(error).__name__ + ': cached profile website seeds failed; saved sources retained')
         try:
             report['additionalContacts'] = aggregate_contacts(root, report)
         except (OSError, ValueError, KeyError, TypeError) as error:

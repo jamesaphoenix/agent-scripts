@@ -30,6 +30,15 @@ subject. Only advertised contact fields supply email, phone or website. Franchis
 and platform affiliations remain excluded. The national index is a source cache;
 the campaign export still requires Buckinghamshire or Milton Keynes locality,
 the configured subjects, evidence replay and conservative identity deduplication.
+
+The campaign watcher replays cached profiles through `publish_websites` on each
+health check. It verifies each receipt and page hash, then feeds own advertised
+websites into the existing Go crawler. Conflicting towns, franchises and known
+other-subject-only profiles are held. A missing subject stays a crawl candidate
+and cannot become a contact without further evidence. Page failures are isolated
+per member. Website seeds retain the original profile URL and body hash, and
+reuse the existing page allowance, site lineage and fifteen-site branch limit.
+Separate member URLs retain separate identities in the general discovery code.
 No directory total or contact route grants permission to send outreach.
 Wild Apricot's repeated empty field placeholders are ignored, while duplicate
 named fields fail closed. A versioned replay recovers previously downloaded

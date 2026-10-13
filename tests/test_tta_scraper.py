@@ -25,6 +25,89 @@ def profile(**changes):
 class TtaTests(unittest.TestCase):
     url = 'https://thetutorsassociation.wildapricot.org/Sys/PublicProfile/99590192/6119301'
 
+    def cached_website(self, root, changes=None):
+        cache = directory.PageCache(root)
+        body = profile(**({'Business Website': 'www.janeexample.co.uk'} | (changes or {}))).encode()
+        cache.body_path(self.url).parent.mkdir(exist_ok=True)
+        cache.body_path(self.url).write_bytes(body)
+        directory.save(root / 'receipts' / (cache.key(self.url) + '.json'), {'url': self.url,
+            'status': 200, 'sha256': hashlib.sha256(body).hexdigest(), 'observedAt': '2026-10-13T20:00:00+00:00'})
+        directory.save(root / 'state.json', {'seen': [self.url], 'attempts': 42})
+        return cache
+
+    def test_public_member_urls_remain_separate_business_identities(self):
+        import discovery
+        another = self.url.replace('99590192', '96268775')
+        self.assertNotEqual(discovery.website_key(self.url), discovery.website_key(another))
+        self.assertTrue(discovery.professional_profile(self.url))
+        private = 'https://thetutorsassociation.wildapricot.org/Sys/MemberDirectory/LoadMembers?tab=1'
+        self.assertFalse(discovery.professional_profile(private))
+        rows = [discovery.business_record({'title': name, 'website': url}, {'lane': 'organic'})
+                for name, url in [('Jane Example', self.url), ('Alex Other', another)]]
+        self.assertEqual(len(discovery.merge_businesses(rows)), 2)
+        self.assertEqual(discovery.hold_reason(discovery.business_record({'title': 'Directory', 'website': private}, {})),
+                         'source_directory_or_job_page')
+
+    def test_cached_own_website_is_published_without_fetches_and_keeps_identity_evidence(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root, campaign = Path(tmp) / 'profiles', Path(tmp) / 'campaign'
+            root.mkdir(); campaign.mkdir()
+            self.cached_website(root)
+            state_before = (root / 'state.json').read_bytes()
+            with patch.object(directory.PageCache, 'fetch', side_effect=AssertionError('No HTTP')), patch.object(
+                    directory.PageCache, 'download', side_effect=AssertionError('No HTTP')):
+                report = tta.publish_websites(root, campaign)
+                again = tta.publish_websites(root, campaign)
+            self.assertEqual(report['artifactSha256'], again['artifactSha256'])
+            self.assertEqual((report['websiteSeeds'], report['paidCalls']), (1, 0))
+            lead = json.loads(Path(report['artifact']).read_text())['leads'][0]
+            self.assertEqual(lead['name'], 'Jane Example')
+            self.assertEqual(lead['website'], 'https://www.janeexample.co.uk')
+            self.assertEqual(lead['profilePageEvidence']['url'], self.url)
+            self.assertFalse(lead['outreachEligible'])
+            self.assertEqual((root / 'state.json').read_bytes(), state_before)
+
+    def test_bad_cached_profile_does_not_stop_next_valid_website(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root, campaign = Path(tmp) / 'profiles', Path(tmp) / 'campaign'
+            root.mkdir(); campaign.mkdir()
+            self.cached_website(root)
+            broken = self.url.replace('99590192', '99590191')
+            directory.save(root / 'state.json', {'seen': [broken, self.url]})
+            report = tta.publish_websites(root, campaign)
+            self.assertEqual(report['websiteSeeds'], 1)
+            self.assertEqual(report['held']['invalid_cached_profile'], 1)
+            cache = directory.PageCache(root)
+            cache.body_path(self.url).write_text(profile(**{'Business Website': 'www.changed.co.uk'}))
+            report = tta.publish_websites(root, campaign)
+            self.assertEqual(report['websiteSeeds'], 0)
+            self.assertEqual(report['held']['invalid_cached_profile'], 2)
+
+    def test_website_seeds_hold_nonlocal_chain_and_other_subject_only_profiles(self):
+        scope = {'subjects': ['english', 'maths'], 'includeElevenPlus': True, 'includePrimaryTutors': True}
+        changes = [{'City': 'London', 'County': 'London'}, {'City': 'Leighton Buzzard'},
+                   {'Company/Organisation Name': 'Tutor Doctor'}, {'Subject Specialisms': 'Piano'},
+                   {'Subject Specialisms': 'GCSE Science'}]
+        for fields in changes:
+            with self.subTest(fields=fields), tempfile.TemporaryDirectory() as tmp:
+                root, campaign = Path(tmp) / 'profiles', Path(tmp) / 'campaign'
+                root.mkdir(); campaign.mkdir()
+                self.cached_website(root, fields)
+                with patch('lead_scope.load_scope', return_value=scope):
+                    report = tta.publish_websites(root, campaign)
+                self.assertEqual(report['websiteSeeds'], 0)
+
+    def test_blank_subjects_remain_crawl_research_and_never_become_contacts(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root, campaign = Path(tmp) / 'profiles', Path(tmp) / 'campaign'
+            root.mkdir(); campaign.mkdir()
+            self.cached_website(root, {'Subject Specialisms': '', 'Business Website': 'www.englishtuition.example'})
+            report = tta.publish_websites(root, campaign)
+            lead = json.loads(Path(report['artifact']).read_text())['leads'][0]
+            self.assertEqual(lead['services'], [])
+            self.assertFalse(lead['outreachEligible'])
+            self.assertNotIn('canonicalId', lead)
+
     def test_own_public_fields_supply_identity_county_and_subjects(self):
         row = directory.profile_record(profile(), self.url)
         self.assertEqual((row['name'], row['personId']), ('Jane Example', '99590192'))

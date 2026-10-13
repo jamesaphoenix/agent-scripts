@@ -15,6 +15,30 @@ spec.loader.exec_module(directory)
 
 
 class ProfileTests(unittest.TestCase):
+    def test_cli_accepts_the_prepared_extra_window_but_keeps_unprepared_runs_bounded(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            args = ['--run-dir', str(root), '--hours', '12', '--pages', '25337', '--target', '5000']
+            with patch.object(directory, 'run') as run, self.assertRaises(SystemExit):
+                directory.main(args)
+            run.assert_not_called()
+            authorization = {'requestedAt': '2026-10-13T23:43:51+00:00',
+                'deadline': '2026-10-14T11:43:51+00:00', 'parentManifestSha256': 'a' * 64}
+            path = root / 'authorization.json'
+            path.write_text(json.dumps(authorization))
+            job = {'startedAt': authorization['requestedAt'], 'deadlineUnix': 1791978231.0,
+                'pageLimit': 25337, 'initialAttemptCount': 13337, 'newAttemptLimit': 12000,
+                'additionalWindowAuthorization': str(path),
+                'additionalWindowAuthorizationSha256': hashlib.sha256(path.read_bytes()).hexdigest()}
+            directory.save(root / 'job.json', job)
+            with patch.object(directory, 'run') as run:
+                directory.main(args)
+            run.assert_called_once_with(root, [], 12, 25337, 5000)
+            path.write_text('{}')
+            with patch.object(directory, 'run') as run, self.assertRaises(SystemExit):
+                directory.main(args)
+            run.assert_not_called()
+
     def test_tta_country_in_county_field_defers_to_own_city_without_accepting_county_conflicts(self):
         def row(city, county):
             return {'platform': 'thetutorsassociation.wildapricot.org',

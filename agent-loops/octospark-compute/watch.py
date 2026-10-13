@@ -46,7 +46,8 @@ print(json.dumps(dict(telemetry=telemetry,releases=[dict(project=p['project'],re
             if not any(c['project'] == project and c['service'] == service and c['running'] and c['health'] in ['healthy', 'running'] for c in nas['containers']):
                 raise RuntimeError('NAS application readiness failed: ' + project + '/' + service)
     for url in PUBLIC:
-        with urllib.request.urlopen(url, timeout=5) as response:
+        request = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0 JUD-Fleet-Verification'})
+        with urllib.request.urlopen(request, timeout=5) as response:
             if response.status != 200:
                 raise RuntimeError('Public API readiness failed')
     native = {}

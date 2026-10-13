@@ -596,6 +596,27 @@ def linked_pages(text, url):
     return list(dict.fromkeys(links))
 
 
+def listing_profile_urls(cards, host):
+    """Queue local listing profiles without treating their role as a subject."""
+    urls = []
+    for row in cards:
+        reason = exclusion_reason(row)
+        # TutorExtra's dyslexia and home-education cards can advertise only a
+        # tutor/teacher role. Fetch the person's profile to inspect its actual
+        # subjects; the listing itself remains ineligible for contact export.
+        deferred_subject = (host == 'tutorextra.co.uk'
+            and row.get('platform') == 'tutorextra.co.uk'
+            and row.get('evidenceKind') == 'directory_listing'
+            and reason == 'needs_subject_review'
+            and any(re.search(r'\b(?:Tutor|Teacher)\b', service, re.I)
+                    for service in row.get('services', [])))
+        if (host == 'www.childcare.co.uk'
+            or (locality_status(row['localityClaim']) == 'advertised_bucks_locality'
+                and (reason is None or deferred_subject))):
+            urls.append(row['sourceUrls'][0])
+    return urls
+
+
 def local_directory_link(value, source):
     parsed, origin = urllib.parse.urlsplit(value), urllib.parse.urlsplit(source)
     if parsed.hostname != origin.hostname:
@@ -820,7 +841,7 @@ def run(root, seeds, hours, page_limit, target):
                     else:
                         cards = listing_records(text, url)
                         # Prefer actual local profiles, then pagination and linked local directories.
-                        local_urls = [r["sourceUrls"][0] for r in cards if host == "www.childcare.co.uk" or (locality_status(r["localityClaim"]) == "advertised_bucks_locality" and not exclusion_reason(r))]
+                        local_urls = listing_profile_urls(cards, host)
                         links = linked_pages(text, url)
                         links = [link for link in links if local_directory_link(link, url)]
                         if host == "www.findtutors.co.uk":

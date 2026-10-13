@@ -10,11 +10,13 @@ import json
 import os
 from pathlib import Path
 import re
+import ssl
 import time
 import urllib.error
 import urllib.parse
 import urllib.request
 import urllib.robotparser
+from discovery import tls_context
 
 HOSTS = {"www.findtutors.co.uk", "tutorperch.com", "www.childcare.co.uk", "tutordex.net", "tutorextra.co.uk", "www.uktutors.com", "www.tutorhunt.com"}
 AGENT = "TutorResearch/1.0"
@@ -493,7 +495,7 @@ class PageCache:
             time.sleep(delay)
         self.last_request[host] = time.monotonic()
         request = urllib.request.Request(url, headers={"User-Agent": AGENT, "Accept": "text/html,text/plain"})
-        with urllib.request.build_opener(RestrictedRedirect()).open(request, timeout=20) as response:
+        with urllib.request.build_opener(RestrictedRedirect(), urllib.request.HTTPSHandler(context=tls_context())).open(request, timeout=20) as response:
             body = response.read(8 * 1024 * 1024 + 1)
             if len(body) > 8 * 1024 * 1024:
                 raise ValueError("Page exceeded eight MB")
@@ -525,7 +527,9 @@ class PageCache:
             save(receipt, {"url": url, "sha256": hashlib.sha256(body).hexdigest(), "status": status, "observedAt": now(), "contentType": content_type})
             return decode_page(body, content_type)
         except (OSError, ValueError) as error:
-            save(receipt, {"url": url, "error": type(error).__name__, "observedAt": now()})
+            detail = 'certificate_verification_failed' if isinstance(getattr(error, 'reason', None), ssl.SSLCertVerificationError) else None
+            save(receipt, {"url": url, "error": type(error).__name__, "reason": detail,
+                           "httpStatus": getattr(error, 'code', None), "observedAt": now()})
             return None
 
 

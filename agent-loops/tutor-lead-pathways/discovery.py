@@ -10,6 +10,7 @@ import os
 from pathlib import Path
 import re
 import sqlite3
+import ssl
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -66,6 +67,12 @@ MERGED_LISTS = ("aliases", "categories", "placeIds", "provenance", "emails", "id
 
 def now_iso():
     return datetime.datetime.now(UTC).isoformat()
+
+
+def tls_context():
+    """Python.org installs may lack certifi. Keep verification with macOS trust."""
+    trust = Path('/etc/ssl/cert.pem')
+    return ssl.create_default_context(cafile=str(trust) if trust.is_file() else None)
 
 
 def parse_time(value):
@@ -260,7 +267,7 @@ def provider_request(cache, lane, payload, maximum_cents=100):
                                      {"Authorization": "Basic " + auth, "Content-Type": "application/json"})
     raw, http_status = None, None
     try:
-        with urllib.request.build_opener(NoRedirect()).open(request, timeout=100) as response:
+        with urllib.request.build_opener(NoRedirect(), urllib.request.HTTPSHandler(context=tls_context())).open(request, timeout=100) as response:
             http_status = getattr(response, "status", None)
             raw = response.read(16 * 1024 * 1024 + 1)
         if len(raw) > 16 * 1024 * 1024:

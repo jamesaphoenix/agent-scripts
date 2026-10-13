@@ -11,9 +11,16 @@ sys.path.insert(0, str(Path(__file__).parents[1] / 'agent-loops/tutor-lead-pathw
 from discovery import PaidCache, atomic_json, provider_request, request_key
 from configuration import campaign_window
 from new_leads import classify_delta
+import ssl
 
 
 class CampaignWindowTests(unittest.TestCase):
+    def test_certificate_repair_preserves_tls_verification(self):
+        from discovery import tls_context
+        context = tls_context()
+        self.assertTrue(context.check_hostname)
+        self.assertEqual(context.verify_mode, ssl.CERT_REQUIRED)
+
     def test_twelve_hour_window_is_anchored_to_the_request(self):
         manifest = {'hours': 12, 'authorizedStartedAt': '2026-10-13T11:43:51+00:00',
                     'authorizedDeadline': '2026-10-13T23:43:51+00:00'}

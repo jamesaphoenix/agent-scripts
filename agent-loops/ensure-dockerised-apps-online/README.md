@@ -17,7 +17,7 @@ Two compounding causes:
 2. The containers had exited `0` / `143` / `137` - graceful-stop codes - and
    `restart: unless-stopped` **deliberately does not restart an explicitly stopped
    container**. The compose files now use `restart: always`, which covers this case for
-   Octospark and Trace Learn. `tx-agent-kit` still runs with `restart: no`, so only this loop
+   Octospark and Trace Learn. The trace-learn dev stack (compose project `trace-learn`, formerly `tx-agent-kit`) still runs with `restart: no`, so only this loop
    brings it back.
 
 ## What it does
@@ -76,7 +76,7 @@ rm    <state-dir>/disabled              # resume
 agent-loops/ensure-dockerised-apps-online/ensure-online.sh --status     # container state per app
 agent-loops/ensure-dockerised-apps-online/ensure-online.sh --dry-run    # what would be started
 agent-loops/ensure-dockerised-apps-online/ensure-online.sh              # start stopped containers
-agent-loops/ensure-dockerised-apps-online/ensure-online.sh --app tx-agent-kit
+agent-loops/ensure-dockerised-apps-online/ensure-online.sh --app trace-learn-dev
 ```
 
 ## Install (Mac Studio only)

@@ -77,7 +77,7 @@
           "agent-loops/ensure-dockerised-apps-online/install-launchd.sh"
         ]
       },
-      "notes": "Replaces trace-learn-stack-boot (2026-09-04). docker-starts any existing-but-stopped container of every enabled app in config/docker-apps.json (Octospark prod+staging, Trace Learn prod+staging, tx-agent-kit observability stack) in the app's configured dependency order. Containers found by compose labels, never names. Docker Desktop on macOS starts at user LOGIN not boot, so restart:always alone cannot help - a 2026-07-26 reboot left api.tracelearn.app on 502 for ~20h; tx-agent-kit additionally runs with restart:no. NOT a deploy: no build, pull, secrets or migrations. Idempotent. Maintenance opt-out: touch state/ensure-dockerised-apps-online/disabled (all) or disabled.<app-id> (one)."
+      "notes": "Replaces trace-learn-stack-boot (2026-09-04). docker-starts any existing-but-stopped container of every enabled app in config/docker-apps.json (Octospark prod+staging, Trace Learn prod+staging, trace-learn dev stack) in the app's configured dependency order. Containers found by compose labels, never names. Docker Desktop on macOS starts at user LOGIN not boot, so restart:always alone cannot help - a 2026-07-26 reboot left api.tracelearn.app on 502 for ~20h; the trace-learn dev stack additionally runs with restart:no. NOT a deploy: no build, pull, secrets or migrations. Idempotent. Maintenance opt-out: touch state/ensure-dockerised-apps-online/disabled (all) or disabled.<app-id> (one)."
     },
     {
       "id": "octospark-auto-fix-runners",

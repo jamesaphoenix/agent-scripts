@@ -18,7 +18,7 @@ import urllib.request
 import urllib.robotparser
 from discovery import tls_context
 
-HOSTS = {"www.findtutors.co.uk", "tutorperch.com", "www.childcare.co.uk", "tutordex.net", "tutorextra.co.uk", "www.uktutors.com", "www.tutorhunt.com"}
+HOSTS = {"www.findtutors.co.uk", "tutorperch.com", "www.childcare.co.uk", "tutordex.net", "tutorextra.co.uk", "www.uktutors.com", "www.tutorhunt.com", "www.tuitionlist.co.uk"}
 AGENT = "TutorResearch/1.0"
 BUCKS = {
     "amersham", "amersham on the hill", "aylesbury", "beaconsfield", "bierton", "buckingham",
@@ -88,6 +88,9 @@ def admitted_url(value):
         elif p.hostname == "www.uktutors.com":
             profile = bool(re.fullmatch(r"/tutor/\d+/[a-z0-9-]+", p.path))
             allowed = profile or p.path in ("/robots.txt", "/county/buckinghamshire-tutors/") or bool(re.fullmatch(r"/town/[a-z0-9-]+-tutors/", p.path))
+        elif p.hostname == "www.tuitionlist.co.uk":
+            profile = bool(re.fullmatch(r"/tutor/[a-z0-9-]+-[a-f0-9]{8}", p.path))
+            allowed = profile or p.path in ("/robots.txt", "/find-a-tutor")
         elif p.hostname == "tutordex.net":
             profile = bool(re.fullmatch(r"/tutor/\d+/[a-z0-9-]+", p.path))
             allowed = profile or p.path == "/robots.txt" or bool(re.fullmatch(r"/uk/academic/town/[a-z0-9-]+(?:/[a-z0-9-]+){0,2}", p.path))
@@ -159,6 +162,15 @@ def class_text(node, name):
     return found.text() if found else ""
 
 
+def parent_node(document, node):
+    return next((n for n in document.walk() if any(child is node for child in n.children)), None)
+
+
+def named_section(document, heading):
+    matches = [n for n in document.walk() if n.tag == 'h2' and n.text() == heading]
+    return parent_node(document, matches[0]) if len(matches) == 1 else None
+
+
 def locality_status(value):
     primary = value.split(",", 1)[0].strip().lower()
     if primary in BUCKS or primary in ("buckinghamshire", "bucks", "milton keynes (buckinghamshire)"):
@@ -227,6 +239,27 @@ def listing_records(text, url):
     document = Document(text).root
     host = urllib.parse.urlsplit(url).hostname
     rows = []
+    if host == 'www.tuitionlist.co.uk':
+        seen = set()
+        for card in document.walk():
+            headings = [n for n in card.walk() if n.tag == 'h2']
+            if len(headings) != 1:
+                continue
+            link = card.first(lambda n: n.tag == 'a' and n.text() == 'View profile')
+            source = admitted_url(urllib.parse.urljoin(url, link.attrs.get('href', ''))) if link else None
+            header = parent_node(card, headings[0])
+            location = next((n for n in header.children if isinstance(n, Node) and n.tag == 'p'), None) if header else None
+            info = parent_node(card, header) if header else None
+            labels = [n.text() for child in info.children if isinstance(child, Node) and child is not header
+                      and child.tag == 'div' for n in child.walk() if n.tag == 'span'] if info else []
+            parts = [n.text() if isinstance(n, Node) else n for n in location.children] if location else []
+            place = ' '.join(part.strip() for part in parts if part.strip().casefold() not in ('online', 'in-person'))
+            if source and source not in seen and place.strip() and labels:
+                seen.add(source)
+                row = public_person(host, source.rsplit('-', 1)[-1], headings[0].text(),
+                    re.sub(r'\s*,\s*', ', ', place.strip()), labels, source)
+                rows.append(dict(row, evidenceKind='directory_listing', listingUrl=url))
+        return rows
     for card in document.walk():
         if host == "www.uktutors.com" and card.has_class("searchresult"):
             title = card.first(lambda n: n.has_class("top_bars"))
@@ -296,7 +329,24 @@ def profile_record(text, url):
         return None
     p = urllib.parse.urlsplit(url)
     document = Document(text).root
-    if p.hostname == "www.tutorhunt.com":
+    if p.hostname == 'www.tuitionlist.co.uk':
+        if not re.fullmatch(r'/tutor/[a-z0-9-]+-[a-f0-9]{8}', p.path):
+            return None
+        names = [n for n in document.walk() if n.tag == 'h1']
+        subjects = named_section(document, 'Subjects and levels')
+        location = named_section(document, 'Lesson location')
+        statement = location.first(lambda n: n.tag == 'p') if location else None
+        labels = [n.text() for n in subjects.walk() if n.tag == 'span' and n.text()] if subjects else []
+        claim = re.match(re.escape(names[0].text()) + r'\s+is listed in\s+(.+?)\s*\.', statement.text()) if len(names) == 1 and statement else None
+        if not claim or not labels:
+            return None
+        about = named_section(document, 'About')
+        description = about.first(lambda n: n.tag == 'p') if about else None
+        row = public_person(p.hostname, p.path.rsplit('-', 1)[-1], names[0].text(),
+            re.sub(r'\s*,\s*', ', ', claim.group(1).strip()), labels, url)
+        row['contactRouteNote'] = 'Public profile; no email or phone inferred. Enquiry forms are not used for research or marketing.'
+        return annotate_advert(row, description=description.text() if description else '')
+    elif p.hostname == "www.tutorhunt.com":
         if not re.fullmatch(r"/users/[a-z0-9-]{1,64}/", p.path):
             return None
         header = document.first(lambda n: n.attrs.get("id") == "profilenameinfo")
@@ -556,6 +606,8 @@ def local_directory_link(value, source):
             return True
         match = re.fullmatch(r"/town/([a-z0-9-]+)-tutors/", parsed.path)
         return bool(match and locality_status(match.group(1).replace("-", " ")) == "advertised_bucks_locality")
+    if parsed.hostname == 'www.tuitionlist.co.uk':
+        return parsed.path == '/find-a-tutor'
     if parsed.hostname == "tutordex.net":
         match = re.fullmatch(r"/uk/academic/town/([a-z0-9-]+)(?:/[a-z0-9-]+){0,2}", parsed.path)
         return bool(match and locality_status(match.group(1).replace("-", " ")) == "advertised_bucks_locality")

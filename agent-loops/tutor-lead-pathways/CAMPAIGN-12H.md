@@ -93,6 +93,14 @@ with the directory delta in `exports/additional-contacts/new.csv` and JSON,
 checking previous business phone aliases as well as names and source URLs.
 The combined export remains research and grants no outreach eligibility.
 
+TuitionList adds public profile and index paths to the profile collector. Index
+cards only seed a person's page; the audit requires their own heading, a named
+lesson-location statement and the subjects section. Related searches and nearby
+cards never supply those fields. Profile URLs drop enquiry fragments before
+cache lookup. Existing cached bodies and receipts can be replayed without a new
+request. Enquiry forms are not used for research or marketing, and emails and
+phone numbers are never inferred from the form.
+
 ## Runtime and handoff
 
 Author scripts on the MacBook. Push the scoped branch, then create a clean pinned

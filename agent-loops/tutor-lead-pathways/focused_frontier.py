@@ -21,11 +21,12 @@ BINARY = re.compile(r'\.(?:pdf|png|jpg|jpeg|webp|gif|svg|mp4|mp3|zip|woff2?|css|
 DIRECTORY_HOSTS = {'findtutors.co.uk', 'tutorful.co.uk', 'superprof.co.uk', 'tutorhunt.com',
                    'firsttutors.com', 'uktutors.com', 'yell.com', 'bark.com', 'childcare.co.uk',
                    'tutorperch.com', 'tophelp.co.uk', 'cylex-uk.co.uk', 'hometutorsdirectory.co.uk',
-                   'tutordex.net', 'tutorextra.co.uk'}
+                   'tutordex.net', 'tutorextra.co.uk', 'tuitionlist.co.uk'}
 WEBSITE = re.compile(r'^(?:website|visit(?: my| our| tutor)? (?:website|site)|view website)$', re.I)
 PROFILE_PATHS = {
     'tutorhunt.com': r'/users/[a-z0-9-]{1,64}/',
     'uktutors.com': r'/tutor/\d+/[a-z0-9-]+',
+    'tuitionlist.co.uk': r'/tutor/[a-z0-9-]+-[a-f0-9]{8}',
     'tutordex.net': r'/tutor/\d+/[a-z0-9-]+',
     'tutorextra.co.uk': r'/profile/[a-z0-9-]+/\d+-\d+',
     'childcare.co.uk': r'/profile/\d+',

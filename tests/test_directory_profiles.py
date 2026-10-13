@@ -5,14 +5,46 @@ from pathlib import Path
 import tempfile
 import unittest
 from unittest.mock import patch
+import sys
 
 PATH = Path(__file__).parents[1] / "agent-loops/tutor-lead-pathways/directory_profiles.py"
+sys.path.insert(0, str(PATH.parent))
 spec = importlib.util.spec_from_file_location("directory_profiles", PATH)
 directory = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(directory)
 
 
 class ProfileTests(unittest.TestCase):
+    def test_tuitionlist_profile_uses_its_named_location_and_own_subject_section(self):
+        url = 'https://www.tuitionlist.co.uk/tutor/jane-smith-maths-amersham-1234abcd'
+        html = '''<nav>11 Plus Tutors in Aylesbury</nav><div><h1>Jane Smith</h1></div>
+            <div><h2>Subjects and levels</h2><div><span>Maths</span><span>GCSE</span></div></div>
+            <div><h2>Lesson location</h2><p>Jane Smith is listed in Amersham, Buckinghamshire.</p></div>
+            <div><h2>About</h2><p>I tutor GCSE maths.</p></div><footer>11 Plus English</footer>'''
+        row = directory.profile_record(html, url)
+        self.assertEqual(row['name'], 'Jane Smith')
+        self.assertEqual(row['personId'], '1234abcd')
+        self.assertEqual(row['localityClaim'], 'Amersham, Buckinghamshire')
+        self.assertEqual(row['services'], ['Maths', 'GCSE'])
+        self.assertIsNone(directory.exclusion_reason(row))
+        self.assertFalse(row['outreachEligible'])
+        self.assertIsNone(directory.profile_record(html.replace('Jane Smith is listed in', 'Other Tutor is listed in'), url))
+        self.assertIsNone(directory.profile_record(html.replace('Subjects and levels', 'Related tutor searches'), url))
+        self.assertEqual(directory.admitted_url(url + '#enquire'), url)
+        self.assertIsNone(directory.admitted_url('https://www.tuitionlist.co.uk/login'))
+
+    def test_tuitionlist_index_is_a_seed_source_and_cannot_borrow_a_neighbours_location(self):
+        def card(name, town, suffix, subject):
+            return f'''<div><div><div><h2>{name}</h2><p><span>{town}</span><span>Online</span></p></div>
+                <div><span>{subject}</span></div><p>I offer tuition.</p></div>
+                <a href="/tutor/{name.lower()}-maths-{suffix}">View profile</a></div>'''
+        html = card('Jane', 'Amersham, Buckinghamshire', '1234abcd', 'Maths') + card('Alex', 'London, London', '5678abcd', 'English')
+        rows = directory.listing_records(html, 'https://www.tuitionlist.co.uk/find-a-tutor')
+        self.assertEqual(len(rows), 2)
+        self.assertEqual([r['localityClaim'] for r in rows], ['Amersham, Buckinghamshire', 'London, London'])
+        self.assertTrue(all(r['evidenceKind'] == 'directory_listing' for r in rows))
+        self.assertFalse(directory.local_directory_link('https://www.tuitionlist.co.uk/login', 'https://www.tuitionlist.co.uk/find-a-tutor'))
+
     def test_declared_legacy_html_charset_preserves_professional_names(self):
         body = b'<meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1"><h1>Ren\xe9e\x92s tuition</h1>'
         self.assertIn("Renée’s tuition", directory.decode_page(body))

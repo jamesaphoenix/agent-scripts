@@ -1,6 +1,19 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { oauthEnvironment, researchSchema, recordUsage, researchThread, researchTowns } from "./agentic.mjs";
+import { oauthEnvironment, researchSchema, recordUsage, researchThread, researchTowns, researchSourceSha } from "./agentic.mjs";
+
+test("SDK source attribution uses the loaded source checkout", () => {
+  const sha = "a".repeat(40);
+  assert.equal(researchSourceSha(() => ({ status: 0, stdout: sha + "\n" })), sha);
+});
+
+test("failed or malformed Git attribution cannot stop research or expose stderr", () => {
+  for (const result of [{ status: 1, stdout: "", stderr: "private diagnostic" },
+                         { status: 0, stdout: "unexpected output" }, { status: null }]) {
+    assert.equal(researchSourceSha(() => result), "unknown");
+  }
+  assert.equal(researchSourceSha(() => { throw new Error("private diagnostic"); }), "unknown");
+});
 
 test("isolated turns do not reload a growing previous conversation", () => {
   const calls = [];

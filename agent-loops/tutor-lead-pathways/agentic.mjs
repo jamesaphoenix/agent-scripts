@@ -9,6 +9,17 @@ export function oauthEnvironment(environment) {
     .filter((key) => environment[key] !== undefined).map((key) => [key, environment[key]]));
 }
 
+export function researchSourceSha(readRevision) {
+  try {
+    const result = readRevision ? readRevision() : spawnSync("git", ["rev-parse", "HEAD"], {
+      cwd: fileURLToPath(new URL(".", import.meta.url)), env: oauthEnvironment(process.env),
+      encoding: "utf8", timeout: 10_000,
+    });
+    const sha = result.stdout?.trim();
+    return result.status === 0 && /^[a-f0-9]{40}$/.test(sha || "") ? sha : "unknown";
+  } catch { return "unknown"; }
+}
+
 export function recordUsage(status, previous, usage) {
   status.usage = usage;
   status.totalInputTokens = (previous.totalInputTokens || 0) + usage.input_tokens;
@@ -79,7 +90,7 @@ export async function main(runDirectory, slot, transport = "direct") {
 This is slot ${slot + 1} of a finite ${job.hours || 6}-hour research workflow. Prioritise these actual towns and nearby villages: ${towns.map((town) => town.name).join(", ")}.
 Use live web search creatively. Combine business websites, named professional registers, parish/community directories, venue announcements, council family directories and newsletter PDF advertisements. Find tutors without standalone websites as well.
 Keep each turn bounded: at most six search batches, eight source-page inspections and four targeted index reads. Batch related queries where useful. Stop once those inspections are complete and return the evidenced records and useful new seed queries. Prefer a new named local tutor over repeating a generic town listing.
-Use targeted rg searches with at most eight matches per search against sdk/known-leads.tsv to check already-known names, domains and towns. Do not read the complete index or the large exports/businesses.json file. Focus on new individual practices; retain additional evidence for known leads only when it resolves locality, actual teaching services or business identity.
+Use this read-only command to check already-known leads: python3 ${join(fileURLToPath(new URL(".", import.meta.url)), "lookup_known_leads.py")} --index sdk/known-leads.tsv -- "Heather Moore" "theenglishteacher.uk" "07913 820845". Each of your four targeted index reads may check up to twelve literal names, domains or phones. The helper scans the complete index separately for every query and returns exact totalMatches with at most two example rows. A truncated examples list never means an unchecked query or absence. A failed lookup leaves the lead unchecked. Check every proposed new lead with its name and any advertised phone or own-site domain. Do not use a shared directory domain as identity. Avoid a combined rg -m search over different leads: early matches can hide later names. Do not read the complete index into model context or read the large exports/businesses.json file. Focus on new individual practices; retain additional evidence for known leads only when it resolves locality, actual teaching services or business identity.
 Return only professional/business contact details explicitly advertised for tuition. A search origin or generic town landing page does not establish actual locality. Do not invent email patterns, phone numbers, names, consent, independent ownership or 11 plus services. Exclude franchises, recruitment jobs, school institutions and directories themselves as contacts. Primary tutors are useful even without 11 plus specialisation.
 On UKTutors, "11+ (secondary)" is an age band, not entrance-exam preparation. Require an explicit exam-preparation statement before claiming 11 plus services. Its town pages can show a random selection of tutors from other regions; use an individual profile's own locality. Do not attribute a neighbouring advert's contact details or a PDF page number to a tutor.
 Use a practice's own website or its exact individual professional profile as website. Put community directories and newsletters in sourceUrls rather than using them as a shared business website.
@@ -92,7 +103,7 @@ All DataForSEO spending is performed by separate scripts, not this session. Use 
   const startedAt = new Date().toISOString();
   const status = { ...previous, authentication: "chatgpt_oauth", model: job.codexModel,
     transport, threadMode: job.codexThreadMode || "resume", slot, startedAt, updatedAt: startedAt,
-    phase: "running", pid: process.pid, webSearches: 0 };
+    phase: "running", pid: process.pid, webSearches: 0, effectiveSourceSha: researchSourceSha() };
   await atomicJson(statePath, status);
   const eventsPath = join(runDirectory, `sdk/events/slot-${String(slot).padStart(2, "0")}.jsonl`);
   await mkdir(join(eventsPath, ".."), { recursive: true, mode: 0o700 });

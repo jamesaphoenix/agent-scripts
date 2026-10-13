@@ -208,6 +208,19 @@ class ExpansionTests(unittest.TestCase):
             with self.subTest(urls=urls):
                 self.assertNotEqual(website_key(urls[0]), website_key(urls[1]))
 
+    def test_url_yield_excludes_search_navigation_ads_and_tracking_duplicates(self):
+        from expansion_metrics import result_urls
+        reply = {'tasks': [{'result': [{'items': [
+            {'url': 'https://www.google.co.uk/search?q=maths+tutor+Amersham'},
+            {'url': 'https://google.co.uk/aclk?ad=example'},
+            {'url': 'https://maps.app.goo.gl/example'},
+            {'url': 'https://tutor.example.org/contact?utm_source=google&gclid=123'},
+            {'website': 'https://tutor.example.org/contact?utm_source=maps&gclid=456'},
+            {'url': 'https://sites.google.com/view/independent-tutor/'},
+            {'url': 'http://127.0.0.1/private'}]}]}]}
+        self.assertEqual(result_urls(reply), {'https://tutor.example.org/contact',
+                                             'https://sites.google.com/view/independent-tutor/'})
+
     def test_delta_does_not_count_new_adverts_or_name_collisions_as_new_people(self):
         from new_leads import classify_delta
         def row(key, name, members=None):

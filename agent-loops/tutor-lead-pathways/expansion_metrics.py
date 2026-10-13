@@ -8,25 +8,13 @@ from discovery import PaidCache, atomic_json, now_iso, public_url, website_key
 from source_groups import tactic_group, positive_sites
 from configuration import focused_roots
 from lead_scope import load_scope, partition_contacts
+from keyword_expansion import upstream_results
 
 
 def result_urls(response):
-    urls = set()
-    def visit(value):
-        if isinstance(value, dict):
-            for key, item in value.items():
-                if key in ('url', 'website') and isinstance(item, str):
-                    url = public_url(item)
-                    if url:
-                        urls.add(url)
-                elif isinstance(item, (dict, list)):
-                    visit(item)
-        elif isinstance(value, list):
-            for item in value:
-                visit(item)
-    for task in response.get('tasks', []):
-        visit(task.get('result') or [])
-    return urls
+    # Use the same public destinations as the upstream queue. Search controls,
+    # ad redirects and tracking variations cannot earn a novelty reward.
+    return {url for url, _ in upstream_results(response)}
 
 
 def metrics(root, cache, plan):

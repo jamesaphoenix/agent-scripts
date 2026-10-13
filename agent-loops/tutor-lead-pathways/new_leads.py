@@ -2,6 +2,7 @@
 import argparse
 import csv
 import json
+from collections import defaultdict
 from pathlib import Path
 from audit_directory_identities import normalize_name
 from discovery import atomic_json, file_hash, now_iso
@@ -12,11 +13,15 @@ def classify_delta(baseline, current):
     source_urls = {url.rstrip('/') for row in baseline for url in row.get('sourceUrls', [])}
     def names(row):
         return set(row.get('aliases', [])) | {normalize_name(row['name'])}
+    baseline_names = defaultdict(set)
+    for old in baseline:
+        for alias in names(old):
+            baseline_names[alias].add(old.get('professionalNameHint'))
     def possible_match(row):
-        for old in baseline:
-            common = names(row) & names(old)
-            left, right = row.get('professionalNameHint'), old.get('professionalNameHint')
-            if any(len(alias.split()) > 1 or not left or not right or left == right for alias in common):
+        left = row.get('professionalNameHint')
+        for alias in names(row):
+            matches = baseline_names.get(alias)
+            if matches and (len(alias.split()) > 1 or not left or None in matches or '' in matches or left in matches):
                 return True
         return False
     result = {'new': [], 'known': [], 'needsReview': []}

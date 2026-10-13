@@ -132,6 +132,7 @@ class PaidCache:
         self.db.execute("INSERT OR IGNORE INTO settings VALUES (1,?,?)", (budget_cents, prior_cents))
         self.db.commit()
         self.budget_cents, self.prior_cents = budget_cents, prior_cents
+        self._verified_receipts = {}
 
     def usage(self):
         rows = self.db.execute("SELECT * FROM requests WHERE imported=0").fetchall()
@@ -238,9 +239,16 @@ class PaidCache:
 
     def receipt(self, row):
         path = self.root / "receipts" / (row["key"] + ".json")
+        stat = path.stat()
+        version = (stat.st_dev, stat.st_ino, stat.st_size, stat.st_mtime_ns, stat.st_ctime_ns, row['receipt_hash'])
+        previous = self._verified_receipts.get(row['key'])
+        if previous and previous[0] == version:
+            return previous[1]
         if file_hash(path) != row["receipt_hash"]:
             raise ValueError("Archived receipt changed")
-        return json.loads(path.read_text())["response"]
+        response = json.loads(path.read_text())["response"]
+        self._verified_receipts[row['key']] = (version, response)
+        return response
 
 
 class NoRedirect(urllib.request.HTTPRedirectHandler):

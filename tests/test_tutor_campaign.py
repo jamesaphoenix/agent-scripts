@@ -40,6 +40,22 @@ class CampaignWindowTests(unittest.TestCase):
 
 
 class CampaignBudgetTests(unittest.TestCase):
+    def test_receipt_reuse_still_rejects_a_changed_cached_file(self):
+        from discovery import file_hash
+        with tempfile.TemporaryDirectory() as temporary:
+            cache = PaidCache(Path(temporary), 3065, 6935)
+            payload = {'keyword': 'tutor Amersham'}
+            response = {'cost': .01, 'status_code': 20000, 'tasks': [{'id': 'cached', 'cost': .01, 'status_code': 20000}]}
+            cache.import_receipt('organic', payload, response)
+            row = cache.get(request_key('organic', payload))
+            self.assertEqual(cache.receipt(row), response)
+            with patch('discovery.file_hash', wraps=file_hash) as hashing:
+                self.assertEqual(cache.receipt(row), response)
+                hashing.assert_not_called()
+            Path(row['receipt']).write_text('{"response":{}}')
+            with self.assertRaisesRegex(ValueError, 'receipt changed'):
+                cache.receipt(row)
+            cache.db.close()
     def test_imported_uncertainty_is_never_bought_again_or_charged_twice(self):
         with tempfile.TemporaryDirectory() as temporary:
             cache = PaidCache(Path(temporary), 3065, 6935)

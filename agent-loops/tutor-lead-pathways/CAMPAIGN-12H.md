@@ -77,6 +77,15 @@ queries and holds explicit other-subject searches without marking them searched.
 Prepared manifests, query payloads, deadlines and spending ledgers stay intact.
 The extra window copies the validated policy from its sealed parent.
 
+For a paid-owner reload, first wait for its SDK turn to finish, pause its native
+health monitor and signal the verified owner PID with SIGTERM. Wait for the
+writer lock to release before booting out and reinstalling its registered task.
+Do not boot out an owner during a provider request: launchd's default kill grace
+is shorter than the provider's 100-second HTTP timeout. New owner plists allow
+160 seconds for receipt persistence and child cleanup. Preserve checkpoints,
+request reservations and the original finite window throughout the reload.
+An interrupted request without a saved receipt stays uncertain and blocked.
+
 `additional-contacts.json` and its CSV contain the matching contacts. The broad
 audit is retained as `additional-contacts-all-subjects.json`; excluded records
 and reasons are in `contacts-outside-subject-scope.json`. The separate scope

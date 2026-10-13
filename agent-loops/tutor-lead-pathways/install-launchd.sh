@@ -34,7 +34,7 @@ value={"Label":label,"ProgramArguments":args,"RunAtLoad":True,"ProcessType":"Sta
        "WorkingDirectory":str(pathlib.Path(scripts).parent.parent),
        "StandardOutPath":state+("/stdout.log" if mode=="run" else "/monitor-stdout.log"),
        "StandardErrorPath":state+("/stderr.log" if mode=="run" else "/monitor-stderr.log")}
-if mode=="run":value.update(KeepAlive={"SuccessfulExit":False},ThrottleInterval=120)
+if mode=="run":value.update(KeepAlive={"SuccessfulExit":False},ThrottleInterval=120,ExitTimeOut=160)
 else:value["StartInterval"]=interval
 with open(path,"wb") as stream:plistlib.dump(value,stream)
 PY

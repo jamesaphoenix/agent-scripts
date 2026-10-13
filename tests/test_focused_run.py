@@ -148,7 +148,7 @@ checkpoint.write_text(json.dumps({'results':[result],'pages':1}))
         old_job = (self.stage / 'job.json').read_bytes()
         new_stage = self.root / 'continuation'
         new_stage.mkdir()
-        policy = Policy(['Amersham'], max_pages=10000, directory_per_site=2000)
+        policy = Policy(['Amersham'], max_pages=10000, directory_per_site=4000)
         copied = focused_run.carry_frontier(new_stage, self.stage, policy, self.cache.path)
         continued = Frontier(new_stage / 'frontier.sqlite', policy)
         try:

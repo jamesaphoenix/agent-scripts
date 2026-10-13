@@ -94,7 +94,7 @@ class Policy:
         if (not self.towns or not all(isinstance(t, str) and t for t in self.towns)
             or not 1 <= self.max_pages <= 10000 or not 1 <= self.max_sites <= 3000
             or not 1 <= self.per_site <= 8 or not 0 <= self.max_depth <= 2
-            or not 1 <= self.directory_per_site <= 2000
+            or not 1 <= self.directory_per_site <= 4000
             or not 0 <= self.branch_sites <= 15 or not 0 <= self.root_sites <= 50
             or not 1 <= self.max_hops <= 8 or not 1 <= self.exploration_every <= 100
             or not all(math.isfinite(v) and 0 <= v <= 1 for v in

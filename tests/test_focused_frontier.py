@@ -25,6 +25,16 @@ class FrontierTests(unittest.TestCase):
         self.queue.add(url, {'title': 'Private tutor in Amersham'}, group=group)
         return self.queue.claim()
 
+    def test_larger_directory_allowance_does_not_expand_ordinary_sites_or_recursion(self):
+        policy = Policy(['Amersham'], max_pages=10000, directory_per_site=4000)
+        policy.validate()
+        self.assertEqual((policy.per_site, policy.max_depth, policy.branch_sites), (8, 2, 15))
+        for policy in [Policy(['Amersham'], directory_per_site=4001),
+                       Policy(['Amersham'], max_pages=10001),
+                       Policy(['Amersham'], per_site=9)]:
+            with self.assertRaises(ValueError):
+                policy.validate()
+
     def complete(self, row, result=None, links=()):
         return self.queue.complete(row['key'], {'url': row['url'], 'text': 'I tutor maths in Amersham.',
                                    'links': list(links)}, result or decision())

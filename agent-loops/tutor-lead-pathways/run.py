@@ -16,6 +16,7 @@ import subprocess
 import time
 
 from configuration import launchd_settings, campaign_window
+from source_health import held_profile_sources, positive_sites
 
 from discovery import (UTC, PaidCache, atomic_json, collect_records, file_hash, hold_reason,
                        merge_businesses, now_iso, parse_time, provider_request,
@@ -136,6 +137,7 @@ def next_business_supplement(cache, state):
 
 
 def next_query(lane, plan, cache, state):
+    state['deferredQueries'] = [item for item in state.get('deferredQueries', []) if item['lane'] != lane]
     if lane == "business":
         supplementary = next_business_supplement(cache, state)
         if supplementary:
@@ -174,10 +176,15 @@ def next_query(lane, plan, cache, state):
             state["completedQueries"].append(item["key"])
             state.setdefault("reusedQueries", []).append({"key": item["key"], "status": saved["status"]})
             continue
-        if 'site:firsttutors.com' in item['payload'].get('keyword', ''):
+        sites = positive_sites(item['payload'].get('keyword', ''))
+        if sites == {'firsttutors.com'}:
             state['completedQueries'].append(item['key'])
             state.setdefault('skippedQueries', []).append({'key': item['key'],
                 'reason': 'Own source site served its closure notice on 12 October 2026'})
+            continue
+        if sites and sites <= set(state.get('blockedProfileSites', {})) | {'firsttutors.com'}:
+            state['deferredQueries'].append({'lane': lane, 'key': item['key'], 'sites': sorted(sites),
+                'reason': 'Every requested profile source is closed or held after native access denial'})
             continue
         if finished_query(item, cache):
             state["completedQueries"].append(item["key"])
@@ -458,6 +465,7 @@ def run(root):
         state["pid"] = os.getpid()
         state["phase"] = "running"
         state['adaptiveTactics'] = job.get('adaptiveTactics', False)
+        state['blockedProfileSites'] = held_profile_sources(job.get('focusedRoots', []))['sites']
         plan = json.loads((root / "plan.json").read_text())
         intervals = request_intervals(job)
         original_deadline = parse_time(job["deadline"]).timestamp()
@@ -544,10 +552,14 @@ def run(root):
                         save_error(state, lane, error)
                         state["nextDue"][lane] = time.time() + 900
                 elif not selection_failed:
-                    state["nextDue"][lane] = paid_deadline
+                    deferred = any(item['lane'] == lane for item in state.get('deferredQueries', []))
+                    state["nextDue"][lane] = current + 900 if deferred else paid_deadline
             state["updatedAt"] = now_iso()
             atomic_json(root / "runtime.json", state)
             if time.time() >= state.get("nextExportsAt", 0):
+                health = held_profile_sources(job.get('focusedRoots', []))
+                state['blockedProfileSites'] = health['sites']
+                state['sourceHealthErrors'] = health['errors']
                 write_exports(root, cache)
                 if job.get("strategy") == "expansion":
                     try:

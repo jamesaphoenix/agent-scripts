@@ -11,6 +11,7 @@ import sys
 
 
 MODULE = Path(__file__).parents[1] / "agent-loops/tutor-lead-pathways/discovery.py"
+sys.path.insert(0, str(MODULE.parent))
 spec = importlib.util.spec_from_file_location("tutor_pathways", MODULE)
 discovery = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(discovery)

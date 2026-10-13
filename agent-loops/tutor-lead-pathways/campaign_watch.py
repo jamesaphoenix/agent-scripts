@@ -58,7 +58,7 @@ def continue_classifier(root, job):
                 return 'previous_classifier_finalizing'
             prepare_focused(target, Path(job['keywordIndexPath']), Path(cache), Path(job['crawlerBinary']),
                 Path(job['focusedHistory']), (deadline - time.time()) / 3600, 10000, 2000, source_sha,
-                previous=parent, directory_pages=2000, workers=4, baseline=Path(job['identityBaselineCsv']),
+                previous=parent, directory_pages=4000, workers=4, baseline=Path(job['identityBaselineCsv']),
                 authorized_deadline=deadline)
         atomic_json(root / 'classifier-continuation.json', {'preparedAt': now_iso(), 'runDir': str(target),
             'deadline': job['authorizedDeadline'], 'sameCache': cache, 'classificationLifetimeCapUsd': 3})

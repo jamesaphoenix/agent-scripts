@@ -1,8 +1,10 @@
 import hashlib
+from contextlib import closing
 import json
 from pathlib import Path
 import sys
 import tempfile
+import sqlite3
 import unittest
 
 sys.path.insert(0, str(Path(__file__).parents[1] / 'agent-loops/tutor-lead-pathways'))
@@ -120,6 +122,27 @@ class ReviewedContactTests(unittest.TestCase):
             report = self.run_review(root, [None, dict(item, manualHoldReason='Possible existing owner')])
             self.assertEqual(report['newResearchContacts'], 0)
             self.assertEqual(report['held'], 2)
+
+    def test_focused_sqlite_retains_reusable_proof_after_fetch_scratch_cleanup(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            path, item = self.fixture(root)
+            evidence = json.loads(path.read_text())['results'][0]['evidence']
+            evidence['fetchCheckpointSha256'] = item['checkpointSha256']
+            encoded = json.dumps(evidence)
+            focused = root / 'focused-parent'
+            focused.mkdir()
+            with closing(sqlite3.connect(focused / 'frontier.sqlite')) as db, db:
+                db.execute('CREATE TABLE pages (key TEXT, state TEXT, evidence TEXT)')
+                db.execute('INSERT INTO pages VALUES (?,?,?)', ('page-key', 'classified', encoded))
+            atomic_json(root / 'manifest.json', {'focusedParent': str(focused)})
+            item.update(sourceType='focused_page', pageKey='page-key',
+                        evidenceSha256=hashlib.sha256(encoded.encode()).hexdigest())
+            path.unlink()
+            self.assertEqual(self.run_review(root, [item])['newResearchContacts'], 1)
+            with closing(sqlite3.connect(focused / 'frontier.sqlite')) as db, db:
+                db.execute('UPDATE pages SET evidence=?', (encoded + ' ',))
+            self.assertEqual(self.run_review(root, [item])['held'], 1)
 
 
 if __name__ == '__main__':

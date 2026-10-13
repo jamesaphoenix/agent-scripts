@@ -1,9 +1,11 @@
 """Replay reviewed public adverts and own-site contacts from saved Go evidence."""
 from collections import Counter
+from contextlib import closing
 import hashlib
 import json
 from pathlib import Path
 import re
+import sqlite3
 from urllib.parse import urlsplit
 
 from audit_directory_identities import normalize_name
@@ -28,19 +30,36 @@ def verified_contact(root, item):
         raise ValueError('Expected a structured contact review')
     if item.get('manualHoldReason'):
         raise ValueError(item['manualHoldReason'])
-    relative = Path(item['checkpoint'])
-    path = (root / relative).resolve(strict=True)
-    if relative.is_absolute() or not path.is_relative_to((root / 'crawls').resolve()) or path.name != 'crawl.json':
-        raise ValueError('Evidence must be a campaign crawler checkpoint')
-    if file_hash(path) != item['checkpointSha256']:
-        raise ValueError('Crawler checkpoint hash mismatch')
-    saved = json.loads(path.read_text())
-    index = item['resultIndex']
-    if type(index) is not int or index < 0:
-        raise ValueError('Invalid crawler result index')
-    result = saved['results'][index]
-    evidence = result.get('evidence') or {}
-    if result.get('error') or not host(evidence.get('url')) or not evidence.get('contentHash'):
+    if item.get('sourceType') == 'focused_page':
+        manifest = json.loads((root / 'manifest.json').read_text())
+        source = Path(manifest['focusedParent']).resolve() / 'frontier.sqlite'
+        with closing(sqlite3.connect(source.as_uri() + '?mode=ro', uri=True)) as db:
+            row = db.execute('SELECT state,evidence FROM pages WHERE key=?', (item['pageKey'],)).fetchone()
+        if not row or row[0] != 'classified' or hashlib.sha256(row[1].encode()).hexdigest() != item['evidenceSha256']:
+            raise ValueError('Focused page evidence hash or state mismatch')
+        evidence = json.loads(row[1])
+        if not evidence.get('fetchCheckpointSha256'):
+            raise ValueError('Focused page lacks its original Go checkpoint proof')
+        proof = {'frontier': str(source), 'pageKey': item['pageKey'], 'evidenceSha256': item['evidenceSha256'],
+                 'fetchCheckpointSha256': evidence['fetchCheckpointSha256']}
+    else:
+        relative = Path(item['checkpoint'])
+        path = (root / relative).resolve(strict=True)
+        if relative.is_absolute() or not path.is_relative_to((root / 'crawls').resolve()) or path.name != 'crawl.json':
+            raise ValueError('Evidence must be a campaign crawler checkpoint')
+        if file_hash(path) != item['checkpointSha256']:
+            raise ValueError('Crawler checkpoint hash mismatch')
+        saved = json.loads(path.read_text())
+        index = item['resultIndex']
+        if type(index) is not int or index < 0:
+            raise ValueError('Invalid crawler result index')
+        result = saved['results'][index]
+        evidence = result.get('evidence') or {}
+        if result.get('error'):
+            raise ValueError('Expected successful public page evidence')
+        proof = {'checkpoint': str(path), 'checkpointSha256': item['checkpointSha256'], 'resultIndex': index,
+                 'checkpointSavedAt': saved.get('updatedAt')}
+    if not host(evidence.get('url')) or not evidence.get('contentHash'):
         raise ValueError('Expected successful public page evidence')
     text, unit = normal(evidence['text']), normal(item['unitText'])
     if not unit or len(unit) > 12000 or unit not in text:
@@ -80,8 +99,7 @@ def verified_contact(root, item):
         'independentVerified': False, 'localVerified': False,
         'elevenPlusServiceClaim': any(re.search(r'11\s*\+|11[ -]plus|eleven[ -]plus', s, re.I) for s in services),
         'pageEvidence': [{'url': evidence['url'], 'contentHash': evidence['contentHash'],
-            'checkpoint': str(path), 'checkpointSha256': item['checkpointSha256'], 'resultIndex': index,
-            'observedAt': saved.get('updatedAt'), 'unitTextSha256': hashlib.sha256(unit.encode()).hexdigest()}],
+            **proof, 'unitTextSha256': hashlib.sha256(unit.encode()).hexdigest()}],
         'review': {'reviewer': item['reviewer'], 'reviewedAt': item['reviewedAt'], 'sourceKind': source_kind,
                    'nameQuote': name_quote, 'localityQuote': local_quote},
         'qualification': 'Reviewed public advert or own-site claims. Availability, ownership and consent unverified.'}
@@ -92,7 +110,7 @@ def replay(root, reviews, baseline, output):
     for item in json.loads(reviews.read_text()):
         try:
             candidates.append(verified_contact(root, item))
-        except (OSError, ValueError, KeyError, IndexError, TypeError) as error:
+        except (OSError, ValueError, KeyError, IndexError, TypeError, sqlite3.Error) as error:
             held.append({'name': item.get('name') if isinstance(item, dict) else None,
                          'holdReason': str(error), 'review': item})
     unique = list({r['canonicalId']: r for r in candidates}.values())

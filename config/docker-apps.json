@@ -108,28 +108,14 @@
       "id": "trace-learn-dev",
       "composeProject": "trace-learn",
       "enabled": true,
-      "_comment": "Shared local dev stack for trace-learn worktrees (Postgres 5432, Redis 6379, Langfuse, Grafana, Loki, Jaeger, Prometheus, Spotlight). Renamed from compose project tx-agent-kit on 2026-10-13 so `pnpm infra:ensure` in worktrees adopts it. Restart policy is `no`, so only this loop brings it back after a reboot.",
+      "_comment": "Studio retains the shared dev Postgres, Redis, small OTEL collector and Spotlight. Retired Langfuse, Grafana, Prometheus and their supporting services are not restarted after the fleet stability cleanup. CI runs in its separate Colima engine.",
       "startOrder": [
         "postgres",
         "redis",
-        "langfuse-postgres",
-        "langfuse-redis",
-        "langfuse-clickhouse",
-        "langfuse-minio",
-        "loki",
-        "prometheus",
-        "jaeger",
         "otel-collector",
-        "promtail",
-        "node-exporter",
-        "langfuse-worker",
-        "langfuse-web",
-        "grafana",
         "spotlight"
       ],
-      "startDelaySeconds": {
-        "langfuse-minio": 5
-      },
+      "startDelaySeconds": {},
       "temporal": {
         "enabled": false
       }

@@ -17,6 +17,10 @@ HERE=Path(__file__).resolve().parent
 ROOT=HERE.parent.parent
 TEMP_PREFIXES=('remotion-webpack-bundle-','node-compile-cache','tx-agent-kit-vitest-compile-cache','tsx-')
 OUTPUT_NAMES=('node_modules','.turbo','.next','.vite','coverage')
+# Above this one-minute load per CPU the host is saturated (renders, CI); a
+# cleanup pass would compete for it and its inventory commands time out.
+BUSY_LOAD_PER_CPU=float(os.environ.get('CACHE_HYGIENE_BUSY_LOAD_PER_CPU','3'))
+TEMPFAIL=75
 
 def cache_candidate(path, parent, handles, cutoff):
     """Require an owned direct child, no symlink, no live handle, and age."""
@@ -33,6 +37,11 @@ def protected_bind(mount, container):
     metrics_root=(source=='/' and mount.get('Destination')=='/rootfs' and mount.get('RW') is False and 'node-exporter' in container.get('Config',{}).get('Image',''))
     return not metrics_root
 
+def host_overloaded():
+    """Return (load, cpus) when the host is too busy for a cleanup pass, else None."""
+    load=os.getloadavg()[0];cpus=os.cpu_count() or 1
+    return (load,cpus) if load>BUSY_LOAD_PER_CPU*cpus else None
+
 def snapshot():
     def mark(stage):
         target=os.environ.get('CACHE_HYGIENE_PROGRESS')
@@ -45,16 +54,16 @@ def snapshot():
     commands=subprocess.check_output(['ps','-axo','command='],text=True).splitlines()
     mounts=[];readiness_container=False
     mark('snapshot-docker-contexts')
-    contexts=subprocess.run(['docker','context','ls','--format','{{.Name}}'],capture_output=True,text=True,timeout=20)
+    contexts=subprocess.run(['docker','context','ls','--format','{{.Name}}'],capture_output=True,text=True,timeout=60)
     if contexts.returncode:raise RuntimeError('Cannot inventory container contexts')
     for context in ('default','colima-ci'):
         if context not in contexts.stdout.split():continue
         mark('snapshot-docker-'+context)
-        ids=subprocess.run(['docker','--context',context,'ps','-aq'],capture_output=True,text=True,timeout=30)
+        ids=subprocess.run(['docker','--context',context,'ps','-aq'],capture_output=True,text=True,timeout=60)
         if ids.returncode:raise RuntimeError('Cannot inventory Docker '+context)
         if not ids.stdout.strip():continue
         mark('snapshot-inspect-'+context)
-        p=subprocess.run(['docker','--context',context,'inspect',*ids.stdout.split()],capture_output=True,text=True,timeout=45,check=True)
+        p=subprocess.run(['docker','--context',context,'inspect',*ids.stdout.split()],capture_output=True,text=True,timeout=90,check=True)
         for c in json.loads(p.stdout):
             readiness_container |= c['State']['Running'] and 'mobile-readiness' in c['Name']
             mounts.extend(Path(m['Source'].removeprefix('/host_mnt')) for m in c.get('Mounts',[]) if protected_bind(m,c))
@@ -147,8 +156,18 @@ def main():
         def progress(stage,path=None):
             (state/'progress.json').write_text(json.dumps({'at':time.time(),'stage':stage,'path':str(path) if path else None})+'\n')
         os.environ['CACHE_HYGIENE_PROGRESS']=str(state/'progress.json')
+        busy=host_overloaded()
+        if busy:
+            progress('deferred-busy-host')
+            print(f'Deferred: host busy (load {busy[0]:.0f} on {busy[1]} CPUs); no cleanup this run');return
         progress('activity-snapshot')
-        handles,commands,mounts,container=snapshot()
+        # The inventory is what proves a cache is unused, so a timeout still
+        # refuses cleanup. It is reported as a temporary failure, not a crash.
+        try:handles,commands,mounts,container=snapshot()
+        except subprocess.TimeoutExpired as error:
+            progress('refused-inventory-timeout')
+            command=' '.join(error.cmd) if isinstance(error.cmd,(list,tuple)) else str(error.cmd)
+            print(f'Refused this run: {command} timed out after {error.timeout:.0f}s; no cleanup');sys.exit(TEMPFAIL)
         now=time.time();rows=[]
         node_jobs=any(('vitest' in c or ('node' in c and '--import tsx' in c)) and 'maintenance.py' not in c for c in commands)
         temp=Path(subprocess.check_output(['getconf','DARWIN_USER_TEMP_DIR'],text=True).strip())

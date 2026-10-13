@@ -65,7 +65,9 @@ reasoning and non-verbal reasoning, with explicit 11 plus and primary tuition
 also useful. Music-only teachers and other-subject-only tutors are excluded from
 the campaign contact export. A tutor offering maths and piano remains relevant.
 Names, search keywords, county headings and neighbouring adverts never supply
-the service claim. Generic GCSE or SEND tags alone require subject review.
+the service claim. Previously audited 11 plus claims from the tutor's own advert
+headline remain relevant even when absent from its separate subject tags.
+Generic GCSE or SEND tags alone require subject review.
 
 The optional policy keeps this infrastructure reusable for generic campaigns.
 Missing policy preserves their existing scope; an invalid policy fails closed.

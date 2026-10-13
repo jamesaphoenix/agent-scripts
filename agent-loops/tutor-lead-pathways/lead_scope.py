@@ -62,7 +62,15 @@ def matching_subjects(row, scope):
         candidate = SUBJECTS['non_verbal_reasoning'].sub(' ', text) if name == 'verbal_reasoning' else text
         if name in scope['subjects'] and SUBJECTS[name].search(candidate):
             matches.append(name)
-    if scope['includeElevenPlus'] and ELEVEN_PLUS.search(text):
+    # The identity audit also checks a FindTutors advert's own exam-preparation
+    # headline. That verified claim can be absent from its separate subject tags.
+    audited_exam_claim = (row.get('elevenPlusServiceClaim') is True
+        and isinstance(row.get('canonicalId'), str) and bool(row['canonicalId'])
+        and isinstance(row.get('pageEvidence'), list)
+        and any(isinstance(e, dict) and e.get('url') in row.get('sourceUrls', [])
+                and isinstance(e.get('sha256'), str) and re.fullmatch(r'[a-f0-9]{64}', e['sha256'])
+                for e in row['pageEvidence']))
+    if scope['includeElevenPlus'] and (ELEVEN_PLUS.search(text) or audited_exam_claim):
         matches.append('eleven_plus')
     if not matches and scope['includePrimaryTutors'] and PRIMARY.search(text) and not MUSIC.search(text):
         matches.append('primary')
@@ -82,7 +90,7 @@ def partition_contacts(rows, scope):
     return accepted, held, {'auditedAllSubjects': len(rows), 'matchingContacts': len(accepted),
         'excludedContacts': len(held), 'excludedReasons': dict(Counter(row['scopeReason'] for row in held)),
         'matchedSubjects': dict(Counter(subject for row in accepted for subject in row['matchedSubjects'])),
-        'qualification': 'Subject matches use the tutor\'s own advertised services. Research only; no outreach permission inferred.'}
+        'qualification': 'Subject matches use own advertised services or an audited own 11 plus advert claim. Research only; no outreach permission inferred.'}
 
 
 def query_priority(keyword, scope):

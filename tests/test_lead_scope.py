@@ -51,6 +51,16 @@ class LeadScopeTests(unittest.TestCase):
         self.assertEqual(matching_subjects({'services': ['Primary school', 'Piano']}, SCOPE), [])
         self.assertEqual(matching_subjects({'services': ['Primary school', 'Maths', 'Piano']}, SCOPE), ['maths'])
 
+    def test_verified_own_advert_exam_claim_survives_subject_tag_filtering(self):
+        row = {'services': ['French'], 'elevenPlusServiceClaim': True}
+        self.assertEqual(matching_subjects(row, SCOPE), [])
+        url = 'https://www.findtutors.co.uk/tutors-amersham/eleven-plus-tutor-123'
+        row.update(canonicalId='audited:123', sourceUrls=[url],
+                   pageEvidence=[{'url': url, 'sha256': 'a' * 64}])
+        self.assertEqual(matching_subjects(row, SCOPE), ['eleven_plus'])
+        row['elevenPlusServiceClaim'] = 'true'
+        self.assertEqual(matching_subjects(row, SCOPE), [])
+
     def test_new_crawl_roots_and_listing_cards_do_not_keep_music_only_seeds(self):
         from run import prioritise_seed_records
         from directory_profiles import listing_profile_urls

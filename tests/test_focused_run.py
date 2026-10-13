@@ -65,6 +65,22 @@ checkpoint.write_text(json.dumps({'results':[result],'pages':1}))
             with patch.object(self.cache, 'close'):
                 focused_run.run(self.stage)
 
+    def test_new_upstream_batch_is_classified_from_saved_text_without_another_fetch(self):
+        import hashlib
+        url = 'https://fresh-tutor.co.uk/'
+        text = 'I am a private maths tutor in Amersham. ' * 8
+        rows = [{'url': url, 'context': {'title': 'Private tutor Amersham'}, 'group': 'new-search',
+                 'provenance': {'receiptSha256': 'saved-receipt'},
+                 'evidence': {'url': url, 'text': text, 'links': [],
+                              'textSha256': hashlib.sha256(text.encode()).hexdigest()}}]
+        raw = (json.dumps({'entries': rows}, indent=2, ensure_ascii=False) + '\n').encode()
+        atomic_json(self.stage / 'seed-batches' / (hashlib.sha256(raw).hexdigest() + '.json'), {'entries': rows})
+        self.run_stage()
+        results = json.loads((self.stage / 'research-candidates.json').read_text())
+        self.assertEqual([row['url'] for row in results], [url])
+        self.assertFalse((self.stage / 'fetches').exists())
+        self.assertEqual(json.loads((self.stage / 'job.json').read_text())['deadlineUnix'], self.job['deadlineUnix'])
+
     @patch.dict(os.environ, {'OPENAI_API_KEY': 'synthetic-never-pass-to-crawler'})
     def test_failed_page_does_not_stop_next_page_and_final_artifacts_survive_cleanup(self):
         self.frontier.add('https://broken.co.uk/', {'title': 'Tutor in Amersham'})

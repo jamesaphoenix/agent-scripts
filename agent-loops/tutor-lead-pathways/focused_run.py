@@ -18,6 +18,7 @@ import time
 from decisions_classifier import APIUnavailable, BudgetExhausted, DecisionsCache, HeldDecision
 from discovery import atomic_json, file_hash, now_iso
 from focused_frontier import DIRECTORY_HOSTS, Frontier, Policy, admitted, profile_key
+from classifier_seeds import ingest as ingest_seeds
 
 STOP = False
 
@@ -127,6 +128,7 @@ def prepare(root, index_path, cache, crawler, history, hours, pages, sites, sour
                'classificationCapNano': 3_000_000_000, 'sourceSha': source_sha,
                'sourceDir': str(Path(__file__).resolve().parent),
                'reusedEvidencePages': reused, 'fetchWorkers': workers,
+               'pollFreshSeeds': authorized_deadline is not None,
                'knownProfileKeys': sorted(known_profiles),
                'initialLocalTutorDomains': initial['localTutorDomains'],
                'initialLocalProfileCandidates': initial['localProfileCandidates'],
@@ -279,9 +281,12 @@ def run(root):
             if type(workers) is not int or not 1 <= workers <= 4:
                 raise ValueError('Invalid bounded fetch concurrency')
             with ThreadPoolExecutor(max_workers=workers) as pool:
-                pending, last_start = {}, {}
+                pending, last_start, next_ingestion = {}, {}, 0
                 while True:
                     accepting = not STOP and time.time() < job['deadlineUnix'] and state == 'complete'
+                    if accepting and time.monotonic() >= next_ingestion:
+                        ingest_seeds(root, frontier)
+                        next_ingestion = time.monotonic() + 30
                     recent = {host for host, started in last_start.items() if time.monotonic() - started < 1}
                     if accepting:
                         hosts = recent | {r['site'] for r in pending.values()}
@@ -300,6 +305,13 @@ def run(root):
                                 "SELECT 1 FROM pages WHERE state='pending' LIMIT 1").fetchone():
                             time.sleep(.1)
                             continue
+                        # New search results arrive throughout the authorised
+                        # campaign. An empty queue between batches is temporary.
+                        if accepting and job.get('pollFreshSeeds'):
+                            summary = frontier.summary()
+                            if summary['attempts'] < frontier.policy.max_pages:
+                                time.sleep(min(5, max(0, job['deadlineUnix'] - time.time())))
+                                continue
                         break
                     done, _ = wait(pending, timeout=1, return_when=FIRST_COMPLETED)
                     for future in done:

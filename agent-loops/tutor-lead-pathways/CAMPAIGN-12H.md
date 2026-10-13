@@ -58,6 +58,20 @@ recursion gates, and the original campaign deadline. That continuation is
 installed through the registered Studio launchd task. Paid search, free crawling
 and audits have independent failure handling and checkpoints.
 
+The campaign monitor also publishes hash-addressed classifier seed batches from
+new verified provider receipts, completed SDK results and saved Go page text.
+The classifier owner imports them itself every 30 seconds, retaining existing
+lineage and immutable page, site and branch limits. The monitor never writes to
+the live frontier or submits a paid decision. Invalid batches are held while
+valid batches continue. Saved text avoids another website fetch and the shared
+Decisions cache avoids buying the same classification again. A continuation
+waits for new seeds between batches until its deadline or page limit.
+
+SDK turns use at most six search batches, eight source inspections and four
+targeted known-lead index reads. Results are returned when that bounded research
+is complete, rather than filling the twelve-minute timeout. The existing token
+ceiling, number of turns and authorisation window remain unchanged.
+
 ## Runtime and handoff
 
 Author scripts on the MacBook. Push the scoped branch, then create a clean pinned

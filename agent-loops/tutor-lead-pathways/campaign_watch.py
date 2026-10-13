@@ -8,7 +8,8 @@ from pathlib import Path
 import subprocess
 import time
 
-from discovery import atomic_json, now_iso, parse_time
+from discovery import PaidCache, atomic_json, now_iso, parse_time
+from classifier_seeds import publish as publish_classifier_seeds
 from focused_run import prepare as prepare_focused
 from watch_expansion import watch as audit_progress
 
@@ -89,8 +90,19 @@ def watch(root, label):
         except (OSError, ValueError, KeyError, subprocess.SubprocessError) as error:
             classifier = 'continuation_failed'
             errors.append(type(error).__name__ + ': classifier continuation failed; inspect native logs')
+        classifier_seeds = None
+        try:
+            cache = PaidCache(root, job['budgetCents'], job['priorExposureCents'])
+            try:
+                classifier_seeds = publish_classifier_seeds(root,
+                    [Path(job['focusedParent']), Path(job['focusedContinuation'])], cache)
+            finally:
+                cache.db.close()
+        except (OSError, ValueError, KeyError, TypeError) as error:
+            errors.append(type(error).__name__ + ': fresh classifier seeds failed; saved sources retained')
         report = audit_progress(root, profile_root, root / 'baseline/contacts.json', root / 'baseline/contacts.json', new_only=True)
         report.update(classifier=classifier, deadline=job['authorizedDeadline'], errors=errors)
+        report['classifierSeeds'] = classifier_seeds
         report['cleaned'] = terminal_cleanup(root, profile_root, job)
         atomic_json(root / 'campaign-status.json', report)
         print(json.dumps({k: report[k] for k in ('observedAt', 'thisStageDelta', 'classifier', 'deadline', 'errors', 'cleaned')}))

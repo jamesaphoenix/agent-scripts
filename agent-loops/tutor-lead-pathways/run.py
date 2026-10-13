@@ -17,6 +17,7 @@ import time
 
 from configuration import launchd_settings, campaign_window
 from source_health import held_profile_sources, positive_sites
+from source_groups import tactic_group
 
 from discovery import (UTC, PaidCache, atomic_json, collect_records, file_hash, hold_reason,
                        merge_businesses, now_iso, parse_time, provider_request,
@@ -143,19 +144,14 @@ def next_query(lane, plan, cache, state):
         if supplementary:
             return supplementary
     completed = set(state["completedQueries"])
-    def group(item):
-        if item.get('tactic') == 'public_profiles':
-            match = re.search(r'\bsite:([^ ]+)', item['payload'].get('keyword', ''))
-            return match.group(1) if match else item['tactic']
-        return item.get('tactic', lane)
     # Explore sources and tactics before buying another town from one source.
     # This changes selection order only; every payload and paid key stays fixed.
-    counts = collections.Counter(group(item) for item in plan if item['lane'] == lane and item['key'] in completed)
+    counts = collections.Counter(tactic_group(item) for item in plan if item['lane'] == lane and item['key'] in completed)
     choices = [item for item in plan if item['lane'] == lane]
     if any('tactic' in item for item in choices):
         feedback = state.get('tacticFeedback', {}) if state.get('adaptiveTactics') else {}
         def measured_priority(item):
-            name = group(item)
+            name = tactic_group(item)
             observed = feedback.get(name, {})
             attempts = observed.get('requests', 0)
             # Explore every group before following observed yield. A query URL
@@ -163,11 +159,12 @@ def next_query(lane, plan, cache, state):
             if attempts < 3:
                 return (0, counts[name], 0)
             contacts = observed.get('auditedNewIdentitiesAttributed', 0)
-            reward = (contacts * 10 + observed.get('classifiedLocalTutorCandidates', 0)
+            reward = (contacts * 10 + observed.get('auditedSourceIdentities', 0) * 5
+                      + observed.get('classifiedLocalTutorCandidates', 0)
                       + observed.get('newResultUrls', 0) * .02)
             cost = max(1, observed.get('chargedCents', 0))
             return (1, -reward / cost, counts[name])
-        choices.sort(key=measured_priority if feedback else lambda item: counts[group(item)])
+        choices.sort(key=measured_priority if feedback else lambda item: counts[tactic_group(item)])
     for item in choices:
         if item["lane"] != lane or item["key"] in completed:
             continue

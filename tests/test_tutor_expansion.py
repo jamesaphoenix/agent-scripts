@@ -99,6 +99,64 @@ class ExpansionTests(unittest.TestCase):
             self.assertEqual(item['classifiedLocalTutorCandidates'], 1)
             self.assertEqual(item['auditedNewIdentitiesAttributed'], 0)
 
+    def test_directory_feedback_reaches_selection_without_claiming_paid_contact_attribution(self):
+        from discovery import PaidCache, request_key, atomic_json
+        from expansion_metrics import metrics
+        from run import next_query
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            profile, review = root / 'profiles', root / 'audit'
+            atomic_json(root / 'manifest.json', {'profileRunDir': str(profile)})
+            atomic_json(profile / 'review/latest-expansion.json', {'outputDirectory': str(review)})
+            atomic_json(review / 'this-stage-delta/new.json', [{'canonicalId': 'new-person',
+                'sourceUrls': ['https://www.uktutors.com/tutor/42/jane-amersham']}])
+            cache = PaidCache(root, 200, 0)
+            self.addCleanup(cache.db.close)
+            plan, completed = [], []
+            for site in ['superprof.co.uk', 'uktutors.com']:
+                for number in range(4):
+                    payload = {'keyword': f'site:{site} tutor Amersham subject{number}'}
+                    key = request_key('directories', payload)
+                    plan.append({'lane': 'directories', 'tactic': 'public_profiles', 'key': key, 'payload': payload})
+                    if number < 3:
+                        cache.reserve(key, 'directories', payload, 100)
+                        cache.settle(key, {'status_code': 20000, 'cost': .002, 'tasks': [{
+                            'id': key, 'status_code': 20000, 'cost': .002, 'result': []}]})
+                        completed.append(key)
+            feedback = metrics(root, cache, plan)['tactics']
+            self.assertEqual(set(feedback), {'superprof.co.uk', 'uktutors.com'})
+            self.assertEqual(feedback['uktutors.com']['auditedSourceIdentities'], 1)
+            self.assertEqual(feedback['uktutors.com']['auditedNewIdentitiesAttributed'], 0)
+            state = {'completedQueries': completed, 'adaptiveTactics': True, 'tacticFeedback': feedback}
+            self.assertEqual(next_query('directories', plan, cache, state), plan[-1])
+            # The active campaign's subject searches already carry a source
+            # suffix. They must receive the same source-level audit signal.
+            subject_plan = [dict(x, tactic='subject_profiles:' + ('superprof.co.uk' if 'superprof' in
+                x['payload']['keyword'] else 'uktutors.com')) for x in plan]
+            feedback = metrics(root, cache, subject_plan)['tactics']
+            self.assertEqual(feedback['subject_profiles:uktutors.com']['auditedSourceIdentities'], 1)
+            state['tacticFeedback'] = feedback
+            self.assertEqual(next_query('directories', subject_plan, cache, state), subject_plan[-1])
+
+    def test_simpler_query_receipts_keep_the_parent_source_group(self):
+        from discovery import PaidCache, request_key, atomic_json
+        from expansion_metrics import metrics
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            cache = PaidCache(root, 200, 0)
+            self.addCleanup(cache.db.close)
+            payload = {'keyword': 'site:uktutors.com "Amersham" "11 plus"'}
+            key = request_key('directories', payload)
+            parent_payload = dict(payload, keyword='site:uktutors.com "Amersham" ("11 plus" OR "entrance exam")')
+            parent = request_key('directories', parent_payload)
+            atomic_json(root / 'runtime.json', {'supplementaryQueries': [{'parentKey': parent, 'key': key}]})
+            cache.reserve(key, 'directories', payload, 100)
+            cache.settle(key, {'status_code': 20000, 'cost': .002, 'tasks': [{
+                'id': key, 'status_code': 20000, 'cost': .002, 'result': []}]})
+            result = metrics(root, cache, [{'lane': 'directories', 'tactic': 'public_profiles', 'key': parent,
+                'payload': parent_payload}])
+            self.assertEqual(set(result['tactics']), {'uktutors.com'})
+
     def test_delta_does_not_count_new_adverts_or_name_collisions_as_new_people(self):
         from new_leads import classify_delta
         def row(key, name, members=None):

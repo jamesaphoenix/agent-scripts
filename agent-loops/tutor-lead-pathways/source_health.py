@@ -1,23 +1,10 @@
 """Reuse native crawler access holds before admitting new paid searches."""
 from contextlib import closing
 from pathlib import Path
-import re
 import sqlite3
-from urllib.parse import urlsplit
 
 from focused_frontier import DIRECTORY_HOSTS
-
-
-def positive_sites(keyword):
-    sites = set()
-    for value in re.findall(r'(?<![-\w])site:([^\s()"]+)', keyword, re.I):
-        try:
-            host = urlsplit('https://' + value).hostname
-            if host:
-                sites.add(host.lower().removeprefix('www.'))
-        except ValueError:
-            continue
-    return sites
+from source_groups import positive_sites
 
 
 def held_profile_sources(roots):

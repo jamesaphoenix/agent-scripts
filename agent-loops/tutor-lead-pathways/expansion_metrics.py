@@ -3,7 +3,9 @@ import argparse
 import collections
 import json
 from pathlib import Path
+from urllib.parse import urlsplit
 from discovery import PaidCache, atomic_json, now_iso, public_url, website_key
+from source_groups import tactic_group, positive_sites
 
 
 def result_urls(response):
@@ -32,7 +34,16 @@ def metrics(root, cache, plan):
         if row['imported'] and row['receipt']:
             inherited.update(result_urls(cache.receipt(row)))
     by_key = {r['key']: r for r in plan}
+    runtime_path = root / 'runtime.json'
+    if runtime_path.exists():
+        state = json.loads(runtime_path.read_text())
+        for link in state.get('supplementaryQueries', []) + state.get('businessSupplementaryQueries', []):
+            parent = by_key.get(link.get('parentKey'))
+            child = cache.get(link.get('key'))
+            if parent and child and child['lane'] == parent.get('lane') and child['key'] not in by_key:
+                by_key[child['key']] = dict(parent, key=child['key'], payload=json.loads(child['payload']))
     audited_sources = {}
+    audited_directories = collections.defaultdict(set)
     qualified_sources = set()
     manifest_path = root / 'manifest.json'
     if manifest_path.exists():
@@ -57,15 +68,21 @@ def metrics(root, cache, plan):
                 for person in json.loads(delta.read_text()):
                     for url in person.get('sourceUrls', []):
                         audited_sources[website_key(url)] = person['canonicalId']
+                        valid = public_url(url)
+                        if valid:
+                            site = urlsplit(valid).hostname.lower().removeprefix('www.')
+                            audited_directories[site].add(person['canonicalId'])
     accepted = collections.defaultdict(set)
     qualified = collections.defaultdict(set)
+    source_sites = collections.defaultdict(set)
     totals = collections.defaultdict(lambda: {'requests': 0, 'successfulRequests': 0, 'failedRequests': 0,
         'uncertainRequests': 0, 'emptySuccessfulRequests': 0, 'newResultUrls': 0, 'chargedCents': 0})
     observed = set(inherited)
     for row in rows:
         if row['imported']:
             continue
-        tactic = by_key.get(row['key'], {}).get('tactic', row['lane'])
+        tactic = tactic_group(by_key.get(row['key'], {'lane': row['lane']}))
+        source_sites[tactic].update(positive_sites(json.loads(row['payload']).get('keyword', '')))
         item = totals[tactic]
         item['requests'] += 1
         item['chargedCents'] += row['cost_cents']
@@ -87,6 +104,10 @@ def metrics(root, cache, plan):
         item['newUrlsPerRequest'] = item['newResultUrls'] / item['requests']
         item['usdPerNewUrl'] = item['chargedCents'] / 100 / item['newResultUrls'] if item['newResultUrls'] else None
         item['auditedNewIdentitiesAttributed'] = len(accepted[tactic])
+        # Recursive profiles establish directory yield even when the original
+        # paid result was an index. Keep that separate from direct attribution.
+        item['sourceSites'] = sorted(source_sites[tactic])
+        item['auditedSourceIdentities'] = len(set().union(*(audited_directories[site] for site in source_sites[tactic])))
         item['classifiedLocalTutorCandidates'] = len(qualified[tactic])
         item['usdPerAttributedAuditedIdentity'] = item['chargedCents'] / 100 / len(accepted[tactic]) if accepted[tactic] else None
     return {'observedAt': now_iso(), 'tactics': dict(totals), 'budget': cache.usage(),

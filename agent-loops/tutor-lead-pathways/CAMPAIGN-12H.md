@@ -40,6 +40,13 @@ from audited new identities attributed to a source. Identity audits run every
 15 minutes. A duplicate advert, locality ambiguity, historical profile or name
 collision does not inflate the accepted new-person count.
 
+Query selection and metrics share the same source-group function. Successful
+fallback queries retain their parent tactic. Audited profiles reached through
+recursive directory indexes supply a separate source-yield signal; they do not
+become direct paid-request attribution or alter the contact count. Source yield
+can therefore favour productive directories even when a search returned an
+index rather than the person's final profile.
+
 Campaign audits replay page evidence for profiles outside the frozen baseline.
 The preparation step already verified and replayed the inherited cached pages.
 Previously collected profiles remain in the preserved baseline and full profile
@@ -57,6 +64,12 @@ continuation using the same SHA256 Decisions cache, unchanged geography and
 recursion gates, and the original campaign deadline. That continuation is
 installed through the registered Studio launchd task. Paid search, free crawling
 and audits have independent failure handling and checkpoints.
+
+The separately prepared continuation admits up to 4000 URLs per directory,
+retaining its cumulative 10000 attempts, eight pages per ordinary site and the
+existing branch gates. Native access holds defer searches exclusively targeting
+unavailable directories without marking them searched or reserving money.
+Mixed-source queries and accessible directories continue.
 
 The campaign monitor also publishes hash-addressed classifier seed batches from
 new verified provider receipts, completed SDK results and saved Go page text.

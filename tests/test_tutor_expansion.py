@@ -157,6 +157,57 @@ class ExpansionTests(unittest.TestCase):
                 'payload': parent_payload}])
             self.assertEqual(set(result['tactics']), {'uktutors.com'})
 
+    def test_feedback_rewards_matching_subjects_without_rewarding_music_only_profiles(self):
+        from discovery import PaidCache, request_key, atomic_json
+        from expansion_metrics import metrics
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            profile, review = root / 'profiles', root / 'audit'
+            atomic_json(root / 'manifest.json', {'profileRunDir': str(profile)})
+            atomic_json(root / 'discovery-scope.json', {'schemaVersion': 1,
+                'subjects': ['english', 'maths', 'verbal_reasoning', 'non_verbal_reasoning'],
+                'includeElevenPlus': True, 'includePrimaryTutors': True, 'excludeMusicOnly': True,
+                'authorization': {'instruction': 'School subjects; exclude music-only tutors.', 'recordedAt': '2026-10-13'}})
+            atomic_json(profile / 'review/latest-expansion.json', {'outputDirectory': str(review)})
+            maths = 'https://www.uktutors.com/tutor/42/jane-amersham'
+            music = 'https://www.uktutors.com/tutor/43/alex-amersham'
+            atomic_json(review / 'this-stage-delta/new.json', [
+                {'canonicalId': 'maths-person', 'services': ['Maths', 'Piano'], 'sourceUrls': [maths]},
+                {'canonicalId': 'music-person', 'services': ['Piano'], 'sourceUrls': [music]}])
+            cache = PaidCache(root, 200, 0)
+            self.addCleanup(cache.db.close)
+            payload = {'keyword': 'site:uktutors.com maths tutor Amersham'}
+            key = request_key('directories', payload)
+            cache.reserve(key, 'directories', payload, 100)
+            cache.settle(key, {'status_code': 20000, 'cost': .002, 'tasks': [{'id': key,
+                'status_code': 20000, 'cost': .002, 'result': [{'items': [{'url': maths}, {'url': music}]}]}]})
+            result = metrics(root, cache, [{'lane': 'directories', 'tactic': 'public_profiles',
+                'key': key, 'payload': payload}])
+            item = result['tactics']['uktutors.com']
+            self.assertEqual(item['newResultUrls'], 2)
+            self.assertEqual(item['auditedSourceIdentities'], 1)
+            self.assertEqual(item['auditedNewIdentitiesAttributed'], 1)
+            # A result from another person on the same directory must not take
+            # credit for Jane's matching tuition profile.
+            other_payload = {'keyword': 'site:uktutors.com piano tutor Amersham'}
+            other_key = request_key('directories', other_payload)
+            cache.reserve(other_key, 'directories', other_payload, 100)
+            cache.settle(other_key, {'status_code': 20000, 'cost': .002, 'tasks': [{'id': other_key,
+                'status_code': 20000, 'cost': .002, 'result': [{'items': [{'url': music}]}]}]})
+            plan = [{'lane': 'directories', 'tactic': 'maths', 'key': key, 'payload': payload},
+                    {'lane': 'directories', 'tactic': 'music', 'key': other_key, 'payload': other_payload}]
+            self.assertEqual(metrics(root, cache, plan)['tactics']['music']['auditedNewIdentitiesAttributed'], 0)
+
+    def test_supported_directory_people_keep_distinct_source_identities(self):
+        from discovery import website_key
+        for urls in [
+            ['https://www.uktutors.com/tutor/42/jane-amersham', 'https://www.uktutors.com/tutor/43/alex-amersham'],
+            ['https://tutorextra.co.uk/profile/jane/1-42', 'https://tutorextra.co.uk/profile/alex/1-43'],
+            ['https://tutordex.net/tutor/42/jane', 'https://tutordex.net/tutor/43/alex'],
+            ['https://www.tuitionlist.co.uk/tutor/jane-abcdef12', 'https://www.tuitionlist.co.uk/tutor/alex-abcdef13']]:
+            with self.subTest(urls=urls):
+                self.assertNotEqual(website_key(urls[0]), website_key(urls[1]))
+
     def test_delta_does_not_count_new_adverts_or_name_collisions_as_new_people(self):
         from new_leads import classify_delta
         def row(key, name, members=None):

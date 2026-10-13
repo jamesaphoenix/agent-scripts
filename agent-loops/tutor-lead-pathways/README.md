@@ -53,6 +53,11 @@ town with Milton Keynes. The locality check accepts those formats and `St.`
 abbreviations while retaining the original source text. A later nearby town in a
 list cannot establish the primary locality. Bare ambiguous places remain held.
 
+Audited tutor yield used for search selection follows the campaign's subject
+policy. Music-only and other-subject-only profiles do not earn an audited-contact
+reward. Supported directory profiles retain distinct URL identities, so a result
+for one member cannot take credit for another member on the same directory.
+
 ## Public PDF adverts
 
 `pdf_adverts.py` inspects an already cached public newsletter. It makes no network

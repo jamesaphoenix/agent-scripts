@@ -58,6 +58,7 @@ SOURCE_HOSTS = {
     "childcare.co.uk", "bark.com", "yell.com", "schoolguide.co.uk", "cylex-uk.co.uk",
     "yelp.com", "yelp.co.uk", "yelp.ca", "pmt.education", "tutorperch.com",
     "thetutorsassociation.wildapricot.org",
+    "uktutors.com", "tutorextra.co.uk", "tutordex.net", "tuitionlist.co.uk",
 }
 PROFILE_PATHS = {
     "childcare.co.uk": re.compile(r"^/profile/\d+/?$"),

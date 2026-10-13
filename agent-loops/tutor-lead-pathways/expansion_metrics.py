@@ -7,6 +7,7 @@ from urllib.parse import urlsplit
 from discovery import PaidCache, atomic_json, now_iso, public_url, website_key
 from source_groups import tactic_group, positive_sites
 from configuration import focused_roots
+from lead_scope import load_scope, partition_contacts
 
 
 def result_urls(response):
@@ -29,6 +30,7 @@ def result_urls(response):
 
 
 def metrics(root, cache, plan):
+    scope = load_scope(root)
     rows = cache.db.execute('SELECT * FROM requests ORDER BY created_at,key').fetchall()
     inherited = set()
     for row in rows:
@@ -66,7 +68,10 @@ def metrics(root, cache, plan):
             audit = json.loads(review.read_text())
             delta = Path(audit['outputDirectory']) / 'this-stage-delta/new.json'
             if delta.exists():
-                for person in json.loads(delta.read_text()):
+                people = json.loads(delta.read_text())
+                if scope:
+                    people, _, _ = partition_contacts(people, scope)
+                for person in people:
                     for url in person.get('sourceUrls', []):
                         audited_sources[website_key(url)] = person['canonicalId']
                         valid = public_url(url)

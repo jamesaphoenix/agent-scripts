@@ -251,6 +251,18 @@ individual tutors. Any one requested subject satisfies the subject policy;
 locality remains a separate requirement. Prior subject-policy receipts still
 replay exactly, and no settled or uncertain decision is reset by a refill.
 
+Owned directory context also supports UKTutors, TutorDex, TutorExtra and
+FindTutors adverts and public profiles. Newly supported pages require a matching
+canonical URL as well as the successful body-hash receipt. FindTutors advert IDs
+are checked against the advert route separately from the tutor's person ID;
+public profile names, subjects and class locations come from the owner's fields.
+Navigation and recommended tutors cannot supply those fields. Structured context
+with changed own fields can trigger a new cached Decisions request for a settled,
+local subject-matching candidate. This preserves the original receipt and never
+requeues an uncertain paid request. Unavailable, conflicting, institutional and
+music-only offers remain held or excluded. Publication replays both existing
+profile context and the new source contracts.
+
 `keyword_expansion.py` keeps a shared `state/keyword-search.sqlite` alongside the separate paid
 ledger. It generates plain location searches such as `11+ tutor Amersham`, `tutor Amersham`,
 `11 plus tutor High Wycombe` and subject variants for both Google Maps and organic search.

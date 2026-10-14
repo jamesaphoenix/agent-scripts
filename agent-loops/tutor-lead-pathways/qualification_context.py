@@ -8,7 +8,7 @@ from contextlib import closing
 from urllib.parse import urlsplit
 
 from candidate_review import candidate_urls, primary_urls
-from directory_profiles import admitted_url, decode_page, profile_record
+from directory_profiles import admitted_url, decode_page, Document, profile_record
 from discovery import source_host, website_key
 from focused_frontier import admitted, profile_key
 
@@ -64,8 +64,12 @@ def profile_context_index(roots, candidates):
         path = urlsplit(url).path
         host = urlsplit(url).hostname.removeprefix('www.')
         expected = (path.split('/')[-2] if host == 'thetutorsassociation.wildapricot.org' and '/Sys/PublicProfile/' in path
-                    else path.rstrip('/').rsplit('/', 1)[-1] if host in {'childcare.co.uk', 'tutorhunt.com'} else None)
-        if expected is None:
+                    else path.rstrip('/').rsplit('/', 1)[-1] if host in {'childcare.co.uk', 'tutorhunt.com'}
+                    else path.split('/')[2] if host in {'uktutors.com', 'tutordex.net'} and path.startswith('/tutor/')
+                    else path.rsplit('-', 1)[-1] if host == 'tutorextra.co.uk' and path.startswith('/profile/') else None)
+        own_findtutors = host == 'findtutors.co.uk' and bool(re.fullmatch(
+            r'/tutor/[a-z0-9-]+\.htm|/(?:tutors-[^/]+|online-[^/]+)/[^/]+-\d+/?', path))
+        if expected is None and not own_findtutors:
             continue
         key = hashlib.sha256(url.encode()).hexdigest()
         for root in roots:
@@ -79,16 +83,34 @@ def profile_context_index(roots, candidates):
                 if (receipt.get('url') != url or receipt.get('status') != 200 or receipt.get('error')
                         or hashlib.sha256(body).hexdigest() != receipt.get('sha256')):
                     continue
-                profile = profile_record(decode_page(body, receipt.get('contentType', '')), url)
-                if not profile or str(profile['personId']) != expected or profile.get('sourceUrls') != [url]:
+                decoded = decode_page(body, receipt.get('contentType', ''))
+                profile = profile_record(decoded, url)
+                if host in {'uktutors.com', 'tutordex.net', 'tutorextra.co.uk'}:
+                    document = Document(decoded).root
+                    canonicals = [n.attrs.get('content') if n.tag == 'meta' else n.attrs.get('href')
+                        for n in document.walk() if (n.tag == 'meta' and n.attrs.get('property') == 'og:url')
+                        or (n.tag == 'link' and n.attrs.get('rel') == 'canonical')]
+                    if not canonicals or any(website_key(admitted(c)) != website_key(url) for c in canonicals):
+                        continue
+                if own_findtutors and not path.startswith('/tutor/'):
+                    from findtutors_profile import advert_person_id
+                    expected = advert_person_id(Document(decoded).root, url)
+                if (not profile or profile.get('sourceUrls') != [url]
+                        or (own_findtutors and path.startswith('/tutor/') and profile.get('profileRoute') != url)
+                        or (not (own_findtutors and path.startswith('/tutor/')) and str(profile['personId']) != expected)):
                     continue
                 fields = {k: profile.get(k) for k in ('name', 'personId', 'platform', 'localityClaim', 'services',
                     'profileCity', 'profileCounty', 'organization', 'tuitionLevels', 'website', 'locationConflict')}
+                kind = 'public_profile_fields_v1'
+                if host not in {'thetutorsassociation.wildapricot.org', 'childcare.co.uk', 'tutorhunt.com'}:
+                    kind = 'public_profile_fields_v2'
+                    fields.update({k: profile.get(k) for k in ('evidenceKind', 'institution', 'advertisedUnavailable',
+                        'nonTuitionAdvert', 'currentLocalityDeclarations', 'additionalLocalityClaims')})
                 text = json.dumps({'publicProfileFields': fields}, ensure_ascii=False, sort_keys=True)
                 result[url] = {'url': url, 'title': profile['name'], 'text': text, 'links': [],
                     'publicContacts': {'emails': profile.get('emails') or ([profile['email']] if profile.get('email') else []),
                                        'phone': profile.get('phone')},
-                    'sourceDocumentSha256': receipt['sha256'], 'extractionKind': 'public_profile_fields_v1',
+                    'sourceDocumentSha256': receipt['sha256'], 'extractionKind': kind,
                     'replaySource': {'receipt': str(receipt_path), 'receiptSha256': hashlib.sha256(receipt_path.read_bytes()).hexdigest()}}
                 break
             except (OSError, ValueError, KeyError, TypeError):

@@ -76,5 +76,26 @@ class QualificationContextTests(unittest.TestCase):
             with self.assertRaises(ValueError):cache_path(root,job)
             self.assertFalse((root/'missing.sqlite').exists())
 
+    def test_tutorextra_uses_its_numeric_route_and_own_canonical_page(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder); (root/'pages').mkdir(); (root/'receipts').mkdir()
+            url = 'https://tutorextra.co.uk/profile/jane-tutor/50-64971'
+            body = f'''<meta property="og:url" content="{url}"><nav>Maths in London</nav>
+                <div class="name-type"><div class="fullname">Jane Example - Tutor in High Wycombe</div>
+                <div class="usertype">Tutor, Teacher</div></div>
+                <table class="responsive-table"><tr><th>Subject</th></tr><tr><td>English lessons</td></tr></table>'''.encode()
+            key = hashlib.sha256(url.encode()).hexdigest()
+            def save(raw):
+                (root/'pages'/f'{key}.html').write_bytes(raw)
+                (root/'receipts'/f'{key}.json').write_text(json.dumps({'url':url,'status':200,'sha256':hashlib.sha256(raw).hexdigest()}))
+            save(body)
+            page = profile_context_index([root],[{'website':url}])[url]
+            fields = json.loads(page['text'])['publicProfileFields']
+            self.assertEqual(fields['name'], 'Jane Example')
+            self.assertEqual(fields['personId'], '64971')
+            self.assertEqual(fields['services'], ['English lessons'])
+            save(body.replace(url.encode(), url.replace('64971','999').encode()))
+            self.assertEqual(profile_context_index([root],[{'website':url}]), {})
+
 
 if __name__=='__main__':unittest.main()

@@ -13,7 +13,7 @@ from urllib.parse import urlsplit
 
 from audit_directory_identities import normalize_name
 from decisions_classifier import decision_request, parse_decision, NANO_PER_INPUT_TOKEN
-from directory_profiles import profile_locality_status
+from directory_profiles import exclusion_reason, profile_locality_status
 from discovery import atomic_json, clean_emails, file_hash, now_iso, phone_key, source_host, website_key
 from lead_scope import matching_page_subjects, matching_subjects
 from new_leads import classify_delta
@@ -59,12 +59,14 @@ def extract_profile(key, candidate, pages, index, scope, towns):
         if not saved or saved.get('text') != page.get('text') or not saved.get('replaySource'):
             raise ValueError('Owned page replay is missing or changed')
         replayed.append(saved)
-    profile_pages = [p for p in replayed if p.get('extractionKind') == 'public_profile_fields_v1']
+    profile_pages = [p for p in replayed if p.get('extractionKind') in ('public_profile_fields_v1', 'public_profile_fields_v2')]
     if profile_pages:
         if len(profile_pages) != 1:
             raise ValueError('Ambiguous public profile identity')
         page = profile_pages[0]
         fields = json.loads(page['text'])['publicProfileFields']
+        if page['extractionKind'] == 'public_profile_fields_v2' and (fields.get('locationConflict') or exclusion_reason(fields)):
+            raise ValueError('Public profile offer needs review')
         if profile_locality_status(dict(fields, evidenceKind='public_person_profile')) != 'advertised_bucks_locality':
             raise ValueError('Public profile locality needs review')
         name = fields['name']

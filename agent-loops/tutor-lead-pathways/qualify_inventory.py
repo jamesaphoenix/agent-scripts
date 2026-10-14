@@ -22,7 +22,7 @@ from focused_run import fetch
 from lead_scope import load_scope, scope_prompt, matching_page_subjects, matching_subjects
 from configuration import loaded_source_sha
 from qualification_context import cache_path, context_urls, select_urls, select_pages, profile_context_index
-from directory_profiles import admitted_url
+from directory_profiles import admitted_url, exclusion_reason, profile_locality_status
 from qualification_exports import publish as publish_structured_profiles
 from qualification_seeds import import_batches as import_website_seeds
 from qualification_feeder import refill as refill_qualification, summary as feed_summary
@@ -178,6 +178,33 @@ def create_database(path):
     return db
 
 
+def refresh_verified_profile_contexts(db, cache, index, scope):
+    """Reassess changed owned fields, preserving the original paid receipts."""
+    changed = 0
+    with db:
+        for row in db.execute("SELECT key,candidate,evidence,decision FROM candidates WHERE decision IS NOT NULL AND state NOT IN ('pending','fetching','decision_held','fetch_held')").fetchall():
+            candidate = json.loads(row['candidate'])
+            old = {p['url']: p for p in json.loads(row['evidence'] or '[]')}
+            replacements = [index[u] for u in candidate_urls(candidate) if u in index
+                            and index[u].get('extractionKind') == 'public_profile_fields_v2'
+                            and index[u].get('replaySource') and index[u].get('url') == u
+                            and old.get(u, {}).get('text') != index[u]['text']]
+            if len(replacements) != 1:
+                continue
+            fields = json.loads(replacements[0]['text'])['publicProfileFields']
+            if (fields.get('locationConflict') or exclusion_reason(fields)
+                    or profile_locality_status(fields) != 'advertised_bucks_locality'
+                    or not matching_subjects(fields, scope)):
+                continue
+            decision = json.loads(row['decision'])
+            receipt = cache.db.execute('SELECT state FROM decision_requests WHERE key=?', (decision.get('decisionKey'),)).fetchone()
+            if receipt is None or receipt['state'] != 'succeeded':
+                continue
+            db.execute("UPDATE candidates SET state='pending',error='Verified own profile fields replace generic page context',updated_at=CURRENT_TIMESTAMP WHERE key=?", (row['key'],))
+            changed += 1
+    return changed
+
+
 def snapshot(root, job, db, cache, phase, reason=None):
     counts = dict(db.execute('SELECT state,count(*) FROM candidates GROUP BY state').fetchall())
     results = []
@@ -193,6 +220,7 @@ def snapshot(root, job, db, cache, phase, reason=None):
         'counts': counts, 'decisions': cache.summary(), 'deadline': job['authorizedDeadline'],
         'additionalClassificationCapUsd': job['authorization']['additionalCapCents'] / 100,
         'outreachEligible': 0, 'newAuditedContacts': 0, 'reason': reason,
+        'refreshedProfileContexts': job.get('refreshedProfileContexts', 0),
         'qualification': 'Model-assessed research candidates. Owned identities, contact routes and duplicate matching remain required before audited contact export.'}
     if db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='website_seed_batches'").fetchone():
         status['websiteSeeds'] = {'importedCandidates': db.execute(
@@ -249,6 +277,8 @@ def run(root):
                                [root, *[Path(p) for p in job.get('fetchRoots', [])]])
             candidates = [json.loads(r['candidate']) for r in db.execute('SELECT candidate FROM candidates')]
             index.update(profile_context_index([Path(p) for p in job.get('profileRoots', [])], candidates))
+            if job.get('expandOwnedContext'):
+                job['refreshedProfileContexts'] = refresh_verified_profile_contexts(db, cache, index, scope)
             if job.get('expandOwnedContext'):
                 try:
                     refill_qualification(root, job, db, scope, index)

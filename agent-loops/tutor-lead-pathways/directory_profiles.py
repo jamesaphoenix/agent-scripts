@@ -386,7 +386,10 @@ def profile_record(text, url):
         return None
     p = urllib.parse.urlsplit(url)
     document = Document(text).root
-    if p.hostname == 'www.apprentus.co.uk':
+    if p.hostname == 'www.findtutors.co.uk' and re.fullmatch(r'/tutor/[a-z0-9-]+\.htm', p.path):
+        from findtutors_profile import parse_profile
+        return parse_profile(document, url)
+    elif p.hostname == 'www.apprentus.co.uk':
         from apprentus import parse_profile
         return parse_profile(document, url)
     elif p.hostname == 'www.teachtutti.co.uk':

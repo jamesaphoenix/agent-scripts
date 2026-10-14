@@ -28,15 +28,21 @@ def watch(root, owner_label, monitor_label):
             raise ValueError("Expected a registered launchd label")
     job = json.loads((root / "job.json").read_text())
     status = json.loads((root / "status.json").read_text())
-    command = subprocess.run(["ps", "-p", str(status.get("pid", 0)), "-o", "command="], capture_output=True, text=True, timeout=10)
-    live = command.returncode == 0 and "directory_profiles.py" in command.stdout and str(root) in command.stdout
+    try:
+        command = subprocess.run(["ps", "-p", str(status.get("pid", 0)), "-o", "command="], capture_output=True, text=True, timeout=10)
+        live = command.returncode == 0 and "directory_profiles.py" in command.stdout and str(root) in command.stdout
+    except (OSError, subprocess.TimeoutExpired):
+        live = None
     report = dict(health(status, job, live, time.time()), checkedAt=now(), action="none", ownerPid=status.get("pid"), paidCostUsd=0)
     previous = root / "monitor/latest.json"
     recoveries = json.loads(previous.read_text()).get("recoveries", 0) if previous.exists() else 0
-    if not report["stageTerminal"] and not live and recoveries < 3:
+    if not report["stageTerminal"] and live is False and recoveries < 3:
         # Without -k, kickstart cannot terminate an owner that raced this observation.
-        result = subprocess.run(["launchctl", "kickstart", f"gui/{os.getuid()}/{owner_label}"], capture_output=True, timeout=10)
-        report["action"] = "restart_requested" if result.returncode == 0 else "registered_restart_unavailable"
+        try:
+            result = subprocess.run(["launchctl", "kickstart", f"gui/{os.getuid()}/{owner_label}"], capture_output=True, timeout=10)
+            report["action"] = "restart_requested" if result.returncode == 0 else "registered_restart_unavailable"
+        except (OSError, subprocess.TimeoutExpired):
+            report['action'] = 'restart_status_unconfirmed'
         recoveries += 1
     report["recoveries"] = recoveries
     stamp = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%SZ")

@@ -26,6 +26,94 @@
   },
   "tasks": [
     {
+      "id": "tutor-qualification-20261014-context-12h-watch",
+      "name": "Qualify saved Bucks candidates using the shared USD10 ledger checks",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.tutor-qualification-20261014-context-12h-watch",
+      "schedule": "every fifteen minutes until 15 October 00:00:32 UTC",
+      "requiresOpServiceAccount": false,
+      "opServiceAccountSource": null,
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
+        "command": [
+          "bash",
+          ".worktrees/tutor-campaign-20261013-12h/agent-loops/tutor-lead-pathways/install-qualification.sh",
+          "watch",
+          "tutor-qualification-20261014-context-12h",
+          "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts"
+        ]
+      },
+      "notes": "James explicitly approved this new twelve-hour pass on 14 October. The first observed approval time is 12:00:32 UTC; preserve the new deadline across restarts and retain every earlier job and deadline. Reuse the original USD10 classification ledger with USD9.3594609 remaining, preserving uncertain submissions and the original USD100 discovery cap. No new DataForSEO or SDK calls, Anthropic key, contact unlocks, outreach, tenant imports or geographic expansion. Keep Bucks/Milton Keynes and requested academic subjects. Hash-verified caches and source observations precede bounded Go fetches. Native fifteen-minute checks, at most three crash recoveries, terminal scratch cleanup and retained final exports, ledgers, evidence and source awaiting PR review."
+    },
+    {
+      "id": "tutor-qualification-20261014-context-12h",
+      "name": "Qualify saved Bucks candidates using the shared USD10 ledger",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.tutor-qualification-20261014-context-12h",
+      "schedule": "finite twelve-hour pass ending 15 October 00:00:32 UTC",
+      "requiresOpServiceAccount": true,
+      "opServiceAccountSource": "profile-or-keychain",
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
+        "command": [
+          "bash",
+          ".worktrees/tutor-campaign-20261013-12h/agent-loops/tutor-lead-pathways/install-qualification.sh",
+          "run",
+          "tutor-qualification-20261014-context-12h",
+          "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts"
+        ]
+      },
+      "notes": "James explicitly approved this new twelve-hour pass on 14 October. The first observed approval time is 12:00:32 UTC; preserve the new deadline across restarts and retain every earlier job and deadline. Reuse the original USD10 classification ledger with USD9.3594609 remaining, preserving uncertain submissions and the original USD100 discovery cap. No new DataForSEO or SDK calls, Anthropic key, contact unlocks, outreach, tenant imports or geographic expansion. Keep Bucks/Milton Keynes and requested academic subjects. Hash-verified caches and source observations precede bounded Go fetches. Native fifteen-minute checks, at most three crash recoveries, terminal scratch cleanup and retained final exports, ledgers, evidence and source awaiting PR review."
+    },
+    {
+      "id": "bucks-private-tutors-20261014-context-12h-watch",
+      "name": "Public profile context for the authorised 14 October follow-on checks",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.bucks-private-tutors-20261014-context-12h-watch",
+      "schedule": "every fifteen minutes until 15 October 00:00:32 UTC",
+      "requiresOpServiceAccount": false,
+      "opServiceAccountSource": null,
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
+        "command": [
+          "bash",
+          ".worktrees/tutor-campaign-20261013-12h/agent-loops/tutor-lead-pathways/install-directory-profiles.sh",
+          "watch",
+          "bucks-private-tutors-20261014-context-12h",
+          "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts"
+        ]
+      },
+      "notes": "James explicitly approved this new twelve-hour pass on 14 October. The first observed approval time is 12:00:32 UTC; preserve the new deadline across restarts and retain every earlier job and deadline. Reuse the original USD10 classification ledger with USD9.3594609 remaining, preserving uncertain submissions and the original USD100 discovery cap. No new DataForSEO or SDK calls, Anthropic key, contact unlocks, outreach, tenant imports or geographic expansion. Keep Bucks/Milton Keynes and requested academic subjects. Hash-verified caches and source observations precede bounded Go fetches. Native fifteen-minute checks, at most three crash recoveries, terminal scratch cleanup and retained final exports, ledgers, evidence and source awaiting PR review."
+    },
+    {
+      "id": "bucks-private-tutors-20261014-context-12h",
+      "name": "Public profile context for the authorised 14 October follow-on",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.bucks-private-tutors-20261014-context-12h",
+      "schedule": "finite twelve-hour pass ending 15 October 00:00:32 UTC",
+      "requiresOpServiceAccount": false,
+      "opServiceAccountSource": null,
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
+        "command": [
+          "bash",
+          ".worktrees/tutor-campaign-20261013-12h/agent-loops/tutor-lead-pathways/install-directory-profiles.sh",
+          "run",
+          "bucks-private-tutors-20261014-context-12h",
+          "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts"
+        ]
+      },
+      "notes": "James explicitly approved this new twelve-hour pass on 14 October. The first observed approval time is 12:00:32 UTC; preserve the new deadline across restarts and retain every earlier job and deadline. Reuse the original USD10 classification ledger with USD9.3594609 remaining, preserving uncertain submissions and the original USD100 discovery cap. No new DataForSEO or SDK calls, Anthropic key, contact unlocks, outreach, tenant imports or geographic expansion. Keep Bucks/Milton Keynes and requested academic subjects. Hash-verified caches and source observations precede bounded Go fetches. Native fifteen-minute checks, at most three crash recoveries, terminal scratch cleanup and retained final exports, ledgers, evidence and source awaiting PR review."
+    },
+    {
       "id": "tutor-qualification-20261014",
       "name": "Classify discovered tutor candidates with owned page context",
       "enabled": true,
@@ -37,7 +125,13 @@
       "install": {
         "kind": "command",
         "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
-        "command": ["bash", ".worktrees/tutor-campaign-20261013-12h/agent-loops/tutor-lead-pathways/install-qualification.sh", "run", "tutor-qualification-20261014", "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts"]
+        "command": [
+          "bash",
+          ".worktrees/tutor-campaign-20261013-12h/agent-loops/tutor-lead-pathways/install-qualification.sh",
+          "run",
+          "tutor-qualification-20261014",
+          "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts"
+        ]
       },
       "notes": "James explicitly authorised another USD10-20 for classification on 14 October. Use a separate immutable USD10 ledger, preserving the original USD100 discovery cap, old USD3 classifier ledger and uncertain reservations. Reuse saved context before bounded Go fetches. No SDK, Anthropic key, contact unlocks, outreach, tenant imports or geographic expansion. Model candidates require owned evidence and duplicate review before audited contact export. Retain SQLite, source evidence, final exports and budget ledgers; remove task scratch after terminal processing."
     },
@@ -53,7 +147,13 @@
       "install": {
         "kind": "command",
         "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
-        "command": ["bash", ".worktrees/tutor-campaign-20261013-12h/agent-loops/tutor-lead-pathways/install-qualification.sh", "watch", "tutor-qualification-20261014", "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts"]
+        "command": [
+          "bash",
+          ".worktrees/tutor-campaign-20261013-12h/agent-loops/tutor-lead-pathways/install-qualification.sh",
+          "watch",
+          "tutor-qualification-20261014",
+          "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts"
+        ]
       },
       "notes": "Read SQLite-backed status and actual launchd process liveness. At most three registered recovery requests; never reset the deadline, ledger, cached decisions, source holds or eight-page site allowance. No paid API calls in the watcher."
     },

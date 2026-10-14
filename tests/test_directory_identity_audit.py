@@ -14,6 +14,10 @@ spec.loader.exec_module(audit)
 
 
 class IdentityTests(unittest.TestCase):
+    def test_linked_name_slug_with_initial_surname_stays_incomplete(self):
+        self.assertIsNone(audit.professional_name('https://www.findtutors.co.uk/tutor/alex-p.htm'))
+        self.assertEqual(audit.professional_name('https://www.findtutors.co.uk/tutor/alex-parker-5.htm'), 'alex parker')
+
     def own_name_rows(self, name, platform="findtutors.co.uk", extra=""):
         if platform == "findtutors.co.uk":
             url = "https://www.findtutors.co.uk/tutors-aylesbury/maths-123"

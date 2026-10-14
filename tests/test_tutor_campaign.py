@@ -122,6 +122,28 @@ class CampaignNoveltyTests(unittest.TestCase):
         self.assertEqual(result['new'], [])
         self.assertEqual(len(result['known']), 1)
 
+    def test_an_initial_surname_cannot_prove_that_a_contact_is_distinct(self):
+        old = [{'canonicalId': 'old', 'name': 'Alex', 'aliases': ['alex'],
+                'professionalNameHint': 'alex p'}]
+        current = [{'canonicalId': 'new', 'name': 'Alex Parker', 'aliases': ['alex'],
+                    'professionalNameHint': 'alex parker', 'outreachEligible': False}]
+        result = classify_delta(old, current)
+        self.assertEqual(result['new'], [])
+        self.assertEqual(len(result['needsReview']), 1)
+        old[0]['professionalNameHint'] = 'alex brown'
+        self.assertEqual(classify_delta(old, current)['new'], current)
+
+    def test_missing_middle_names_stay_held_but_distinct_complete_names_are_not_merged(self):
+        current = [{'canonicalId': 'new', 'name': 'Alex James Parker', 'aliases': ['alex'],
+                    'professionalNameHint': 'alex james parker', 'outreachEligible': False}]
+        old = [{'canonicalId': 'old', 'name': 'Alex', 'aliases': ['alex'],
+                'professionalNameHint': 'alex parker'}]
+        self.assertEqual(classify_delta(old, current)['new'], [])
+        old[0]['professionalNameHint'] = 'alex taylor parker'
+        self.assertEqual(classify_delta(old, current)['new'], current)
+        old[0]['professionalNameHint'] = 'alex t parker'
+        self.assertEqual(classify_delta(old, current)['new'], [])
+
     def test_own_organisation_matching_a_known_business_holds_people_without_merging_them(self):
         old = [{'canonicalId': 'business:known', 'name': 'Example Tuition', 'sourceUrls': []}]
         people = [{'canonicalId': key, 'name': name, 'organization': 'Example Tuition',

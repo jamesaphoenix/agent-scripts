@@ -5,7 +5,7 @@ import json
 from collections import defaultdict
 from pathlib import Path
 import urllib.parse
-from audit_directory_identities import normalize_name
+from audit_directory_identities import normalize_name, complete_identity_hint
 from discovery import atomic_json, file_hash, now_iso, phone_key
 from baseline_names import verified_name_overlay
 
@@ -35,13 +35,31 @@ def classify_delta(baseline, current):
         return phone_key(value)
     phones = {value for row in baseline if (value := contact_phone(row))}
     def names(row):
-        return set(row.get('aliases', [])) | {normalize_name(row['name'])}
+        aliases = set(row.get('aliases', [])) | {normalize_name(row['name'])}
+        hint = row.get('professionalNameHint')
+        if isinstance(hint, str) and (parts := normalize_name(hint).split()) and len(parts[0]) >= 2:
+            aliases.add(parts[0])
+        return aliases
     baseline_names = defaultdict(set)
+    full_names = defaultdict(set)
     for old in baseline:
+        hint = complete_identity_hint(old.get('professionalNameHint'))
         for alias in names(old):
-            baseline_names[alias].add(old.get('professionalNameHint'))
+            baseline_names[alias].add(hint)
+        if hint:
+            parts = tuple(hint.split())
+            full_names[parts[0], parts[-1]].add(parts)
     def possible_match(row):
-        left = row.get('professionalNameHint')
+        left = complete_identity_hint(row.get('professionalNameHint'))
+        if left:
+            parts = tuple(left.split())
+            for right in full_names.get((parts[0], parts[-1]), ()):
+                short, long = sorted((parts, right), key=len)
+                sequence = iter(long)
+                if all(part in sequence for part in short):
+                    # An omitted middle name cannot prove a new person. Keep
+                    # separate fully spelled names rather than merging them.
+                    return True
         for alias in names(row):
             matches = baseline_names.get(alias)
             if matches and (len(alias.split()) > 1 or not left or None in matches or '' in matches or left in matches):

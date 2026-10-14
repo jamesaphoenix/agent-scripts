@@ -31,13 +31,20 @@ def professional_name(url):
     if parsed.hostname != "www.findtutors.co.uk" or not re.fullmatch(r"/tutor/[a-z0-9-]+\.htm", parsed.path):
         return None
     name = normalize_name(re.sub(r"[-\d]+$", "", parsed.path.rsplit("/", 1)[-1][:-4]).replace("-", " "))
-    return name if len(name.split()) > 1 else None
+    return complete_own_name(name)
+
+
+def complete_identity_hint(value):
+    if not isinstance(value, str):
+        return None
+    name = normalize_name(value)
+    parts = name.split()
+    return name if 2 <= len(parts) <= 6 and all(len(part) >= 2 and part.isalpha() for part in parts) else None
 
 
 def complete_own_name(value):
-    name = normalize_name(value)
-    parts = name.split()
-    if not 2 <= len(parts) <= 6 or any(len(part) < 2 or not part.isalpha() for part in parts):
+    name = complete_identity_hint(value)
+    if not name:
         return None
     if re.search(r"\b(?:tutors?|tutoring|tuition|teachers?|teaching|lessons?|academy|school|"
                  r"learning|education|educational|mentors?|maths|mathematics|english|science|"

@@ -6,7 +6,7 @@ from pathlib import Path
 import re
 import urllib.parse
 
-from audit_directory_identities import complete_own_name, professional_name
+from audit_directory_identities import complete_own_name, professional_name, complete_identity_hint
 from directory_profiles import Document, admitted_url, decode_page, profile_record
 
 
@@ -18,7 +18,7 @@ def verified_name_overlay(baseline, profile_root):
     root, overlay, held = Path(profile_root).resolve(), [], Counter()
     for old in baseline:
         name = complete_own_name(old.get('name', ''))
-        if old.get('professionalNameHint') or not old.get('canonicalId', '').startswith('tutor:') or not name:
+        if complete_identity_hint(old.get('professionalNameHint')) or not old.get('canonicalId', '').startswith('tutor:') or not name:
             overlay.append(old)
             continue
         try:

@@ -25,6 +25,7 @@ from qualification_context import cache_path, context_urls, select_urls, select_
 from directory_profiles import admitted_url
 from qualification_exports import publish as publish_structured_profiles
 from qualification_seeds import import_batches as import_website_seeds
+from qualification_feeder import refill as refill_qualification, summary as feed_summary
 
 VERSION = 'bucks-owned-candidate-v2'
 STOP = False
@@ -191,6 +192,11 @@ def snapshot(root, job, db, cache, phase, reason=None):
             'SELECT coalesce(sum(imported),0) FROM website_seed_batches').fetchone()[0],
             'skippedExistingOwners': db.execute('SELECT coalesce(sum(skipped),0) FROM website_seed_batches').fetchone()[0],
             'heldBatches': db.execute("SELECT count(*) FROM website_seed_batches WHERE state='held'").fetchone()[0]}
+    feed = feed_summary(db)
+    if feed:
+        status['continuousSeeding'] = feed
+    if job.get('feedError'):
+        status['continuousSeedingError'] = job['feedError']
     atomic_json(root / 'status.json', status)
     return status
 
@@ -236,6 +242,12 @@ def run(root):
                                [root, *[Path(p) for p in job.get('fetchRoots', [])]])
             candidates = [json.loads(r['candidate']) for r in db.execute('SELECT candidate FROM candidates')]
             index.update(profile_context_index([Path(p) for p in job.get('profileRoots', [])], candidates))
+            if job.get('expandOwnedContext'):
+                try:
+                    refill_qualification(root, job, db, scope, index)
+                except (OSError, ValueError, KeyError, TypeError, sqlite3.Error) as error:
+                    # A damaged feeder source must not stop other candidates.
+                    job['feedError'] = type(error).__name__ + ': ' + str(error)
             # A verified saved observation can resolve a failed fetch without
             # retrying that request or resetting any paid submission.
             with db:
@@ -432,16 +444,17 @@ def watch(root, owner, monitor):
     status=json.loads((root/'status.json').read_text()) if (root/'status.json').exists() else {}
     process=subprocess_status(owner)
     producer_live = bool(job.get('refreshContext') and job.get('contextOwnerLabel') and subprocess_status(job['contextOwnerLabel']))
-    terminal=status.get('phase') in ('deadline','budget_reached','api_unavailable') or time.time()>=job['deadlineUnix'] or (status.get('phase')=='complete' and not producer_live)
+    feeder_ready = bool(status.get('continuousSeeding', {}).get('lastRefill', {}).get('canRefill'))
+    terminal=status.get('phase') in ('deadline','budget_reached','api_unavailable') or time.time()>=job['deadlineUnix'] or (status.get('phase')=='complete' and not (producer_live or feeder_ready))
     previous=json.loads((root/'monitor.json').read_text()) if (root/'monitor.json').exists() else {}
     recoveries=previous.get('recoveries',0)
-    report={'observedAt':now_iso(),'processLive':process,'contextProducerLive':producer_live,'phase':status.get('phase'),'terminal':terminal,'status':status,'recoveries':recoveries}
+    report={'observedAt':now_iso(),'processLive':process,'contextProducerLive':producer_live,'feederReady':feeder_ready,'phase':status.get('phase'),'terminal':terminal,'status':status,'recoveries':recoveries}
     atomic_json(root/'monitor.json',report)
     if terminal and not process:
         cleanup(root)
         import subprocess
         subprocess.run(['launchctl','bootout',f'gui/{os.getuid()}/{monitor}'],capture_output=True,timeout=10)
-    elif not terminal and not process and status.get('phase')=='complete' and producer_live:
+    elif not terminal and not process and status.get('phase')=='complete' and (producer_live or feeder_ready):
         import subprocess
         subprocess.run(['launchctl','kickstart',f'gui/{os.getuid()}/{owner}'],capture_output=True,timeout=10)
         report['action']='refresh_saved_context'

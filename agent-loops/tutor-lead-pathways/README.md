@@ -228,6 +228,24 @@ deadline and paid-request holds take precedence. The shared ledger also has an
 exclusive owner lock, and finished-job cleanup retains checkpoints, exports,
 receipts and all budget evidence.
 
+`qualification_feeder.py` refills the context owner when fewer than 40 candidates
+are active, aiming for 80. It reads saved Maps/organic receipts, verified public
+profiles' advertised websites and relevant observed links from qualified tutors
+or local subject-matching directories. Search location and directory headings
+are seed hints; every child still needs its own identity, subjects and locality.
+No new search request or SDK turn is submitted by the feeder.
+
+SQLite records each admission, source proof, parent/root lineage and source yield.
+Sources that produce subject-matching local tutor candidates receive priority,
+with every tenth admission reserved for another eligible source. Existing owners,
+failed-fetch holds and paid holds are preserved. Expansion stops at 15 new owners
+per parent, 30 per root, two external hops, and 2,000 new owners shared with manual
+website imports. The fifteen-minute watcher can refill after the directory
+producer finishes. The original deadline and classification bank remain binding.
+`status.json.continuousSeeding` reports admissions, held proofs, source failures,
+remaining offers and model-qualified yield. An empty verified source pool is
+reported as exhausted; it never authorises fresh paid searches or a new window.
+
 `keyword_expansion.py` keeps a shared `state/keyword-search.sqlite` alongside the separate paid
 ledger. It generates plain location searches such as `11+ tutor Amersham`, `tutor Amersham`,
 `11 plus tutor High Wycombe` and subject variants for both Google Maps and organic search.

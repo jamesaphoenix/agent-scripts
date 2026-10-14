@@ -7,7 +7,7 @@ import unittest
 from unittest.mock import patch
 
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'agent-loops/tutor-lead-pathways'))
-from qualify_inventory import input_evidence, owned_questions, outcome, run, loaded_source_sha
+from qualify_inventory import input_evidence, owned_questions, outcome, run, loaded_source_sha, cleanup
 from decisions_classifier import parse_decision, DecisionsCache as RealCache
 from discovery import file_hash
 from test_decisions_classifier import response
@@ -19,6 +19,18 @@ SCOPE={'subjects':['english','maths','verbal_reasoning','non_verbal_reasoning'],
 class InventoryQualificationTests(unittest.TestCase):
     def test_real_source_revision_helper_supports_the_startup_call(self):
         self.assertRegex(loaded_source_sha(),r'^[a-f0-9]{40}$')
+
+    def test_cleanup_preserves_source_checkpoints_paid_cache_and_diagnostic_errors(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);folder=root/'fetches/one';folder.mkdir(parents=True)
+            for name in ['crawl.json','seeds.txt','sources.json']:(folder/name).write_text('saved')
+            (folder/'stderr.log').write_text('Useful failure evidence')
+            (root/'decisions.sqlite').write_text('budget proof')
+            report=cleanup(root)
+            self.assertEqual(len(report['removed']),2)
+            self.assertTrue((folder/'crawl.json').exists())
+            self.assertTrue((folder/'stderr.log').exists())
+            self.assertEqual((root/'decisions.sqlite').read_text(),'budget proof')
 
     def test_prompt_demands_owned_requested_subjects_and_locality(self):
         q=owned_questions(['Amersham'],SCOPE)

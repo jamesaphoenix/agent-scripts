@@ -255,6 +255,27 @@ def run(root):
             cache.close();db.close()
 
 
+def cleanup(root):
+    """Remove only finished-job scratch; retain checkpoints and paid evidence."""
+    removed=[]
+    with (root/'run.lock').open('a') as lock:
+        try:fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
+        except BlockingIOError:return None
+        for folder in (root/'fetches').glob('*'):
+            if folder.is_symlink() or not folder.is_dir():continue
+            for name in ('seeds.txt','sources.json','stderr.log'):
+                path=folder/name
+                if path.is_file() and not path.is_symlink() and (name!='stderr.log' or path.stat().st_size==0):
+                    path.unlink();removed.append(str(path))
+        report={'observedAt':now_iso(),'removed':removed,
+            'retained':['job.json','input.json','discovery-scope.json','candidates.sqlite','decisions.sqlite',
+                'candidate-classifications.json','tutor-research-candidates.json','fetches/*/crawl.json',
+                'fetches/*/audit.json','nonempty fetch error logs','source checkout awaiting PR review'],
+            'note':'Reusable caches, full source checkpoints, budget reservations and final exports are preserved.'}
+        atomic_json(root/'cleanup.json',report)
+        return report
+
+
 def watch(root, owner, monitor):
     job=json.loads((root/'job.json').read_text())
     status=json.loads((root/'status.json').read_text()) if (root/'status.json').exists() else {}
@@ -264,10 +285,11 @@ def watch(root, owner, monitor):
     recoveries=previous.get('recoveries',0)
     report={'observedAt':now_iso(),'processLive':process,'phase':status.get('phase'),'terminal':terminal,'status':status,'recoveries':recoveries}
     atomic_json(root/'monitor.json',report)
-    if terminal:
+    if terminal and not process:
+        cleanup(root)
         import subprocess
         subprocess.run(['launchctl','bootout',f'gui/{os.getuid()}/{monitor}'],capture_output=True,timeout=10)
-    elif not process and recoveries<3:
+    elif not terminal and not process and recoveries<3:
         import subprocess
         subprocess.run(['launchctl','kickstart',f'gui/{os.getuid()}/{owner}'],capture_output=True,timeout=10)
         report['recoveries']+=1

@@ -2,6 +2,9 @@
 import hashlib
 import json
 from pathlib import Path
+import re
+import sqlite3
+from contextlib import closing
 
 from discovery import atomic_json, now_iso, website_key
 from focused_frontier import admitted
@@ -17,6 +20,27 @@ def publish(root, candidates, source_url):
     if not path.exists():
         atomic_json(path, value)
     return key
+
+
+def pending_batches(root):
+    """Read the intake ledger without changing candidates or validating imports."""
+    root = Path(root)
+    folder = root / 'website-seeds'
+    if folder.is_symlink() or not folder.is_dir():
+        return 0
+    keys = {p.stem for p in folder.glob('*.json')
+            if not p.is_symlink() and p.is_file() and re.fullmatch(r'[a-f0-9]{64}', p.stem)}
+    if not keys:
+        return 0
+    path = root / 'candidates.sqlite'
+    if path.is_symlink():
+        raise ValueError('Website seed ledger must not be a symlink')
+    imported = set()
+    if path.exists():
+        with closing(sqlite3.connect(path.resolve().as_uri() + '?mode=ro', uri=True)) as db:
+            if db.execute("SELECT 1 FROM sqlite_master WHERE name='website_seed_batches'").fetchone():
+                imported = {r[0] for r in db.execute('SELECT key FROM website_seed_batches')}
+    return len(keys - imported)
 
 
 def import_batches(root, db):

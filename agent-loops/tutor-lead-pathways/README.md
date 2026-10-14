@@ -265,6 +265,13 @@ keep an empty owner spinning. `lastRefill.websiteQueue`, `nextAction` and
 `searchReplenishment` distinguish pending crawl work from a need for new sources
 or a separately authorised paid-search window. Budget and stop time do not change.
 
+During a context window, an exhausted website queue leaves the fifteen-minute
+monitor waiting until the original deadline. An unseen SHA256 website seed batch
+wakes the owner even after the directory producer has stopped. Imported and held
+batches do not wake it again. Waiting checks do not launch an empty owner, spend
+on classification, or extend the window. Budget and API stop conditions still
+retire the monitor immediately once the owner has exited.
+
 `public_rosters.py` reads the cached Marlow Mums tutor article under
 `public-rosters/`. Its canonical URL and SHA256 receipt must replay exactly.
 Each named entry owns only its own paragraphs, links and public contact fields;

@@ -12,7 +12,7 @@ from discovery import PaidCache, atomic_json, request_key
 from directory_profiles import profile_record
 from keyword_expansion import SearchIndex, keyword_plan
 from qualification_feeder import refill, link_offers, tables, summary, local_directory_entry
-from qualification_seeds import import_batches
+from qualification_seeds import import_batches, publish
 from qualify_inventory import create_database, candidate_key, watch
 from test_tta_scraper import profile as tta_profile
 
@@ -177,6 +177,63 @@ class QualificationFeederTests(unittest.TestCase):
         with patch('qualify_inventory.subprocess_status', return_value=False), patch('subprocess.run') as launch:
             watch(self.root, 'owner', 'monitor')
         self.assertEqual(launch.call_args.args[0][1], 'bootout')
+
+    def watch_complete_window(self):
+        self.job['expandOwnedContext'] = True
+        atomic_json(self.root / 'job.json', self.job)
+        atomic_json(self.root / 'status.json', {'phase': 'complete',
+            'continuousSeeding': {'lastRefill': {'canRefill': False}}})
+        with patch('qualify_inventory.subprocess_status', return_value=False), patch('subprocess.run') as launch:
+            watch(self.root, 'owner', 'monitor')
+        return launch, json.loads((self.root / 'monitor.json').read_text())
+
+    def test_dry_continuous_window_waits_without_restarting_or_retiring_its_monitor(self):
+        launch, report = self.watch_complete_window()
+        launch.assert_not_called()
+        self.assertFalse(report['terminal'])
+        self.assertEqual(report['action'], 'await_new_sources')
+        self.assertEqual(report['recoveries'], 0)
+
+    def test_new_seed_restarts_a_drained_window_once_then_waits_again(self):
+        publish(self.root, [{'name': 'Jane Smith', 'website': 'https://jane.example/'}],
+                'https://local-directory.example/tutors')
+        launch, report = self.watch_complete_window()
+        self.assertEqual(launch.call_args.args[0][1], 'kickstart')
+        self.assertEqual(report['pendingWebsiteSeedBatches'], 1)
+        self.assertEqual(report['action'], 'refresh_saved_context')
+        import_batches(self.root, self.db)
+        launch, report = self.watch_complete_window()
+        launch.assert_not_called()
+        self.assertEqual(report['pendingWebsiteSeedBatches'], 0)
+
+    def test_held_seed_is_not_replayed_by_the_monitor(self):
+        publish(self.root, [{'name': 'Private', 'website': 'https://bad.example/login'}],
+                'https://local-directory.example/tutors')
+        import_batches(self.root, self.db)
+        launch, report = self.watch_complete_window()
+        launch.assert_not_called()
+        self.assertEqual(report['pendingWebsiteSeedBatches'], 0)
+        self.assertEqual(self.db.execute("SELECT count(*) FROM website_seed_batches WHERE state='held'").fetchone()[0], 1)
+
+    def test_new_seeds_never_extend_an_expired_window(self):
+        publish(self.root, [{'name': 'Jane Smith', 'website': 'https://jane.example/'}],
+                'https://local-directory.example/tutors')
+        self.job['deadlineUnix'] = time.time() - 1
+        launch, report = self.watch_complete_window()
+        self.assertEqual(launch.call_args.args[0][1], 'bootout')
+        self.assertTrue(report['terminal'])
+
+    def test_new_seeds_cannot_resume_a_budget_or_api_stop(self):
+        publish(self.root, [{'name': 'Jane Smith', 'website': 'https://jane.example/'}],
+                'https://local-directory.example/tutors')
+        self.job['expandOwnedContext'] = True
+        atomic_json(self.root / 'job.json', self.job)
+        for phase in ('budget_reached', 'api_unavailable'):
+            with self.subTest(phase=phase):
+                atomic_json(self.root / 'status.json', {'phase': phase})
+                with patch('qualify_inventory.subprocess_status', return_value=False), patch('subprocess.run') as launch:
+                    watch(self.root, 'owner', 'monitor')
+                self.assertEqual(launch.call_args.args[0][1], 'bootout')
 
     def test_foreign_place_collision_is_not_an_exploration_seed(self):
         _, page = self.candidate('https://local-directory.example/tutors', links=[

@@ -4,11 +4,28 @@ import tempfile
 import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'agent-loops/tutor-lead-pathways'))
-from qualification_seeds import publish, import_batches
+from qualification_seeds import publish, import_batches, pending_batches
 from qualify_inventory import create_database
 
 
 class QualificationSeedTests(unittest.TestCase):
+    def test_pending_intake_is_read_only_and_ignores_symlinks_and_unpublished_names(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            self.assertEqual(pending_batches(root), 0)
+            key = publish(root, [{'name': 'Jane Smith', 'website': 'https://jane.example/'}],
+                          'https://local-directory.example/tutors')
+            self.assertEqual(pending_batches(root), 1)
+            self.assertFalse((root / 'candidates.sqlite').exists())
+            db = create_database(root / 'candidates.sqlite')
+            self.addCleanup(db.close)
+            import_batches(root, db)
+            before = db.total_changes
+            (root / 'website-seeds' / ('a' * 64 + '.json')).symlink_to(key + '.json')
+            (root / 'website-seeds' / 'unfinished.json').write_text('{}')
+            self.assertEqual(pending_batches(root), 0)
+            self.assertEqual(db.total_changes, before)
+
     def test_repeated_batches_and_alias_urls_never_reset_a_fetch_hold(self):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder); db = create_database(root / 'candidates.sqlite')

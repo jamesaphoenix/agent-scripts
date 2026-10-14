@@ -24,7 +24,7 @@ from configuration import loaded_source_sha
 from qualification_context import cache_path, context_urls, select_urls, select_pages, profile_context_index
 from directory_profiles import admitted_url, exclusion_reason, profile_locality_status
 from qualification_exports import publish as publish_structured_profiles
-from qualification_seeds import import_batches as import_website_seeds
+from qualification_seeds import import_batches as import_website_seeds, pending_batches
 from qualification_feeder import refill as refill_qualification, summary as feed_summary
 
 VERSION = 'bucks-owned-candidate-v2'
@@ -501,19 +501,35 @@ def watch(root, owner, monitor):
     process=subprocess_status(owner)
     producer_live = bool(job.get('refreshContext') and job.get('contextOwnerLabel') and subprocess_status(job['contextOwnerLabel']))
     feeder_ready = bool(status.get('continuousSeeding', {}).get('lastRefill', {}).get('canRefill'))
-    terminal=status.get('phase') in ('deadline','budget_reached','api_unavailable') or time.time()>=job['deadlineUnix'] or (status.get('phase')=='complete' and not (producer_live or feeder_ready))
+    continuous_window = bool(job.get('expandOwnedContext'))
+    seed_batches, seed_error = 0, None
+    if continuous_window:
+        try:
+            seed_batches = pending_batches(root)
+        except (OSError, ValueError, sqlite3.Error) as error:
+            seed_error = type(error).__name__ + ': ' + str(error)
+    sources_ready = bool(producer_live or feeder_ready or seed_batches)
+    terminal = (status.get('phase') in ('deadline', 'budget_reached', 'api_unavailable')
+                or time.time() >= job['deadlineUnix']
+                or (status.get('phase') == 'complete' and not (continuous_window or sources_ready)))
     previous=json.loads((root/'monitor.json').read_text()) if (root/'monitor.json').exists() else {}
     recoveries=previous.get('recoveries',0)
-    report={'observedAt':now_iso(),'processLive':process,'contextProducerLive':producer_live,'feederReady':feeder_ready,'phase':status.get('phase'),'terminal':terminal,'status':status,'recoveries':recoveries}
+    report={'observedAt':now_iso(),'processLive':process,'contextProducerLive':producer_live,'feederReady':feeder_ready,'phase':status.get('phase'),'terminal':terminal,'status':status,'recoveries':recoveries,
+            'pendingWebsiteSeedBatches':seed_batches,'seedIntakeError':seed_error}
     atomic_json(root/'monitor.json',report)
     if terminal and not process:
         cleanup(root)
         import subprocess
         subprocess.run(['launchctl','bootout',f'gui/{os.getuid()}/{monitor}'],capture_output=True,timeout=10)
-    elif not terminal and not process and status.get('phase')=='complete' and (producer_live or feeder_ready):
-        import subprocess
-        subprocess.run(['launchctl','kickstart',f'gui/{os.getuid()}/{owner}'],capture_output=True,timeout=10)
-        report['action']='refresh_saved_context'
+    elif not terminal and not process and status.get('phase')=='complete':
+        if sources_ready:
+            import subprocess
+            subprocess.run(['launchctl','kickstart',f'gui/{os.getuid()}/{owner}'],capture_output=True,timeout=10)
+            report['action']='refresh_saved_context'
+        else:
+            # Keep the scheduled check alive until its original deadline. New
+            # source batches can arrive after both current queues have drained.
+            report['action']='await_new_sources'
         atomic_json(root/'monitor.json',report)
     elif not terminal and not process and recoveries<3:
         import subprocess

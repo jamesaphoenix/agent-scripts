@@ -1,5 +1,26 @@
 # Tutor lead discovery through five pathways
 
+## Automated qualification and contact enrichment
+
+Completed qualification batches now publish structured research profiles under
+`exports/automated-qualification/`. The publisher reconstructs each settled
+Decisions request and usage receipt, replays its owned page context, checks
+identity and locality, and holds uncertain duplicate matches. Its `accepted.json`
+contains model-qualified research profiles, separate from the existing
+source-reviewed contact export. `held.json` records why a candidate needs further
+extraction or review. The publisher never calls an API or changes the paid ledger.
+
+Missing public email does not block a profile. Those accepted records enter
+`email-enrichment-queue.json`; emails observed in owned page text retain their
+source URL and remain unverified. No enrichment provider or Codex SDK agent is
+launched by this stage. The existing crawler can collect observed contact/about
+links within its site allowance; later enrichment can consume this queue.
+
+Decisions evaluates predicates, fixed choices and scores. Free-form extraction
+requires [Structured Outputs](https://developers.openai.com/api/docs/guides/structured-outputs)
+through the Responses API. The current stage uses existing crawler/profile fields
+and literal evidence, without introducing another model or spending allowance.
+
 ## Tutors' Association public directory
 
 `tta_scraper.py` adds a source-specific scraper to the registered profile worker.

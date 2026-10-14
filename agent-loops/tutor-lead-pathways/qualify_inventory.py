@@ -23,6 +23,7 @@ from lead_scope import load_scope, scope_prompt, matching_page_subjects, matchin
 from configuration import loaded_source_sha
 from qualification_context import cache_path, context_urls, select_urls, select_pages, profile_context_index
 from directory_profiles import admitted_url
+from qualification_exports import publish as publish_structured_profiles
 
 VERSION = 'bucks-owned-candidate-v2'
 STOP = False
@@ -372,8 +373,28 @@ def run(root):
             phase,reason='budget_reached' if isinstance(error,BudgetExhausted) else 'api_unavailable',str(error)
         finally:
             if 'legacy' in locals():legacy.db.close()
-            snapshot(root,job,db,cache,phase,reason)
-            cache.close();db.close()
+            try:
+                automated = None
+                publication_error = None
+                if phase == 'complete' and job.get('knownContacts'):
+                    try:
+                        publication_index = page_index([Path(p) for p in job['frontiers']],
+                            [Path(p) for p in job['crawlRoots']], [root, *[Path(p) for p in job.get('fetchRoots', [])]])
+                        publication_index.update(profile_context_index([Path(p) for p in job.get('profileRoots', [])],
+                            [json.loads(r['candidate']) for r in db.execute('SELECT candidate FROM candidates')]))
+                        automated = publish_structured_profiles(root, job, db, scope, publication_index,
+                                                               owned_questions(job['towns'], scope))
+                    except (OSError, ValueError, KeyError, TypeError, sqlite3.Error) as error:
+                        publication_error = type(error).__name__ + ': ' + str(error)
+                status = snapshot(root,job,db,cache,phase,reason)
+                if automated:
+                    status['automatedQualification'] = automated
+                if publication_error:
+                    status['automatedQualificationError'] = publication_error
+                if automated or publication_error:
+                    atomic_json(root / 'status.json', status)
+            finally:
+                cache.close();db.close()
 
 
 def cleanup(root):

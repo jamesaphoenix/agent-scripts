@@ -86,6 +86,8 @@ def profile_context_index(roots, candidates):
                     'profileCity', 'profileCounty', 'organization', 'tuitionLevels', 'website', 'locationConflict')}
                 text = json.dumps({'publicProfileFields': fields}, ensure_ascii=False, sort_keys=True)
                 result[url] = {'url': url, 'title': profile['name'], 'text': text, 'links': [],
+                    'publicContacts': {'emails': profile.get('emails') or ([profile['email']] if profile.get('email') else []),
+                                       'phone': profile.get('phone')},
                     'sourceDocumentSha256': receipt['sha256'], 'extractionKind': 'public_profile_fields_v1',
                     'replaySource': {'receipt': str(receipt_path), 'receiptSha256': hashlib.sha256(receipt_path.read_bytes()).hexdigest()}}
                 break

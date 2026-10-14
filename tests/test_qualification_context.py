@@ -47,12 +47,15 @@ class QualificationContextTests(unittest.TestCase):
             receipt={'url':url,'status':200,'sha256':hashlib.sha256(body).hexdigest(),'contentType':'text/html'}
             path=root/'receipts'/f'{key}.json';path.write_text(json.dumps(receipt))
             profile={'name':'Jane Smith','personId':'111','platform':'childcare.co.uk','sourceUrls':[url],
-                     'localityClaim':'Amersham','services':['Maths'],'outreachEligible':False}
+                     'localityClaim':'Amersham','services':['Maths'],'outreachEligible':False,
+                     'email':'public@example.org','phone':'07722 868342'}
             with patch('qualification_context.profile_record',return_value=profile):
                 index=profile_context_index([root],[{'website':url}])
                 self.assertIn(url,index)
                 self.assertEqual(index[url]['sourceDocumentSha256'],receipt['sha256'])
                 self.assertIn('Jane Smith',index[url]['text'])
+                self.assertNotIn('public@example.org', index[url]['text'])
+                self.assertEqual(index[url]['publicContacts']['emails'], ['public@example.org'])
                 profile['personId']='222'
                 self.assertEqual(profile_context_index([root],[{'website':url}]),{})
                 profile['personId']='111';(root/'pages'/f'{key}.html').write_bytes(b'changed')

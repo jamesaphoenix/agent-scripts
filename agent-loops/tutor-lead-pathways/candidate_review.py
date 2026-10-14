@@ -111,6 +111,19 @@ def assess(row, pages, towns, known_urls, scope=None):
 
 def page_index(frontiers, crawl_roots=()):
     pages = {}
+    def observe(url, evidence, proof):
+        final = admitted(evidence.get('url'))
+        if (not url or not final or not isinstance(evidence.get('text'), str)
+                or not 80 <= len(evidence['text']) <= 50000):
+            return
+        # Replay the observed final URL, preserving its exact decision contract.
+        # The redirect can connect owned pages but cannot connect other profiles
+        # or other tenants on a shared host.
+        if url != final and website_key(url) != website_key(final):
+            return
+        observed = dict(evidence, replaySource=proof)
+        pages[url] = observed
+        pages[final] = observed
     for root in crawl_roots:
         for path in sorted((root / 'crawls').glob('*/crawl.json')):
             try:
@@ -122,9 +135,8 @@ def page_index(frontiers, crawl_roots=()):
                 for row in checkpoint.get('results', []):
                     evidence = row.get('evidence') or {}
                     url = admitted(row.get('node', {}).get('url'))
-                    if (not row.get('error') and url and admitted(evidence.get('url')) == url
-                            and isinstance(evidence.get('text'), str) and 80 <= len(evidence['text']) <= 50000):
-                        pages[url] = dict(evidence, replaySource={'checkpoint': str(path), 'sha256': digest})
+                    if not row.get('error'):
+                        observe(url, evidence, {'checkpoint': str(path), 'sha256': digest})
             except (OSError, ValueError, TypeError, AttributeError):
                 continue
     for path in frontiers:
@@ -135,9 +147,8 @@ def page_index(frontiers, crawl_roots=()):
                 url = admitted(row['url'])
                 try:
                     evidence = json.loads(row['evidence'])
-                    if (url and admitted(evidence.get('url')) == url and isinstance(evidence.get('text'), str)
-                            and 80 <= len(evidence['text']) <= 50000):
-                        pages[url] = evidence
+                    observe(url, evidence, {'frontier': str(path),
+                        'evidenceSha256': hashlib.sha256(row['evidence'].encode()).hexdigest()})
                 except (ValueError, TypeError, AttributeError):
                     continue
         finally:

@@ -81,9 +81,10 @@ class InventoryQualificationTests(unittest.TestCase):
                 fetches.append(row['url'])
                 if 'broken' in row['url']:raise ValueError('Failed fetch')
                 return page(row['url'])
+            index={'https://ready.example/':page('https://ready.example/')}
             with patch('qualify_inventory.loaded_source_sha',return_value='a'*40), \
                  patch('qualify_inventory.DecisionsCache',side_effect=cache_factory), \
-                 patch('qualify_inventory.page_index',return_value={'https://ready.example/':page('https://ready.example/')}), \
+                 patch('qualify_inventory.page_index',return_value=index), \
                  patch('qualify_inventory.fetch',side_effect=fetcher):
                 run(root)
                 first=json.loads((root/'status.json').read_text())
@@ -91,9 +92,13 @@ class InventoryQualificationTests(unittest.TestCase):
                 self.assertEqual(first['counts'],{'fetch_held':1,'tutor_research_candidate':2})
                 self.assertEqual(len(calls),2)
                 self.assertEqual(len(fetches),2)
+                index['https://broken.example/']=page('https://broken.example/')
                 run(root)
-                self.assertEqual(len(calls),2)
+                self.assertEqual(len(calls),3)
                 self.assertEqual(len(fetches),2)
+                self.assertEqual(json.loads((root/'status.json').read_text())['counts'],{'tutor_research_candidate':3})
+                run(root)
+                self.assertEqual(len(calls),3)
                 self.assertEqual(json.loads((root/'status.json').read_text())['newAuditedContacts'],0)
 
 

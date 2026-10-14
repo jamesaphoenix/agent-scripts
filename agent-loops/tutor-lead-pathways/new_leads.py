@@ -41,9 +41,18 @@ def classify_delta(baseline, current):
         return valid[0] if valid else None
     emails = {value for row in baseline if (value := contact_email(row))}
     def names(row):
-        aliases = set(row.get('aliases', [])) | {normalize_name(row['name'])}
+        aliases = {normalize_name(alias) for alias in (row.get('aliases') or [])
+                   if isinstance(alias, str) and alias.strip()} | {normalize_name(row['name'])}
         if row.get('canonicalId', '').startswith('business:'):
             parts = re.split(r',|\||\s[-\u2013\u2014]\s', row['name'], maxsplit=1)
+            brand = re.sub(r'\s*\([^()]*\)\s*$', '', parts[0]).strip()
+            words = normalize_name(brand).split()
+            generic = {'tutor','tutors','tutoring','tuition','private','local','online','find','best',
+                       'maths','english','primary','plus','eleven','education','learning','services','11'}
+            if len(words) >= 2 and any(len(word) >= 3 and word not in generic for word in words):
+                # A directory title can already represent this trading name.
+                # Retain it as a possible match, never an automatic identity merge.
+                aliases.add(normalize_name(brand))
             if len(parts) > 1 and (person := complete_own_name(parts[0])):
                 # A named business can already represent this person. This is
                 # a possible-match alias, not proof for merging identities.

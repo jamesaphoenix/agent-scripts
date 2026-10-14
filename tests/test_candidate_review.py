@@ -7,7 +7,7 @@ import tempfile
 import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'agent-loops/tutor-lead-pathways'))
-from candidate_review import CachedDecisions, assess, candidate_urls, run
+from candidate_review import CachedDecisions, assess, candidate_urls, page_index, run
 from decisions_classifier import DecisionsCache
 from test_decisions_classifier import response
 
@@ -94,6 +94,16 @@ class CandidateReviewTests(unittest.TestCase):
         row = {'website': 'https://jane.wixsite.com/tutoring', 'siteEvidence': [
             {'url': 'https://jane.wixsite.com/tutoring/about'}, {'url': 'https://jane.wixsite.com/music/about'}]}
         self.assertEqual(candidate_urls(row), ['https://jane.wixsite.com/tutoring', 'https://jane.wixsite.com/tutoring/about'])
+
+    def test_recorded_redirects_recover_context_without_transferring_profile_identity(self):
+        root=Path(self.temp.name);folder=root/'crawls/one';folder.mkdir(parents=True)
+        rows=[{'node':{'url':'http://mytutor.example/'},'evidence':dict(self.evidence,url='https://www.mytutor.example/')},
+              {'node':{'url':'https://www.childcare.co.uk/profile/111'},'evidence':dict(self.evidence,url='https://www.childcare.co.uk/profile/222')}]
+        (folder/'crawl.json').write_text(json.dumps({'results':rows}))
+        index=page_index([], [root])
+        self.assertEqual(index['http://mytutor.example/']['url'],'https://www.mytutor.example/')
+        self.assertNotIn('https://www.childcare.co.uk/profile/111',index)
+        self.assertNotIn('https://www.childcare.co.uk/profile/222',index)
 
     def test_conflicting_owned_pages_require_review(self):
         decision = self.seed()

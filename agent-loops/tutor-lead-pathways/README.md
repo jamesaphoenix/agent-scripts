@@ -114,6 +114,14 @@ with other profiles on the same directory. Saved Go checkpoints can supply conte
 for the remaining decision queue; search queries and URL towns cannot supply missing
 subject or locality evidence.
 
+Observed redirects can recover cached context when the original and final URLs
+belong to the same website identity. Replay keeps the final URL in the exact
+decision request. Other directory profiles and hosted tenants cannot inherit that
+context. A failed fetch can use such a verified saved observation on resume;
+uncertain paid submissions remain held. Business directory titles and normalised
+trading-name aliases are possible duplicate matches, rather than new contacts or
+automatic merges.
+
 ```bash
 python3 agent-loops/tutor-lead-pathways/candidate_review.py \
   --candidates state/my-campaign/exports/businesses.json \

@@ -91,6 +91,25 @@ class CampaignBudgetTests(unittest.TestCase):
 
 
 class CampaignNoveltyTests(unittest.TestCase):
+    def test_business_directory_titles_hold_trading_name_aliases_without_merging(self):
+        old = [{'canonicalId': 'business:directory:', 'name': 'On Track Tutoring | Buckingham',
+                'aliases': None, 'sourceUrls': ['https://directory.example.org/company']}]
+        current = [{'canonicalId': 'candidate:new-site', 'name': 'Tutoring | On Track Tutoring | Buckingham',
+                    'aliases': ['On Track Tutoring'], 'sourceUrls': ['https://new-site.example.org/'],
+                    'outreachEligible': False}]
+        result = classify_delta(old, current)
+        self.assertEqual(result['new'], [])
+        self.assertEqual(result['known'], [])
+        self.assertEqual(result['needsReview'][0]['deltaHoldReason'], 'possible_baseline_name_match')
+        old[0]['name'] = 'On Track Tutoring (Winslow)'
+        self.assertEqual(classify_delta(old, current)['new'], [])
+
+    def test_generic_tuition_heading_does_not_hold_every_named_business(self):
+        old = [{'canonicalId': 'business:directory:', 'name': 'Private Tuition | Buckingham', 'sourceUrls': []}]
+        current = [{'canonicalId': 'candidate:new-site', 'name': 'Acorn Tutors',
+                    'aliases': ['Acorn Tutors'], 'sourceUrls': [], 'outreachEligible': False}]
+        self.assertEqual(classify_delta(old, current)['new'], current)
+
     def test_known_profiles_are_excluded_without_inflating_the_new_audit(self):
         from audit_directory_identities import run as audit
         with tempfile.TemporaryDirectory() as temporary:

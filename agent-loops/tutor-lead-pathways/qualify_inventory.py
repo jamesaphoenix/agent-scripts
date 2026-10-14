@@ -145,6 +145,12 @@ def run(root):
                         sorted(candidate.get('identifiers', []))],sort_keys=True).encode()).hexdigest()
                     db.execute('INSERT OR IGNORE INTO candidates(key,candidate) VALUES(?,?)',(key,json.dumps(candidate)))
             index = page_index([Path(p) for p in job['frontiers']], [Path(p) for p in job['crawlRoots']])
+            # A verified saved observation can resolve a failed fetch without
+            # retrying that request or resetting any paid submission.
+            with db:
+                for row in db.execute("SELECT key,candidate FROM candidates WHERE state='fetch_held' AND decision IS NULL AND (evidence IS NULL OR evidence='[]')").fetchall():
+                    if any(url in index for url in candidate_urls(json.loads(row['candidate']))):
+                        db.execute("UPDATE candidates SET state='pending',error=NULL WHERE key=?",(row['key'],))
             api_failures = 0
             blocked_urls=set(job.get('blockedUrls',[]))
             legacy=CachedDecisions(Path(job['legacyCache']))

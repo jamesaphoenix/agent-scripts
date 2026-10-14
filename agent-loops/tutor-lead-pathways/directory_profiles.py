@@ -21,7 +21,7 @@ from discovery import tls_context
 from configuration import loaded_source_sha
 from lead_scope import load_scope, query_priority, services_text
 
-HOSTS = {"www.findtutors.co.uk", "tutorperch.com", "www.childcare.co.uk", "tutordex.net", "tutorextra.co.uk", "www.uktutors.com", "www.tutorhunt.com", "www.tuitionlist.co.uk", "www.teachtutti.co.uk", "thetutorsassociation.wildapricot.org"}
+HOSTS = {"www.findtutors.co.uk", "tutorperch.com", "www.childcare.co.uk", "tutordex.net", "tutorextra.co.uk", "www.uktutors.com", "www.tutorhunt.com", "www.tuitionlist.co.uk", "www.teachtutti.co.uk", "www.apprentus.co.uk", "thetutorsassociation.wildapricot.org"}
 AGENT = "TutorResearch/1.0"
 BUCKS = {
     "amersham", "amersham on the hill", "aylesbury", "beaconsfield", "bierton", "buckingham",
@@ -86,7 +86,13 @@ def admitted_url(value):
         p = urllib.parse.urlsplit(value)
         if p.scheme != "https" or p.hostname not in HOSTS or p.port not in (None, 443) or p.username or p.password:
             return None
-        if p.hostname == 'www.teachtutti.co.uk':
+        if p.hostname == 'www.apprentus.co.uk':
+            from apprentus import LISTING_PATH, PROFILE_PATH, local_source_path
+            profile = bool(PROFILE_PATH.fullmatch(p.path))
+            if p.query and urllib.parse.parse_qsl(p.query) != [('from_landing_page', 'true')]:
+                return None
+            allowed = (profile and local_source_path(p.path)) or p.path == '/robots.txt' or bool(LISTING_PATH.fullmatch(p.path) and local_source_path(p.path))
+        elif p.hostname == 'www.teachtutti.co.uk':
             from teachtutti import LISTING_PATH, PROFILE_PATH
             profile = bool(PROFILE_PATH.fullmatch(p.path))
             allowed = profile or p.path == '/robots.txt' or bool(LISTING_PATH.fullmatch(p.path))
@@ -266,6 +272,9 @@ def listing_records(text, url):
     document = Document(text).root
     host = urllib.parse.urlsplit(url).hostname
     rows = []
+    if host == 'www.apprentus.co.uk':
+        from apprentus import listing_records as parse_cards
+        return parse_cards(document, url)
     if host == 'www.teachtutti.co.uk':
         from teachtutti import listing_records as parse_cards
         return parse_cards(document, url)
@@ -359,7 +368,10 @@ def profile_record(text, url):
         return None
     p = urllib.parse.urlsplit(url)
     document = Document(text).root
-    if p.hostname == 'www.teachtutti.co.uk':
+    if p.hostname == 'www.apprentus.co.uk':
+        from apprentus import parse_profile
+        return parse_profile(document, url)
+    elif p.hostname == 'www.teachtutti.co.uk':
         from teachtutti import parse_profile
         return parse_profile(document, url)
     elif p.hostname == 'thetutorsassociation.wildapricot.org':
@@ -692,6 +704,9 @@ def local_directory_link(value, source):
     parsed, origin = urllib.parse.urlsplit(value), urllib.parse.urlsplit(source)
     if parsed.hostname != origin.hostname:
         return False
+    if parsed.hostname == 'www.apprentus.co.uk':
+        from apprentus import local_source_path
+        return local_source_path(parsed.path)
     if parsed.hostname == 'www.teachtutti.co.uk':
         from teachtutti import LISTING_PATH
         # Listing cards queue only local profiles through listing_profile_urls.
@@ -783,7 +798,7 @@ def next_page(state, cache=None):
         by_host.setdefault(urllib.parse.urlsplit(url).hostname, []).append(index)
     def person_page(index):
         path = urllib.parse.urlsplit(queue[index]).path
-        return path.startswith(("/profile/", "/t/", "/tutor/", "/users/", "/Sys/PublicProfile/")) or bool(re.search(r"-\d+/?$", path))
+        return path.startswith(("/profile/", "/t/", "/tutor/", "/users/", "/Sys/PublicProfile/", "/private-lessons/")) or bool(re.search(r"-\d+/?$", path))
     def town_root(index):
         parsed = urllib.parse.urlsplit(queue[index])
         return parsed.hostname == "www.findtutors.co.uk" and not parsed.query and bool(re.fullmatch(r"/tutors-[a-z0-9-]+/", parsed.path))
@@ -835,7 +850,8 @@ def replay_cached_profiles(root, state, deadline, clock=time.time, platform='tut
     """Recover pages missed by an older layout parser, without fetching or resetting counters."""
     sources = {'tutorhunt': ('tutorhunt-profile-name-v2', 'https://www.tutorhunt.com/users/'),
                'teachtutti': ('teachtutti-own-profile-v1', 'https://www.teachtutti.co.uk/tutor/'),
-               'tta': ('tta-public-fields-v1', 'https://thetutorsassociation.wildapricot.org/Sys/PublicProfile/')}
+               'tta': ('tta-public-fields-v1', 'https://thetutorsassociation.wildapricot.org/Sys/PublicProfile/'),
+               'apprentus': ('apprentus-own-advert-v1', 'https://www.apprentus.co.uk/private-lessons/')}
     if platform not in sources:
         raise ValueError('Unsupported cached profile replay source')
     version, prefix = sources[platform]
@@ -911,6 +927,7 @@ def run(root, seeds, hours, page_limit, target):
         replay_cached_profiles(root, state, job['deadlineUnix'])
         replay_cached_profiles(root, state, job['deadlineUnix'], platform='tta')
         replay_cached_profiles(root, state, job['deadlineUnix'], platform='teachtutti')
+        replay_cached_profiles(root, state, job['deadlineUnix'], platform='apprentus')
         cache, robots = PageCache(root), {}
         while state["attempts"] < job["pageLimit"] and time.time() < job["deadlineUnix"]:
             try:
@@ -975,7 +992,11 @@ def run(root, seeds, hours, page_limit, target):
                                 or '/tutor/' in link or query_priority(urllib.parse.urlsplit(link).path.replace('/', ' ').replace('-', ' '), scope) < 2]
                         if host == "www.findtutors.co.uk":
                             links = [link for link in links if "/tutor/" not in link and not re.search(r"-\d+/?$", urllib.parse.urlsplit(link).path)]
-                        state["queue"].extend(link for link in [*local_urls, *links] if link not in state["seen"] and link not in state["queue"])
+                        frontier = [*local_urls, *links]
+                        if host == 'www.apprentus.co.uk':
+                            from apprentus import bounded_frontier
+                            frontier = bounded_frontier(local_urls, links)
+                        state["queue"].extend(link for link in frontier if link not in state["seen"] and link not in state["queue"])
                         state["queue"] = state["queue"][:20000]
                 else:
                     state["errors"].append({"url": url, "reason": "fetch_failed"})

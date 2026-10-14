@@ -94,7 +94,7 @@ def audit_rows(root, rows):
         # These parsers select the tutor's own name field, rather than a page
         # title, breadcrumb, review or neighbouring advert. Missing profile links
         # must not turn distinct complete own names into first-name collisions.
-        if not hints and own["platform"] in ("findtutors.co.uk", "childcare.co.uk"):
+        if not hints and own["platform"] in ("findtutors.co.uk", "childcare.co.uk", "www.apprentus.co.uk"):
             hint = complete_own_name(own["name"])
             if hint:
                 hints.add(hint)

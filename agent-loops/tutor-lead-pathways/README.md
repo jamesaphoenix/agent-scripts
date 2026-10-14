@@ -137,6 +137,25 @@ The [Decisions API guide](https://developers.openai.com/api/docs/guides/decision
 describes the shared text input and named classification questions used by the
 existing classifier. This replay preserves that original request contract.
 
+`qualify_inventory.py` runs the separately authorised 14 October classification
+batch through the Studio registry tasks `tutor-qualification-20261014` and its
+fifteen-minute watcher. The new USD10 ledger leaves the original USD3 classifier
+cache and USD100 discovery limit unchanged. Its immutable configuration records
+James's additional budget instruction, candidate inventory hash, subject policy,
+crawler binary and original campaign deadline. The maximum combined allowance is
+USD110, including the original classifier reserve and unsettled requests.
+
+The batch reuses recorded owned-page text, then fetches missing public contexts
+with the existing Go fetcher, four workers, no recursive expansion, a minute
+between requests to the same site and eight attempted pages per site. Source
+access holds and uncertain old decisions remain held. New candidate and fetch
+states survive in SQLite. The model evaluates the candidate's own requested
+subjects, independent status and local coverage. Music-only offers, national
+navigation lists and neighbouring adverts cannot establish a qualifying offer.
+Positive results remain research candidates until owned identities, contact
+routes and duplicate matching are checked. `tutor-research-candidates.json` is
+separate from the audited contact export.
+
 `keyword_expansion.py` keeps a shared `state/keyword-search.sqlite` alongside the separate paid
 ledger. It generates plain location searches such as `11+ tutor Amersham`, `tutor Amersham`,
 `11 plus tutor High Wycombe` and subject variants for both Google Maps and organic search.

@@ -119,7 +119,7 @@ def decision_text(evidence):
     return ' '.join(str(evidence.get('text', '')).split()).encode()[:16000].decode('utf-8', errors='ignore')
 
 
-def decision_request(evidence, question_set):
+def decision_request(evidence, question_set, prompt_version=PROMPT_VERSION):
     """Build the same content-addressed contract for paid calls and offline replay."""
     text = decision_text(evidence)
     content = json.dumps({k: str(evidence.get(k, ''))[:2000] for k in ('url', 'title', 'description')})
@@ -128,20 +128,34 @@ def decision_request(evidence, question_set):
     raw = json.dumps(payload, sort_keys=True, ensure_ascii=False).encode()
     if len(raw) > 65536:
         raise ValueError('Decision payload too large')
-    key = hashlib.sha256(PROMPT_VERSION.encode() + b'\n' + raw).hexdigest()
+    key = hashlib.sha256(prompt_version.encode() + b'\n' + raw).hexdigest()
     return payload, key, (len(raw) * 2 + 4096) * NANO_PER_INPUT_TOKEN
 
 
 class DecisionsCache:
     def __init__(self, path, towns, transport=post_decision, cap_nano=3_000_000_000,
-                 prior_exposure_cents=6635):
-        if (type(cap_nano) is not int or not 0 < cap_nano <= 3_000_000_000
+                 prior_exposure_cents=6635, additional_authorization=None, question_set=None,
+                 prompt_version=PROMPT_VERSION):
+        extra = 0
+        if (not isinstance(prompt_version, str) or not prompt_version or len(prompt_version) > 80
+                or additional_authorization is None and (question_set is not None or prompt_version != PROMPT_VERSION)):
+            raise ValueError('Custom decision contracts require a separately authorized cache')
+        if additional_authorization is not None:
+            auth = additional_authorization
+            if (not isinstance(auth, dict) or set(auth) != {'instruction', 'recordedAt', 'additionalCapCents'}
+                    or type(auth['additionalCapCents']) is not int or not 1 <= auth['additionalCapCents'] <= 2000
+                    or any(not isinstance(auth[k], str) or not auth[k].strip() for k in ('instruction', 'recordedAt'))):
+                raise ValueError('Explicit additional classification authorization required')
+            extra = auth['additionalCapCents'] * 10_000_000
+        limit = extra or 3_000_000_000
+        if (type(cap_nano) is not int or not 0 < cap_nano <= limit
             or type(prior_exposure_cents) is not int or not 0 <= prior_exposure_cents <= 10000
-            or cap_nano + prior_exposure_cents * 10_000_000 > 100_000_000_000):
+            or cap_nano + prior_exposure_cents * 10_000_000 > 100_000_000_000 + extra):
             raise ValueError('Classification must fit inside the original USD100 discovery cap')
         self.path = Path(path)
         self.path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
-        self.transport, self.questions = transport, questions(sorted(towns))
+        self.transport, self.questions = transport, question_set or questions(sorted(towns))
+        self.prompt_version = prompt_version
         self.db = sqlite3.connect(self.path, timeout=30)
         self.db.row_factory = sqlite3.Row
         self.db.execute('PRAGMA journal_mode=WAL')
@@ -154,7 +168,10 @@ class DecisionsCache:
                 response TEXT, error TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);
         ''')
         config = json.dumps({'capNano': cap_nano, 'priorExposureCents': prior_exposure_cents,
-                             'model': MODEL, 'promptVersion': PROMPT_VERSION, 'towns': sorted(towns)}, sort_keys=True)
+                             'model': MODEL, 'promptVersion': prompt_version, 'towns': sorted(towns),
+                             **({'additionalAuthorization': additional_authorization,
+                                 'questionsSha256': hashlib.sha256(json.dumps(self.questions, sort_keys=True).encode()).hexdigest()}
+                                if additional_authorization is not None else {})}, sort_keys=True)
         old = self.db.execute('SELECT value FROM decision_config WHERE id=1').fetchone()
         if old and old[0] != config:
             self.db.close()
@@ -172,7 +189,7 @@ class DecisionsCache:
         # address must not inherit a locality decision from another tutor's website.
         # A conservative bound using twice the full UTF-8 request bytes plus
         # protocol overhead, rather than guessing tokens from word count.
-        return decision_request(evidence, self.questions)
+        return decision_request(evidence, self.questions, self.prompt_version)
 
     def reserve(self, key, payload, amount):
         self.db.execute('BEGIN IMMEDIATE')

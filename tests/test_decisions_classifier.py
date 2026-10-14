@@ -73,6 +73,20 @@ class DecisionsTests(unittest.TestCase):
         self.assertFalse(self.calls)
         with self.assertRaises(ValueError): self.cache(cap_nano=3_000_000_000)
 
+    def test_additional_allowance_requires_explicit_authorization_and_a_new_cache(self):
+        with self.assertRaises(ValueError): self.cache(cap_nano=10_000_000_000)
+        auth = {'instruction': 'Allocate another $10-$20 for classification etc.',
+                'recordedAt': '2026-10-14T08:40:00Z', 'additionalCapCents': 1000}
+        original = self.cache()
+        with self.assertRaises(ValueError):
+            self.cache(cap_nano=10_000_000_000, prior_exposure_cents=10000, additional_authorization=auth)
+        new = DecisionsCache(self.path.with_name('additional.sqlite'), ['Amersham'], transport=self.transport,
+                             cap_nano=10_000_000_000, prior_exposure_cents=10000, additional_authorization=auth)
+        self.addCleanup(new.close)
+        new.classify(self.evidence)
+        self.assertEqual(original.summary()['spentUsd'], 0)
+        self.assertEqual(new.summary()['spentUsd'], .00009)
+
     def test_malformed_probability_or_usage_stays_held(self):
         for mutation in ['missing_usage', 'duplicate_answer', 'nan', 'wrong_model']:
             with self.subTest(mutation=mutation), tempfile.TemporaryDirectory() as folder:

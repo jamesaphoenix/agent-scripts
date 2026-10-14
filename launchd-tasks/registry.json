@@ -26,6 +26,38 @@
   },
   "tasks": [
     {
+      "id": "tutor-qualification-20261014",
+      "name": "Classify discovered tutor candidates with owned page context",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.tutor-qualification-20261014",
+      "schedule": "finite inventory batch until the original 14 October campaign deadline",
+      "requiresOpServiceAccount": true,
+      "opServiceAccountSource": "profile-or-keychain",
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
+        "command": ["bash", ".worktrees/tutor-campaign-20261013-12h/agent-loops/tutor-lead-pathways/install-qualification.sh", "run", "tutor-qualification-20261014", "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts"]
+      },
+      "notes": "James explicitly authorised another USD10-20 for classification on 14 October. Use a separate immutable USD10 ledger, preserving the original USD100 discovery cap, old USD3 classifier ledger and uncertain reservations. Reuse saved context before bounded Go fetches. No SDK, Anthropic key, contact unlocks, outreach, tenant imports or geographic expansion. Model candidates require owned evidence and duplicate review before audited contact export. Retain SQLite, source evidence, final exports and budget ledgers; remove task scratch after terminal processing."
+    },
+    {
+      "id": "tutor-qualification-20261014-watch",
+      "name": "Check candidate classification every fifteen minutes",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.tutor-qualification-20261014-watch",
+      "schedule": "every fifteen minutes until classification terminates or the original deadline",
+      "requiresOpServiceAccount": false,
+      "opServiceAccountSource": null,
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
+        "command": ["bash", ".worktrees/tutor-campaign-20261013-12h/agent-loops/tutor-lead-pathways/install-qualification.sh", "watch", "tutor-qualification-20261014", "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts"]
+      },
+      "notes": "Read SQLite-backed status and actual launchd process liveness. At most three registered recovery requests; never reset the deadline, ledger, cached decisions, source holds or eight-page site allowance. No paid API calls in the watcher."
+    },
+    {
       "id": "bucks-private-tutors-20261011-extension-1",
       "name": "Additional private tutor discovery after identity review",
       "enabled": true,

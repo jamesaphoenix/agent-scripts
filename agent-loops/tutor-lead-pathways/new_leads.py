@@ -13,7 +13,10 @@ from baseline_names import verified_name_overlay
 
 def classify_delta(baseline, current):
     member_keys = {k for r in baseline for k in r.get('memberKeys', [r['canonicalId']])}
-    source_urls = {url.rstrip('/') for row in baseline for url in row.get('sourceUrls', [])}
+    def individual_sources(row):
+        shared = {u.rstrip('/') for u in row.get('sharedSourceUrls', [])}
+        return [u for u in row.get('sourceUrls', []) if u.rstrip('/') not in shared]
+    source_urls = {url.rstrip('/') for row in baseline for url in individual_sources(row)}
     def website_key(value):
         if not isinstance(value, str):
             return None
@@ -24,7 +27,7 @@ def classify_delta(baseline, current):
             return (url.hostname.removeprefix('www.'), url.path.rstrip('/'), url.query)
         except ValueError:
             return None
-    known_websites = {key for row in baseline for url in [row.get('website'), *row.get('sourceUrls', [])]
+    known_websites = {key for row in baseline for url in [row.get('website'), *individual_sources(row)]
                       if (key := website_key(url))}
     def contact_phone(row):
         value = row.get('phone')
@@ -91,7 +94,7 @@ def classify_delta(baseline, current):
         if row.get('outreachEligible'):
             raise ValueError('Research export cannot grant outreach eligibility')
         members = set(row.get('memberKeys', [row['canonicalId']]))
-        if (members & member_keys or any(url.rstrip('/') in source_urls for url in row.get('sourceUrls', []))
+        if (members & member_keys or any(url.rstrip('/') in source_urls for url in individual_sources(row))
                 or contact_phone(row) in phones):
             result['known'].append(row)
         elif (email := contact_email(row)) and email in emails:

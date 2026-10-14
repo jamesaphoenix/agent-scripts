@@ -232,6 +232,10 @@ def snapshot(root, job, db, cache, phase, reason=None):
         status['continuousSeeding'] = feed
     if job.get('feedError'):
         status['continuousSeedingError'] = job['feedError']
+    if job.get('publicRosterQualification'):
+        status['publicRosterQualification'] = job['publicRosterQualification']
+    if job.get('publicRosterError'):
+        status['publicRosterError'] = job['publicRosterError']
     atomic_json(root / 'status.json', status)
     return status
 
@@ -262,6 +266,21 @@ def run(root):
         phase,reason='running',None
         last_snapshot=0
         try:
+            if job.get('expandOwnedContext') and (root / 'public-rosters').exists():
+                from public_rosters import qualify_cached_rosters
+                baseline = []
+                frozen = job.get('knownContacts')
+                if frozen:
+                    if file_hash(Path(frozen['path'])) != frozen['sha256']:
+                        raise ValueError('Frozen tutor baseline changed')
+                    baseline.extend(json.loads(Path(frozen['path']).read_text()))
+                for path in [root / 'exports/audited-subject-contacts.json', root / 'exports/automated-qualification/accepted.json']:
+                    if path.exists():
+                        baseline.extend(json.loads(path.read_text()))
+                try:
+                    job['publicRosterQualification'] = qualify_cached_rosters(root, job, db, cache, scope, baseline, lambda: STOP)
+                except (OSError, ValueError, KeyError, TypeError, sqlite3.Error) as error:
+                    job['publicRosterError'] = type(error).__name__ + ': ' + str(error)
             with db:
                 db.execute("UPDATE candidates SET state='fetch_held',error='Previous fetch interrupted; not replayed' WHERE state='fetching'")
                 for candidate in json.loads(Path(job['input']).read_text()):

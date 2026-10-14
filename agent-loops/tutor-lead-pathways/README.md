@@ -265,6 +265,20 @@ keep an empty owner spinning. `lastRefill.websiteQueue`, `nextAction` and
 `searchReplenishment` distinguish pending crawl work from a need for new sources
 or a separately authorised paid-search window. Budget and stop time do not change.
 
+`public_rosters.py` reads the cached Marlow Mums tutor article under
+`public-rosters/`. Its canonical URL and SHA256 receipt must replay exactly.
+Each named entry owns only its own paragraphs, links and public contact fields;
+the article's town heading and neighbouring tutors cannot supply qualification.
+Duplicated responsive markup is collapsed, while conflicting entries are held.
+Only an explicit own local offer in the requested subjects reaches Decisions.
+The registered qualification owner uses its existing exclusive locks, questions,
+deadline and USD10 classification bank. Emails and phones stay outside model
+input. `exports/public-roster-qualification/` and SQLite retain accepted, known
+and held research entries separately from reviewed contacts and website profiles.
+An article shared by several tutors is provenance, not a shared person identity.
+Current availability and consent remain unverified; all entries remain ineligible
+for outreach. No additional source fetch or search is performed by this reader.
+
 Owned directory context also supports UKTutors, TutorDex, TutorExtra and
 FindTutors adverts and public profiles. Newly supported pages require a matching
 canonical URL as well as the successful body-hash receipt. FindTutors advert IDs

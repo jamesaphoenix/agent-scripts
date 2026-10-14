@@ -252,6 +252,19 @@ individual tutors. Any one requested subject satisfies the subject policy;
 locality remains a separate requirement. Prior subject-policy receipts still
 replay exactly, and no settled or uncertain decision is reset by a refill.
 
+Delegated directory owners are deduplicated across parents and changed receipts,
+so the same index cannot consume another expansion slot on the next refresh.
+When the website queue remains below its low-water mark, the owner also prepares
+`search-replenishment.json` and SQLite's `qualification_search_backlog`. This
+backlog contains at most 200 unsubmitted, subject-matching Maps or organic queries
+from the existing search plan, including descendants with verified parent
+lineage. Queries retain approved locations and receive priority from recorded
+tutor yield. All previously submitted outcomes, including failed and uncertain
+requests, remain excluded. The backlog cannot dispatch requests and does not
+keep an empty owner spinning. `lastRefill.websiteQueue`, `nextAction` and
+`searchReplenishment` distinguish pending crawl work from a need for new sources
+or a separately authorised paid-search window. Budget and stop time do not change.
+
 Owned directory context also supports UKTutors, TutorDex, TutorExtra and
 FindTutors adverts and public profiles. Newly supported pages require a matching
 canonical URL as well as the successful body-hash receipt. FindTutors advert IDs

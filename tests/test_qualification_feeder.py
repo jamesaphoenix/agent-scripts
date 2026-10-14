@@ -10,7 +10,7 @@ from unittest.mock import patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'agent-loops/tutor-lead-pathways'))
 from discovery import PaidCache, atomic_json, request_key
 from directory_profiles import profile_record
-from keyword_expansion import SearchIndex
+from keyword_expansion import SearchIndex, keyword_plan
 from qualification_feeder import refill, link_offers, tables, summary, local_directory_entry
 from qualification_seeds import import_batches
 from qualify_inventory import create_database, candidate_key, watch
@@ -203,6 +203,30 @@ class QualificationFeederTests(unittest.TestCase):
         result = refill(self.root, self.job, self.db, SCOPE, {})
         self.assertEqual(result['lastRefill']['added'], 3)
         self.assertEqual(self.db.execute("SELECT count(*) FROM candidates WHERE state='awaiting_profile_context'").fetchone()[0], 50)
+
+    def test_directory_owner_is_delegated_once_across_parents_and_receipt_changes(self):
+        root = self.root / 'profiles'; root.mkdir(); self.job['profileRoots'] = [str(root)]
+        url = 'https://www.tutorhunt.com/subjects/maths/locations/amersham/'
+        _, first = self.candidate('https://first-directory.example/tutors', links=[
+            {'url': url, 'anchor': 'Maths tutors in Amersham'}])
+        self.assertEqual(len(refill(self.root, self.job, self.db, SCOPE, {first['url']: first})['lastRefill']['delegatedDirectoryEntrypoints']), 1)
+        _, second = self.candidate('https://second-directory.example/tutors', links=[
+            {'url': url, 'anchor': 'Maths tutors in Amersham'}])
+        result = refill(self.root, self.job, self.db, SCOPE, {second['url']: second})['lastRefill']
+        self.assertEqual(result['delegatedDirectoryEntrypoints'], [])
+        self.assertFalse(result['canRefill'])
+        self.assertEqual(self.db.execute("SELECT count(*) FROM qualification_feed WHERE state='delegated_source'").fetchone()[0], 1)
+
+    def test_dry_queue_records_search_demand_without_starting_paid_search_or_respinning(self):
+        towns = [{'name': 'Amersham', 'coordinate': '51.674,-0.607'}]
+        self.index.configure(towns)
+        self.index.add_queries(keyword_plan(towns, ['11+ tutor']))
+        result = refill(self.root, self.job, self.db, SCOPE, {})['lastRefill']
+        self.assertEqual(result['websiteQueue'], 0)
+        self.assertEqual(result['searchReplenishment']['pendingQueries'], 2)
+        self.assertEqual(result['paidSearchCalls'], 0)
+        self.assertEqual(result['nextAction'], 'await_profiles_or_search_authorization')
+        self.assertFalse(result['canRefill'])
 
     def test_directory_route_rejects_nearby_and_foreign_place_collisions(self):
         for url in ('https://www.tutorhunt.com/subjects/maths/locations/burnham-on-sea/',

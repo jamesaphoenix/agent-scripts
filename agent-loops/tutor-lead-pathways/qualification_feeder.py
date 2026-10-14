@@ -239,6 +239,9 @@ def refill(root, job, db, scope, index):
         return summary(db)
     seen = {website_key(c.get('website') or c.get('sourceUrl'))
             for r in db.execute('SELECT candidate FROM candidates') for c in [json.loads(r['candidate'])]}
+    # Delegated indexes have no candidate row. Keep their owner identity across
+    # changed receipts and links from different parents, just like website seeds.
+    seen.update(website_key(r['url']) for r in db.execute('SELECT url FROM qualification_feed'))
     seen.update(website_key(u) for u in job.get('blockedUrls', []))
     seen.update(website_key(u) for u in job.get('knownContactUrls', []))
     if job.get('knownContacts'):
@@ -317,10 +320,21 @@ def refill(root, job, db, scope, index):
                     (key, offer['url'], offer['group'], offer['parent'], offer['root'], offer['hops'], 'held',
                      None, json.dumps(offer['proof']), error, now_iso()))
             held += 1
+    replenishment = None
+    if active + added < LOW_WATER and prior + manual + added + len(delegated) < MAX_OWNERS:
+        try:
+            from search_replenishment import prepare_backlog
+            replenishment = prepare_backlog(root, db, path, job, scope, yields)
+        except (OSError, ValueError, KeyError, TypeError, sqlite3.Error) as error:
+            source_errors.append({'source': 'search_backlog', 'error': type(error).__name__ + ': ' + str(error)})
     result = {'added': added, 'skipped': skipped, 'held': held, 'remainingObservedOffers': len(ranked),
               'lowWater': LOW_WATER, 'target': TARGET, 'maximumNewOwners': MAX_OWNERS, 'paidSearchCalls': 0,
               'canRefill': prior + manual + added + len(delegated) < MAX_OWNERS and bool(added or delegated or ranked),
-              'delegatedDirectoryEntrypoints': delegated, 'sourceErrors': source_errors}
+              'delegatedDirectoryEntrypoints': delegated, 'sourceErrors': source_errors,
+              'searchReplenishment': replenishment,
+              'websiteQueue': active + added,
+              'nextAction': 'crawl_pending' if active + added else 'await_profiles_or_search_authorization'
+                  if delegated or (replenishment and replenishment['pendingQueries']) else 'await_new_source'}
     with db:
         db.execute('INSERT INTO qualification_feed_runs(observed_at,summary) VALUES(?,?)', (now_iso(), json.dumps(result)))
     return summary(db)

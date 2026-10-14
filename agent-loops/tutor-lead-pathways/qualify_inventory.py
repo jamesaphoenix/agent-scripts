@@ -100,7 +100,7 @@ def owned_questions(towns, scope):
     return result
 
 
-def input_evidence(candidate, pages, scope=None):
+def input_evidence(candidate, pages, scope=None, subject_policy_version=2):
     metadata = {k: candidate.get(k) for k in ('name', 'aliases', 'website', 'sourceUrl', 'advertisedAddress', 'category', 'description')}
     metadata['aliases'] = (metadata['aliases'] or [])[:10]
     observations = [{'url': p['url'], 'title': p.get('title'), 'text': p.get('text', '')[:4000]}
@@ -114,6 +114,13 @@ def input_evidence(candidate, pages, scope=None):
             'includeElevenPlus': scope['includeElevenPlus'],
             'includePrimaryTutors': scope['includePrimaryTutors'],
             'evidenceRule': 'Require own advertised tuition. Qualifications, assessments alone, past jobs, navigation and neighbouring adverts cannot establish an offer.'}
+        if subject_policy_version == 2:
+            value['requestedSubjectPolicy']['selectionRule'] = (
+                'ANY ONE requested subject, explicit eleven-plus tuition or primary tuition is sufficient. '
+                'The candidate does not need to teach all requested subjects.')
+            value['requestedSubjectPolicy']['geographyRule'] = (
+                'Evaluate the niche subject predicate independently of geography. '
+                'Evaluate advertised locality only in the separate local and outside predicates.')
     text = json.dumps(value, ensure_ascii=False)
     return {'url': candidate.get('website') or candidate.get('sourceUrl') or '',
             'title': candidate.get('name', ''), 'description': 'Classify this candidate using the supplied public evidence.',

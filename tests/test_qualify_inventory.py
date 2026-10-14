@@ -57,6 +57,10 @@ class InventoryQualificationTests(unittest.TestCase):
         self.assertEqual(value['ownedPageObservations'][0]['text'],page['text'])
         self.assertNotIn('email',value['candidate'])
         self.assertIn('own advertised tuition',value['requestedSubjectPolicy']['evidenceRule'])
+        self.assertIn('ANY ONE', value['requestedSubjectPolicy']['selectionRule'])
+        self.assertIn('independently of geography', value['requestedSubjectPolicy']['geographyRule'])
+        old = json.loads(input_evidence({'name': 'Jane Smith'}, [page], SCOPE, 1)['text'])
+        self.assertNotIn('selectionRule', old['requestedSubjectPolicy'])
 
     def test_music_and_metadata_only_do_not_become_tutor_contacts(self):
         decision=parse_decision(response())

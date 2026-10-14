@@ -119,6 +119,11 @@ class QualificationExportTests(unittest.TestCase):
             result = settled_decision(cache.db, decision, self.candidate, [self.page], qs, SCOPE)
             self.assertEqual(result['kind'], 'independent_tutor')
             self.assertEqual(cache.summary(), before)
+            for policy, revision in ((SCOPE, 1), (None, 1)):
+                old = cache.classify(input_evidence(self.candidate, [self.page], policy, revision))
+                old_usage = cache.summary()
+                self.assertEqual(settled_decision(cache.db, old, self.candidate, [self.page], qs, SCOPE)['kind'], 'independent_tutor')
+                self.assertEqual(cache.summary(), old_usage)
             with self.assertRaisesRegex(ValueError, 'contract'):
                 settled_decision(cache.db, decision, self.candidate, [dict(self.page, text='different')], qs, SCOPE)
             with cache.db:

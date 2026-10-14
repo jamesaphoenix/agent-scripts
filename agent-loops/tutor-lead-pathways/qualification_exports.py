@@ -31,8 +31,8 @@ def settled_decision(db, stored, candidate, pages, question_set, scope):
         raise ValueError('Decision is not settled')
     # Older observations predate the explicit subject-policy context. Both
     # contracts must still reconstruct their original paid receipt exactly.
-    contracts = [decision_request(input_evidence(candidate, pages, policy), question_set, VERSION)
-                 for policy in (scope, None)]
+    contracts = [decision_request(input_evidence(candidate, pages, policy, revision), question_set, VERSION)
+                 for policy, revision in ((scope, 2), (scope, 1), (None, 1))]
     if not any(key == stored['decisionKey'] and hashlib.sha256(
             json.dumps(payload, sort_keys=True).encode()).hexdigest() == row['payload_sha256']
             for payload, key, _ in contracts):

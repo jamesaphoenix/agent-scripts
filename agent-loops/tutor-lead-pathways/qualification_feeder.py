@@ -12,9 +12,9 @@ import sqlite3
 import time
 from urllib.parse import urlsplit
 
-from directory_profiles import decode_page, profile_record, profile_locality_status
-from discovery import file_hash, now_iso, request_key, website_key
-from focused_frontier import admitted, link_signals, TUTOR
+from directory_profiles import admitted_url, decode_page, profile_record, profile_locality_status
+from discovery import file_hash, now_iso, professional_profile, request_key, source_host, website_key
+from focused_frontier import admitted, link_signals, profile_key, TUTOR
 from keyword_expansion import search_identity, upstream_results
 from lead_scope import matching_page_subjects, matching_subjects
 from qualification_context import PRIVATE_ROUTE
@@ -54,7 +54,15 @@ def summary(db):
 
 def public_seed(url):
     url = admitted(url)
-    return url if url and not PRIVATE_ROUTE.search(urlsplit(url).path) else None
+    if not url or PRIVATE_ROUTE.search(urlsplit(url).path):
+        return None
+    if urlsplit(url).hostname.endswith(('.au', '.us', '.ca', '.in', '.nz', '.za')):
+        return None
+    return url
+
+
+def directory_entry(url):
+    return source_host(urlsplit(url).hostname.removeprefix('www.')) and not (profile_key(url) or professional_profile(url))
 
 
 def search_offers(path, towns, seen):
@@ -83,9 +91,13 @@ def search_offers(path, towns, seen):
             cue, local = link_signals(url, context, towns)
             if cue < .9:
                 continue
+            directory = directory_entry(url)
+            if directory and (local < .8 or not admitted_url(url)):
+                continue
             offers.append({'url': url, 'name': context.get('name') or context.get('title') or urlsplit(url).hostname,
                 'group': 'search:' + row['lane'] + ':' + row['town'], 'parent': 'search:' + row['request_key'],
-                'root': 'search:' + row['query_key'], 'hops': 0, 'score': cue + local,
+                'root': 'search:' + row['query_key'], 'hops': 0, 'score': cue + local + (0 if directory else 1),
+                'directory': directory,
                 'search': dict(row), 'proof': {'receipt': row['receipt_path'], 'sha256': row['receipt_hash']}})
     return offers
 
@@ -176,9 +188,15 @@ def link_offers(db, index, scope, towns, seen):
                         or not TUTOR.search(url + ' ' + anchor)):
                     continue
                 cue, local = link_signals(url, {'anchor': anchor}, towns)
+                directory = directory_entry(url)
+                if directory and local < .8:
+                    continue
+                if directory and (not admitted_url(url) or not matching_page_subjects(url + ' ' + anchor, scope)):
+                    continue
                 offers.append({'url': url, 'name': anchor.strip() or urlsplit(url).hostname,
                     'group': 'links:' + website_key(page['url']), 'parent': row['key'], 'root': root,
-                    'hops': hops, 'score': cue + local + .3, 'proof': dict(page['replaySource'], sourceUrl=page['url'])})
+                    'hops': hops, 'score': cue + local + (0 if directory else 1), 'directory': directory,
+                    'proof': dict(page['replaySource'], sourceUrl=page['url'])})
     return offers
 
 
@@ -209,11 +227,14 @@ def refill(root, job, db, scope, index):
         except (OSError, ValueError, KeyError, TypeError, sqlite3.Error) as error:
             source_errors.append({'source': name, 'error': type(error).__name__ + ': ' + str(error)})
     yields = {r['source']: (r['subjectLocalMatches'] + 1) / (r['classified'] + 2) for r in summary(db)['sourceYield']}
-    ranked = sorted(offers, key=lambda o: (-(o['score'] + yields.get(o['group'], .5)), o['url']))
-    receipts, added, skipped, held = {}, 0, 0, 0
-    prior = db.execute("SELECT count(*) FROM qualification_feed WHERE state='admitted'").fetchone()[0]
+    # A URL appearing in many searches is one offer, not many spare seeds.
+    ordered = sorted(offers, key=lambda o: (-(o['score'] + yields.get(o['group'], .5)), o['url']))
+    ranked = list({o['url']: o for o in reversed(ordered)}.values())
+    ranked.sort(key=lambda o: (-(o['score'] + yields.get(o['group'], .5)), o['url']))
+    receipts, added, skipped, held, delegated = {}, 0, 0, 0, []
+    prior = db.execute("SELECT count(*) FROM qualification_feed WHERE state IN ('admitted','delegated_source')").fetchone()[0]
     manual = db.execute('SELECT coalesce(sum(imported),0) FROM website_seed_batches').fetchone()[0]
-    while ranked and active + added < TARGET and prior + manual + added < MAX_OWNERS and time.time() < job['deadlineUnix']:
+    while ranked and active + added < TARGET and prior + manual + added + len(delegated) < MAX_OWNERS and time.time() < job['deadlineUnix']:
         # Keep a small exploration slot, still within subject and locality gates.
         position = -1 if (prior + added + 1) % 10 == 0 else 0
         offer = ranked.pop(position)
@@ -222,8 +243,8 @@ def refill(root, job, db, scope, index):
         if owner in seen or db.execute('SELECT 1 FROM qualification_feed WHERE key=?', (key,)).fetchone():
             skipped += 1
             continue
-        branch = db.execute("SELECT count(*) FROM qualification_feed WHERE state='admitted' AND parent=?", (offer['parent'],)).fetchone()[0]
-        roots = db.execute("SELECT count(*) FROM qualification_feed WHERE state='admitted' AND root=?", (offer['root'],)).fetchone()[0]
+        branch = db.execute("SELECT count(*) FROM qualification_feed WHERE state IN ('admitted','delegated_source') AND parent=?", (offer['parent'],)).fetchone()[0]
+        roots = db.execute("SELECT count(*) FROM qualification_feed WHERE state IN ('admitted','delegated_source') AND root=?", (offer['root'],)).fetchone()[0]
         if branch >= MAX_BRANCH or roots >= MAX_ROOT:
             skipped += 1
             continue
@@ -231,6 +252,21 @@ def refill(root, job, db, scope, index):
         try:
             if 'search' in offer:
                 verify_search(offer, receipts)
+            if offer.get('directory'):
+                # Registered profile workers own these indexes. Do not ask an
+                # individual-tutor question about every subject index.
+                if (len(delegated) >= 10 or not job.get('profileRoots')
+                        or not matching_page_subjects(offer['url'] + ' ' + offer['name'], scope)):
+                    skipped += 1
+                    continue
+                from qualify_inventory import publish_profile_seeds
+                publish_profile_seeds(job, [offer['url']])
+                with db:
+                    db.execute('INSERT INTO qualification_feed VALUES(?,?,?,?,?,?,?,?,?,?,?)',
+                        (key, offer['url'], offer['group'], offer['parent'], offer['root'], offer['hops'],
+                         'delegated_source', None, json.dumps(offer['proof']), None, now_iso()))
+                delegated.append(offer['url']); seen.add(owner)
+                continue
             candidate = {'name': offer['name'].strip()[:240], 'website': offer['url'], 'sourceUrl': offer['url'],
                 'status': 'research', 'identifiers': ['continuous-seed:' + owner],
                 'provenance': [{'lane': 'continuous_seed', 'source': offer['group'], 'parent': offer['parent'],
@@ -252,7 +288,8 @@ def refill(root, job, db, scope, index):
             held += 1
     result = {'added': added, 'skipped': skipped, 'held': held, 'remainingObservedOffers': len(ranked),
               'lowWater': LOW_WATER, 'target': TARGET, 'maximumNewOwners': MAX_OWNERS, 'paidSearchCalls': 0,
-              'canRefill': prior + manual + added < MAX_OWNERS and bool(added or ranked), 'sourceErrors': source_errors}
+              'canRefill': prior + manual + added + len(delegated) < MAX_OWNERS and bool(added or delegated or ranked),
+              'delegatedDirectoryEntrypoints': delegated, 'sourceErrors': source_errors}
     with db:
         db.execute('INSERT INTO qualification_feed_runs(observed_at,summary) VALUES(?,?)', (now_iso(), json.dumps(result)))
     return summary(db)

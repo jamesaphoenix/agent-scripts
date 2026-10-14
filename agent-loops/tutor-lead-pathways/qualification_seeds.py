@@ -70,7 +70,7 @@ def import_batches(root, db):
             with db:
                 total = db.execute('SELECT coalesce(sum(imported),0) FROM website_seed_batches').fetchone()[0]
                 if db.execute("SELECT 1 FROM sqlite_master WHERE name='qualification_feed'").fetchone():
-                    total += db.execute("SELECT count(*) FROM qualification_feed WHERE state='admitted'").fetchone()[0]
+                    total += db.execute("SELECT count(*) FROM qualification_feed WHERE state IN ('admitted','delegated_source')").fetchone()[0]
                 for owner, candidate in prepared:
                     if owner in existing or total + added >= 2000:
                         skipped += 1

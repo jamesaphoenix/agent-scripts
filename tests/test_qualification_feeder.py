@@ -178,5 +178,21 @@ class QualificationFeederTests(unittest.TestCase):
             watch(self.root, 'owner', 'monitor')
         self.assertEqual(launch.call_args.args[0][1], 'bootout')
 
+    def test_foreign_place_collision_is_not_an_exploration_seed(self):
+        _, page = self.candidate('https://local-directory.example/tutors', links=[
+            {'url': 'https://learnmate.com.au/tutors/winslow', 'anchor': 'Maths tutor in Winslow'}])
+        self.assertEqual(refill(self.root, self.job, self.db, SCOPE, {page['url']: page})['lastRefill']['added'], 0)
+
+    def test_directory_indexes_go_to_registered_worker_without_model_classification(self):
+        root = self.root / 'profiles'; root.mkdir(); self.job['profileRoots'] = [str(root)]
+        _, page = self.candidate('https://local-directory.example/tutors', links=[
+            {'url': 'https://www.tutorhunt.com/subjects/eleven-plus/locations/amersham/', 'anchor': '11 plus tutors in Amersham'},
+            {'url': 'https://www.tutorhunt.com/subjects/biology/locations/amersham/', 'anchor': 'Biology tutors in Amersham'}])
+        result = refill(self.root, self.job, self.db, SCOPE, {page['url']: page})['lastRefill']
+        self.assertEqual(result['added'], 0)
+        self.assertEqual(len(result['delegatedDirectoryEntrypoints']), 1)
+        self.assertEqual(self.db.execute('SELECT count(*) FROM candidates').fetchone()[0], 1)
+        self.assertEqual(len(list((root / 'seed-batches').glob('*.json'))), 1)
+
 
 if __name__ == '__main__': unittest.main()

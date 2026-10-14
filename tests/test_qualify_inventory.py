@@ -48,6 +48,16 @@ class InventoryQualificationTests(unittest.TestCase):
         self.assertEqual(value['ownedPageObservations'][0]['text'],'I teach piano.')
         self.assertNotIn('email',value['candidate'])
 
+    def test_subject_policy_explains_literacy_without_changing_the_source_observation(self):
+        page={'url':'https://example.org/','text':'I offer literacy tuition and reading lessons in Winslow.'}
+        value=json.loads(input_evidence({'name':'Jane Smith','email':'private@example.org'},[page],SCOPE)['text'])
+        self.assertIn('literacy',value['requestedSubjectPolicy']['englishIncludes'])
+        self.assertIn('reading',value['requestedSubjectPolicy']['englishIncludes'])
+        self.assertIn('numeracy',value['requestedSubjectPolicy']['mathsIncludes'])
+        self.assertEqual(value['ownedPageObservations'][0]['text'],page['text'])
+        self.assertNotIn('email',value['candidate'])
+        self.assertIn('own advertised tuition',value['requestedSubjectPolicy']['evidenceRule'])
+
     def test_music_and_metadata_only_do_not_become_tutor_contacts(self):
         decision=parse_decision(response())
         self.assertEqual(outcome(decision,[],SCOPE),'needs_owned_page_review')

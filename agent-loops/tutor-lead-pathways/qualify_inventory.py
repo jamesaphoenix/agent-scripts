@@ -97,12 +97,21 @@ def owned_questions(towns, scope):
     return result
 
 
-def input_evidence(candidate, pages):
+def input_evidence(candidate, pages, scope=None):
     metadata = {k: candidate.get(k) for k in ('name', 'aliases', 'website', 'sourceUrl', 'advertisedAddress', 'category', 'description')}
     metadata['aliases'] = (metadata['aliases'] or [])[:10]
     observations = [{'url': p['url'], 'title': p.get('title'), 'text': p.get('text', '')[:4000]}
                     for p in pages[:3]]
-    text = json.dumps({'candidate': metadata, 'ownedPageObservations': observations}, ensure_ascii=False)
+    value = {'candidate': metadata, 'ownedPageObservations': observations}
+    if scope:
+        value['requestedSubjectPolicy'] = {
+            'subjects': scope['subjects'],
+            'englishIncludes': ['literacy', 'phonics', 'reading', 'spelling', 'creative writing'] if 'english' in scope['subjects'] else [],
+            'mathsIncludes': ['numeracy', 'arithmetic', 'algebra', 'geometry', 'dyscalculia'] if 'maths' in scope['subjects'] else [],
+            'includeElevenPlus': scope['includeElevenPlus'],
+            'includePrimaryTutors': scope['includePrimaryTutors'],
+            'evidenceRule': 'Require own advertised tuition. Qualifications, assessments alone, past jobs, navigation and neighbouring adverts cannot establish an offer.'}
+    text = json.dumps(value, ensure_ascii=False)
     return {'url': candidate.get('website') or candidate.get('sourceUrl') or '',
             'title': candidate.get('name', ''), 'description': 'Classify this candidate using the supplied public evidence.',
             'text': text}
@@ -235,7 +244,8 @@ def run(root):
             def complete(row, pages):
                 nonlocal api_failures
                 try:
-                    decision = cache.classify(input_evidence(json.loads(row['candidate']), pages))
+                    decision = cache.classify(input_evidence(json.loads(row['candidate']), pages,
+                        scope if job.get('expandOwnedContext') else None))
                     state = outcome(decision, pages, scope)
                     with db:
                         db.execute('UPDATE candidates SET state=?,evidence=?,decision=?,updated_at=CURRENT_TIMESTAMP WHERE key=?',

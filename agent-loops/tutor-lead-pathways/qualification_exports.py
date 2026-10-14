@@ -139,6 +139,10 @@ def partition_profiles(baseline, rows):
         if owner and any(website_key(r.get('website')) == owner for r in existing):
             known.append(row)
             continue
+        if normalize_name(row['name']) in {normalize_name(r['organization']) for r in existing
+                                          if isinstance(r.get('organization'), str) and r['organization'].strip()}:
+            held.append(dict(row, deltaHoldReason='possible_baseline_organisation_match'))
+            continue
         delta = classify_delta(existing, [row])
         accepted.extend(delta['new']); known.extend(delta['known']); held.extend(delta['needsReview'])
     return {'accepted': accepted, 'known': known, 'held': held}

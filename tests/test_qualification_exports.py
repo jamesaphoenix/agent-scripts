@@ -89,6 +89,15 @@ class QualificationExportTests(unittest.TestCase):
                 'replaySource': {'receipt': '/saved/receipt.json', 'receiptSha256': 'a' * 64}}
         with self.assertRaisesRegex(ValueError, 'locality'):
             extract_profile('profile', {'website': url}, [page], {url: page}, SCOPE, ['Amersham'])
+
+    def test_business_following_its_named_tutor_organisation_is_held(self):
+        business = extract_profile('business', self.candidate, [self.page], self.index, SCOPE, ['Amersham'])
+        profile = {'canonicalId': 'tutor:111', 'memberKeys': ['childcare.co.uk:111'], 'name': 'Jane Smith',
+                   'organization': 'Jane Smith Tuition', 'sourceUrls': ['https://www.childcare.co.uk/profile/111'],
+                   'website': None, 'outreachEligible': False}
+        result = partition_profiles([profile], [business])
+        self.assertEqual(result['accepted'], [])
+        self.assertEqual(result['held'][0]['deltaHoldReason'], 'possible_baseline_organisation_match')
     def test_name_collisions_are_held_without_merging_distinct_people(self):
         row = extract_profile('one', self.candidate, [self.page], self.index, SCOPE, ['Amersham'])
         other = dict(row, canonicalId='different', memberKeys=['website:other.example'], website='https://other.example/',

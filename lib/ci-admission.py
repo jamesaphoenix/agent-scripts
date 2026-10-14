@@ -20,6 +20,8 @@ def is_control_job(environment):
         ('Just-Understanding-Data-Ltd/octospark', 'integration-tests.yml'): {'guard_trusted_ref', 'build_images_amd64', 'release_gate'},
         ('Just-Understanding-Data-Ltd/trace-learn', 'deploy-compose.yml'): {'guard_ref', 'build_images_amd64', 'release_gate'},
         ('Just-Understanding-Data-Ltd/trace-learn', 'lockfile-check.yml'): {'lockfile-check'},
+        ('Just-Understanding-Data-Ltd/smart-cub-learning', 'deploy-compose.yml'): {'guard_ref', 'build_images_amd64', 'release_gate'},
+        ('Just-Understanding-Data-Ltd/smart-cub-learning', 'lockfile-check.yml'): {'lockfile-check'},
     }
     return environment.get('GITHUB_JOB') in policies.get((repository, workflow), set())
 

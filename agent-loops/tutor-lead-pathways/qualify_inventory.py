@@ -122,7 +122,7 @@ def run(root):
     for key, pathkey in [('inputSha256', 'input'), ('scopeSha256', 'scope'), ('crawlerSha256', 'crawler')]:
         if file_hash(Path(job[pathkey])) != job[key]:
             raise ValueError('Immutable classification input changed: ' + pathkey)
-    job['loadedSourceSha'] = loaded_source_sha(Path(__file__).resolve().parents[2])
+    job['loadedSourceSha'] = loaded_source_sha()
     scope = load_scope(Path(job['scope']).parent)
     with (root / 'run.lock').open('a') as lock:
         try:

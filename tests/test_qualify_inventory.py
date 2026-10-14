@@ -7,7 +7,7 @@ import unittest
 from unittest.mock import patch
 
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'agent-loops/tutor-lead-pathways'))
-from qualify_inventory import input_evidence, owned_questions, outcome, run
+from qualify_inventory import input_evidence, owned_questions, outcome, run, loaded_source_sha
 from decisions_classifier import parse_decision, DecisionsCache as RealCache
 from discovery import file_hash
 from test_decisions_classifier import response
@@ -17,6 +17,9 @@ SCOPE={'subjects':['english','maths','verbal_reasoning','non_verbal_reasoning'],
 
 
 class InventoryQualificationTests(unittest.TestCase):
+    def test_real_source_revision_helper_supports_the_startup_call(self):
+        self.assertRegex(loaded_source_sha(),r'^[a-f0-9]{40}$')
+
     def test_prompt_demands_owned_requested_subjects_and_locality(self):
         q=owned_questions(['Amersham'],SCOPE)
         self.assertEqual([x['name'] for x in q],['kind','niche','local','outside','eleven_plus'])

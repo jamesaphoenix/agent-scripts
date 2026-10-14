@@ -15,6 +15,55 @@ spec.loader.exec_module(directory)
 
 
 class ProfileTests(unittest.TestCase):
+    def test_uktutors_regional_listings_are_local_seeds_without_qualifying_people(self):
+        base = 'https://www.uktutors.com/tutor-regions/'
+        for route in ('private-tutors-and-tuition-in-aylesbury/',
+                      'private-maths-tutors-and-tuition-in-gerrards-cross/',
+                      'private-entrance-exams-tutors-and-tuition-in-high-wycombe/',
+                      'private-tutors-and-tuition-in-bourne-end/'):
+            url = base + route
+            self.assertEqual(directory.admitted_url(url), url)
+            self.assertTrue(directory.local_directory_link(url, base + 'private-tutors-and-tuition-in-aylesbury/'))
+            self.assertIsNone(directory.profile_record('<h1>Maths tutors in Buckinghamshire</h1>', url))
+        for route in ('private-tutors-and-tuition-in-london/', 'private-tutors-and-tuition-in-oxford/',
+                      'private-tutors-and-tuition-in-aylesbury/login', 'private-maths-tutors-and-tuition-in-/'):
+            self.assertIsNone(directory.admitted_url(base + route))
+            self.assertFalse(directory.local_directory_link(base + route, base + 'private-tutors-and-tuition-in-aylesbury/'))
+
+    def test_childcare_local_listing_routes_keep_subject_and_distance_bounds(self):
+        base = 'https://www.childcare.co.uk/search/Private-Tutors/'
+        for route in ('High+Wycombe/11-Plus', 'Wycombe/10-miles/11-Plus', 'Wycombe/English-Tutor',
+                      'Milton+Keynes/10-miles/Maths-Tutor', 'Bourne+End/11-Plus',
+                      'Aylesbury/Primary-up-to-11-years/2'):
+            self.assertEqual(directory.admitted_url(base + route), base + route)
+            self.assertTrue(directory.local_directory_link(base + route, base + 'Buckinghamshire'))
+        self.assertEqual(directory.admitted_url(base + 'High%2BWycombe/11-Plus'), base + 'High+Wycombe/11-Plus')
+        for route in ('London/11-Plus', 'Oxford/11-Plus', 'Milton+Keynes/100-miles/Maths-Tutor',
+                      'High+Wycombe/Music-Tutor', 'High+Wycombe/11-Plus/0', 'High+Wycombe/11-Plus/login'):
+            self.assertIsNone(directory.admitted_url(base + route))
+            self.assertFalse(directory.local_directory_link(base + route, base + 'Buckinghamshire'))
+
+    def test_provider_seed_bridge_recovers_supported_roots_from_saved_receipts(self):
+        from discovery import PaidCache, request_key
+        from profile_seeds import write_seed_batch
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            cache = PaidCache(root / 'paid', 100, 0)
+            self.addCleanup(cache.db.close)
+            payload = {'keyword': 'maths tutor Gerrards Cross'}
+            key = request_key('organic', payload)
+            cache.reserve(key, 'organic', payload, 100)
+            accepted = ['https://www.uktutors.com/tutor-regions/private-maths-tutors-and-tuition-in-gerrards-cross/',
+                        'https://www.childcare.co.uk/search/Private-Tutors/High+Wycombe/11-Plus']
+            outside = ['https://www.uktutors.com/tutor-regions/private-tutors-and-tuition-in-london/']
+            cache.settle(key, {'cost': .002, 'status_code': 20000, 'tasks': [{'id': key, 'cost': .002, 'status_code': 20000,
+                'result': [{'items': [{'url': url} for url in accepted + outside]}]}]})
+            before = cache.usage()
+            value = write_seed_batch(root / 'paid', root / 'profiles', cache)
+            batch = json.loads((root / 'profiles/seed-batches' / (value['batches'][0] + '.json')).read_text())
+            self.assertEqual(set(batch['urls']), set(accepted))
+            self.assertEqual(cache.usage(), before)
+
     def test_cli_accepts_the_prepared_extra_window_but_keeps_unprepared_runs_bounded(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

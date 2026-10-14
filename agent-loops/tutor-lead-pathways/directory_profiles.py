@@ -48,6 +48,12 @@ BUCKS = {
 }
 CHILDCARE_DISTRICTS = {"aylesbury vale", "chiltern", "south bucks", "wycombe"}
 CHILDCARE_DIRECTORY_PATH = re.compile(r'/search/Private-Tutors/Buckinghamshire(?:/(?:11-Plus|Maths-Tutor|English-Tutor|Primary-up-to-11-years))?(?:/[1-9]\d{0,2})?')
+CHILDCARE_TOWN_DIRECTORY_PATH = re.compile(r'/search/Private-Tutors/([^/]+)(?:/10-miles)?'
+    r'(?:/(?:11-Plus|Maths-Tutor|English-Tutor|Primary-up-to-11-years))?(?:/[1-9]\d{0,2})?')
+UKTUTORS_REGION_PATH = re.compile(r'/tutor-regions/private-(?:[a-z0-9-]+-)?tutors-and-tuition-in-([a-z0-9-]+)/')
+# These towns are in the prepared campaign's approved search geography. Their
+# ambiguous bare names remain unresolved in person qualification.
+LISTING_TOWN_HINTS = {'bourne end', 'lane end'}
 NON_TUITION = re.compile(r"\b(?:yoga|football|fitness|personal training|swimming|pilates|driving)\b", re.I)
 INSTITUTION = re.compile(r"\b(?:academy|university|college|grammar school|tuition centre|learning centre|kumon|mathnasium|explore learning)\b", re.I)
 ACADEMIC = re.compile(r"math|english|science|biology|chemistry|physics|history|geography|language|french|spanish|german|italian|arabic|mandarin|chinese|japanese|russian|latin|greek|portuguese|hindi|urdu|economics|business|accounting|comput|programming|coding|philosophy|psychology|sociology|law|statistics|primary|11\+|11.plus|eleven.plus|gcse|a.level|sat|reading|writing|literacy|phonics|dyslexia|study skills|special needs|send|efl|esol|ielts|piano|violin|guitar|singing|music|drum|flute|\b(?:art|anatomy|theology|polish|after[ -]school tuition|secondary school)\b", re.I)
@@ -105,7 +111,10 @@ def admitted_url(value):
             allowed = profile or p.path == "/robots.txt" or bool(re.fullmatch(r"/(?:subjects/[a-z0-9-]+/)?locations/[a-z0-9-]+/", p.path))
         elif p.hostname == "www.uktutors.com":
             profile = bool(re.fullmatch(r"/tutor/\d+/[a-z0-9-]+", p.path))
-            allowed = profile or p.path in ("/robots.txt", "/county/buckinghamshire-tutors/") or bool(re.fullmatch(r"/town/[a-z0-9-]+-tutors/", p.path))
+            region = UKTUTORS_REGION_PATH.fullmatch(p.path)
+            allowed = (profile or p.path in ("/robots.txt", "/county/buckinghamshire-tutors/")
+                       or bool(re.fullmatch(r"/town/[a-z0-9-]+-tutors/", p.path))
+                       or bool(region and local_listing_town(region[1])))
         elif p.hostname == "www.tuitionlist.co.uk":
             profile = bool(re.fullmatch(r"/tutor/[a-z0-9-]+-[a-f0-9]{8}", p.path))
             allowed = profile or p.path in ("/robots.txt", "/find-a-tutor")
@@ -117,7 +126,10 @@ def admitted_url(value):
             allowed = profile or p.path == "/robots.txt" or bool(re.fullmatch(r"/search/[a-z0-9-]+-lessons-in/[a-z0-9-]+", p.path))
         elif p.hostname == "www.childcare.co.uk":
             profile = bool(re.fullmatch(r"/profile/\d+", p.path))
-            allowed = profile or p.path == "/robots.txt" or bool(CHILDCARE_DIRECTORY_PATH.fullmatch(p.path))
+            town = CHILDCARE_TOWN_DIRECTORY_PATH.fullmatch(p.path)
+            allowed = (profile or p.path == "/robots.txt" or bool(CHILDCARE_DIRECTORY_PATH.fullmatch(p.path))
+                       or bool(town and local_listing_town(town[1])))
+            p = p._replace(path=re.sub('%2b', '+', p.path, flags=re.I))
         elif p.hostname == "tutorperch.com":
             profile = bool(re.fullmatch(r"/t/[a-z0-9]+(?:-[a-z0-9]+)+/?", p.path))
             allowed = profile or p.path in ("/find/results", "/robots.txt")
@@ -203,6 +215,12 @@ def locality_status(value):
     if re.fullmatch(r"(?:[a-z -]+) \(buckinghamshire\)", primary):
         return "advertised_bucks_locality"
     return "unresolved" if not primary or primary in ("online", "online lessons") else "outside_or_unresolved"
+
+
+def local_listing_town(value):
+    town = ' '.join(urllib.parse.unquote(value).replace('+', ' ').replace('-', ' ').casefold().split())
+    return (locality_status(town) == 'advertised_bucks_locality'
+            or town in CHILDCARE_DISTRICTS or town in LISTING_TOWN_HINTS)
 
 
 def profile_locality_status(row):
@@ -723,6 +741,9 @@ def local_directory_link(value, source):
     if parsed.hostname == "www.uktutors.com":
         if parsed.path == "/county/buckinghamshire-tutors/":
             return True
+        region = UKTUTORS_REGION_PATH.fullmatch(parsed.path)
+        if region:
+            return local_listing_town(region[1])
         match = re.fullmatch(r"/town/([a-z0-9-]+)-tutors/", parsed.path)
         return bool(match and locality_status(match.group(1).replace("-", " ")) == "advertised_bucks_locality")
     if parsed.hostname == 'www.tuitionlist.co.uk':
@@ -734,7 +755,8 @@ def local_directory_link(value, source):
         match = re.fullmatch(r"/search/[a-z0-9-]+-lessons-in/([a-z0-9-]+)", parsed.path)
         return bool(match and locality_status(match.group(1).replace("-", " ")) == "advertised_bucks_locality")
     if parsed.hostname == "www.childcare.co.uk":
-        return bool(CHILDCARE_DIRECTORY_PATH.fullmatch(parsed.path))
+        town = CHILDCARE_TOWN_DIRECTORY_PATH.fullmatch(parsed.path)
+        return bool(CHILDCARE_DIRECTORY_PATH.fullmatch(parsed.path) or town and local_listing_town(town[1]))
     if parsed.hostname == "tutorperch.com":
         origin_filters = dict(urllib.parse.parse_qsl(origin.query))
         filters = dict(urllib.parse.parse_qsl(parsed.query))

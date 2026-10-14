@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Bounded NAS release retention. Executed over SSH by the Studio LaunchAgent.
+"""Bounded NAS release retention. Executed locally by DSM Task Scheduler.
 
 Only current.json receipts whose running services pass health checks enter the
 rollback ledger. Until a project has a recorded older healthy release, nothing

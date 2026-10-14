@@ -24,33 +24,49 @@ removes old, unused application images and private release bundles safely.
 
 ## Installation and operation
 
-Author in the MacBook agent-scripts repository, push the reviewed branch, and
-deploy through the Studio checkout. Register and install only on Studio:
+The job runs entirely on Synology, as `mydocker`, through DSM Task Scheduler.
+The NAS keeps the script, retention engine, healthy-release ledger and schedule.
+Neither Mac, SSH nor 1Password is needed at runtime. The shell entrypoint uses
+Synology's existing Python 3 for the tested retention logic and GNU timeout for
+a 420-second process limit with a 15-second kill grace.
+
+Deploy this directory to `/volume1/docker/jud/maintenance/synology-retention/`
+owned by `mydocker`, with private directory/file permissions. Then on the NAS:
 
 ```sh
-scripts/install-launchd-tasks.sh --task synology-release-retention
+/bin/sh /volume1/docker/jud/maintenance/synology-retention/cleanup.sh --observe
+sudo /usr/bin/python3 /volume1/docker/jud/maintenance/synology-retention/install-dsm.py
 ```
 
-The LaunchAgent runs hourly and at load. The MacBook never owns the job lifetime.
-It executes the versioned Python source through SSH on the NAS, without secrets
-in arguments or output. No third-party credentials are needed.
+The installer creates or updates the uniquely named **JUD application release
+retention** user-defined script task. It runs every day, every hour at minute 23,
+from 00:23 through 23:23 in NAS local time. DSM owns the persistent schedule,
+including after reboot. The installer verifies the saved task and refuses to
+replace an unrelated task with a conflicting name, owner or command. It does
+not send email notifications. Do not hand-edit `/etc/crontab`, which DSM manages.
 
-By default the NAS only observes and records healthy release receipts. After
-reviewing a successful dry run and live host health, enable deletion by creating
-the empty private file `/volume1/docker/jud/maintenance/cleanup-enabled` on the
-NAS. Remove that marker to return to observe-only mode. Touch
-`~/.local/state/synology-retention/disabled` on Studio to skip the job entirely.
+The scheduled command is:
+
+```sh
+/bin/sh /volume1/docker/jud/maintenance/synology-retention/cleanup.sh --apply
+```
+
+Deletion still requires the empty private marker
+`/volume1/docker/jud/maintenance/cleanup-enabled`. Removing it returns the task
+to observe-only mode. Create `maintenance/cleanup-disabled` to skip the task
+entirely, or disable it in DSM Control Panel > Task Scheduler. `--observe`
+always avoids deletion, even when the enable marker exists.
 
 NAS evidence: `/volume1/docker/jud/maintenance/retention-last.json` and
-`healthy-releases.json`. Studio evidence:
-`~/.local/state/synology-retention/last.json`, `job.log`, `job.err.log`.
+`healthy-releases.json`. The report is replaced, not appended. DSM records task
+completion and exit status. A timeout has a nonzero exit status and may leave
+the previous JSON report, so check its timestamp as well as scheduler status.
 No secret file contents are included in reports. Historical failed releases are
 never treated as verified rollback points merely because a folder exists.
 
-Manual observation from the authorised caller:
+The former `com.jud.synology-retention` Studio LaunchAgent is retired. Its
+registry entry is disabled and its SSH runner/installer are removed. During
+migration, verify a real DSM-triggered run before unloading and removing that
+specific Studio plist. Retain old run evidence, but not an active second scheduler.
 
-```sh
-ssh mydocker@100.123.72.113 'python3 -' < agent-loops/synology-retention/retention.py
-```
-
-Tests: `python3 -m unittest discover -s tests -p test_synology_retention.py`.
+Tests: `python3 -m unittest discover -s tests -p 'test_synology_retention*.py'`.

@@ -34,6 +34,18 @@ def professional_name(url):
     return name if len(name.split()) > 1 else None
 
 
+def complete_own_name(value):
+    name = normalize_name(value)
+    parts = name.split()
+    if not 2 <= len(parts) <= 6 or any(len(part) < 2 or not part.isalpha() for part in parts):
+        return None
+    if re.search(r"\b(?:tutors?|tutoring|tuition|teachers?|teaching|lessons?|academy|school|"
+                 r"learning|education|educational|mentors?|maths|mathematics|english|science|"
+                 r"centre|center|coaching|services|limited|ltd)\b", name):
+        return None
+    return name
+
+
 def audit_rows(root, rows):
     result = []
     seen = set()
@@ -79,6 +91,13 @@ def audit_rows(root, rows):
         own = merge_profiles(replayed)[0]
         if own.get("locationConflict") or exclusion_reason(own) or profile_locality_status(own) != "advertised_bucks_locality" or own["name"] != row["name"] or set(own["services"]) != set(row["services"]):
             raise ValueError("Qualified profile does not match replayed page evidence: " + key)
+        # These parsers select the tutor's own name field, rather than a page
+        # title, breadcrumb, review or neighbouring advert. Missing profile links
+        # must not turn distinct complete own names into first-name collisions.
+        if not hints and own["platform"] in ("findtutors.co.uk", "childcare.co.uk"):
+            hint = complete_own_name(own["name"])
+            if hint:
+                hints.add(hint)
         result.append(dict(row, key=key, professionalNameHint=next(iter(hints), None), elevenPlusServiceClaim=eleven_plus))
     return result
 

@@ -14,6 +14,55 @@ spec.loader.exec_module(audit)
 
 
 class IdentityTests(unittest.TestCase):
+    def own_name_rows(self, name, platform="findtutors.co.uk", extra=""):
+        if platform == "findtutors.co.uk":
+            url = "https://www.findtutors.co.uk/tutors-aylesbury/maths-123"
+            body = f'''<section id="sectionaddetail"><div class="info">
+              <span itemprop="name">{name}</span><div id="line_location">Aylesbury</div>
+              <span class="subject">Maths Lessons</span></div>
+              <div id="logo_academy_link_profile" class="non-academy"></div>
+              <input id="iduser" value="42"></section>{extra}'''.encode()
+            person_id = "42"
+        else:
+            url = "https://www.childcare.co.uk/profile/42"
+            body = f'''<div class="profile-header--info-wrapper"><h1>{name}</h1>
+              <h3>Private Tutor in Aylesbury</h3></div>
+              <span class="tag positive">Maths Tutor</span>{extra}'''.encode()
+            person_id = "42"
+        row = audit.profile_record(body.decode(), url)
+        digest = hashlib.sha256(body).hexdigest()
+        row["pageEvidence"] = [{"url": url, "sha256": digest}]
+        self.assertEqual(row["personId"], person_id)
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / "receipts").mkdir()
+            (root / "pages").mkdir()
+            key = hashlib.sha256(url.encode()).hexdigest()
+            (root / "pages" / (key + ".html")).write_bytes(body)
+            (root / "receipts" / (key + ".json")).write_text(json.dumps({"url": url, "sha256": digest}))
+            return audit.audit_rows(root, [row])
+
+    def test_complete_own_name_without_profile_link_disambiguates_baseline_first_names(self):
+        from new_leads import classify_delta
+        for platform in ("findtutors.co.uk", "childcare.co.uk"):
+            with self.subTest(platform=platform):
+                rows = self.own_name_rows("Michael Alan Consden", platform)
+                self.assertEqual(rows[0]["professionalNameHint"], "michael alan consden")
+                accepted, _, _ = audit.reconcile(rows, {"merges": []})
+                baseline = [{"canonicalId": "old", "name": "Michael", "aliases": ["michael", "michael rice"],
+                             "professionalNameHint": "michael rice", "sourceUrls": []}]
+                self.assertEqual(classify_delta(baseline, accepted)["new"], accepted)
+                baseline[0]["professionalNameHint"] = None
+                self.assertEqual(classify_delta(baseline, accepted)["new"], [])
+                baseline[0]["professionalNameHint"] = "michael alan consden"
+                self.assertEqual(classify_delta(baseline, accepted)["new"], [])
+
+    def test_neighbouring_full_names_do_not_expand_an_initial_or_first_name(self):
+        for name in ("Michael", "Michael C", "M Consden", "Dr Syeda", "Maths Mentor"):
+            with self.subTest(name=name):
+                rows = self.own_name_rows(name, extra='<aside><span itemprop="name">Michael Alan Consden</span></aside>')
+                self.assertIsNone(rows[0]["professionalNameHint"])
+
     def test_ambiguous_uk_places_need_explicit_county_context(self):
         self.assertTrue(audit.ambiguous_county("Burnham"))
         self.assertTrue(audit.ambiguous_county("Sands"))

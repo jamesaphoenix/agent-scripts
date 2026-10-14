@@ -55,6 +55,13 @@ class InventoryQualificationTests(unittest.TestCase):
         self.assertEqual(outcome(decision,[{'text':'I offer maths tuition in Amersham.'}],SCOPE),'tutor_research_candidate')
         self.assertEqual(outcome(dict(decision,local=.5),[{'text':'Maths tuition.'}],SCOPE),'locality_review')
 
+    def test_owned_franchise_offer_is_held_even_when_model_calls_it_independent(self):
+        decision=parse_decision(response())
+        self.assertEqual(outcome(decision,[{'text':'Apply to Franchise. We offer maths and English tuition in Milton Keynes.'}],SCOPE),
+                         'franchise_review')
+        self.assertEqual(outcome(decision,[{'text':'We are not a franchise. I offer maths tuition in Milton Keynes.'}],SCOPE),
+                         'tutor_research_candidate')
+
     def test_subject_check_accepts_long_owned_pages_without_accepting_music_only(self):
         decision=parse_decision(response())
         filler='Public information about individual lessons. ' * 100

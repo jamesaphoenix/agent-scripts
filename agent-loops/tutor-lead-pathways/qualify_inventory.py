@@ -125,6 +125,8 @@ def outcome(decision, pages, scope):
         return 'needs_owned_page_review'
     if not any(matching_page_subjects(p.get('text', ''), scope) for p in pages):
         return 'subject_review'
+    if any(re.search(r'\bapply\s+to\s+franchise\b', p.get('text', ''), re.I) for p in pages):
+        return 'franchise_review'
     return 'tutor_research_candidate'
 
 
@@ -132,7 +134,7 @@ def recheck_saved_outcomes(db, scope):
     """Reapply local disposition rules to settled decisions without API requests."""
     states = ('uncertain', 'excluded_institution', 'excluded_irrelevant', 'source_to_expand',
               'outside_area', 'subject_review', 'locality_review', 'needs_owned_page_review',
-              'tutor_research_candidate')
+              'tutor_research_candidate', 'franchise_review')
     placeholders = ','.join('?' for _ in states)
     rows = db.execute(f'SELECT key,state,evidence,decision FROM candidates '
                       f'WHERE state IN ({placeholders}) AND decision IS NOT NULL', states).fetchall()

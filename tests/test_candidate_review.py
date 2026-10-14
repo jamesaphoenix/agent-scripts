@@ -7,7 +7,7 @@ import tempfile
 import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'agent-loops/tutor-lead-pathways'))
-from candidate_review import CachedDecisions, assess, run
+from candidate_review import CachedDecisions, assess, candidate_urls, run
 from decisions_classifier import DecisionsCache
 from test_decisions_classifier import response
 
@@ -83,6 +83,17 @@ class CandidateReviewTests(unittest.TestCase):
         self.seed()
         with CachedDecisions(self.path) as cache:
             self.assertIsNone(cache.lookup(dict(self.evidence, url='https://www.childcare.co.uk/profile/222')))
+
+    def test_owned_about_pages_can_supply_context_but_other_directory_profiles_cannot(self):
+        row = {'website': 'https://mytutor.example/', 'siteEvidence': [
+            {'url': 'https://mytutor.example/about'}, {'url': 'https://another.example/contact'}]}
+        self.assertEqual(candidate_urls(row), ['https://mytutor.example/', 'https://mytutor.example/about'])
+        row = {'website': 'https://www.childcare.co.uk/profile/111', 'siteEvidence': [
+            {'url': 'https://www.childcare.co.uk/profile/222'}]}
+        self.assertEqual(candidate_urls(row), ['https://www.childcare.co.uk/profile/111'])
+        row = {'website': 'https://jane.wixsite.com/tutoring', 'siteEvidence': [
+            {'url': 'https://jane.wixsite.com/tutoring/about'}, {'url': 'https://jane.wixsite.com/music/about'}]}
+        self.assertEqual(candidate_urls(row), ['https://jane.wixsite.com/tutoring', 'https://jane.wixsite.com/tutoring/about'])
 
     def test_conflicting_owned_pages_require_review(self):
         decision = self.seed()

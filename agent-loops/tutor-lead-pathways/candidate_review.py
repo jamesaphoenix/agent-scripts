@@ -9,9 +9,10 @@ import re
 import sqlite3
 
 from decisions_classifier import MODEL, PROMPT_VERSION, NANO_PER_INPUT_TOKEN, decision_request, decision_text, parse_decision, questions
-from discovery import atomic_json, now_iso
+from discovery import atomic_json, now_iso, source_host, website_key
 from focused_frontier import admitted, profile_key
 from lead_scope import matching_subjects, load_scope
+from urllib.parse import urlsplit
 
 
 class CachedDecisions:
@@ -52,6 +53,23 @@ class CachedDecisions:
 
 def primary_urls(row):
     return sorted({url for field in ('website', 'sourceUrl') if (url := admitted(row.get(field)))})
+
+
+def candidate_urls(row):
+    """Include observed owned pages while keeping directory and tenant boundaries."""
+    urls = set(primary_urls(row))
+    website = admitted(row.get('website'))
+    if not website:
+        return sorted(urls)
+    host = urlsplit(website).hostname.removeprefix('www.')
+    if source_host(host) or host in ('google.com', 'sites.google.com') or profile_key(website):
+        return sorted(urls)
+    owner = website_key(website)
+    for entry in row.get('siteEvidence', [])[:20]:
+        url = admitted(entry.get('url')) if isinstance(entry, dict) else None
+        if url and owner and website_key(url) == owner:
+            urls.add(url)
+    return sorted(urls)
 
 
 def assess(row, pages, towns, known_urls, scope=None):
@@ -144,7 +162,7 @@ def run(candidates, frontiers, cache_path, contacts, output, scope=None, crawl_r
                 sorted(row.get('identifiers', []))], sort_keys=True).encode()).hexdigest()
             pages, missing, held = [], [], []
             already_known = bool(set(primary_urls(row)) & known)
-            for url in primary_urls(row):
+            for url in candidate_urls(row):
                 evidence = index.get(url)
                 if evidence is None:
                     continue

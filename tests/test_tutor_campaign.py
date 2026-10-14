@@ -122,6 +122,35 @@ class CampaignNoveltyTests(unittest.TestCase):
         self.assertEqual(result['new'], [])
         self.assertEqual(len(result['known']), 1)
 
+    def test_a_named_business_service_suffix_cannot_make_its_owner_a_new_contact(self):
+        old = [{'canonicalId': 'business:known:07913820845',
+                'name': 'Heather Moore, Dyslexia Assessment & English Tutoring', 'sourceUrls': []}]
+        current = [{'canonicalId': 'bda:heather', 'name': 'Heather Moore',
+                    'sourceUrls': ['https://register.example.org/tutors'], 'outreachEligible': False}]
+        result = classify_delta(old, current)
+        self.assertEqual(result['new'], [])
+        self.assertEqual(len(result['needsReview']), 1)
+        current[0]['name'] = 'Heather Jones'
+        self.assertEqual(classify_delta(old, current)['new'], current)
+        old[0]['name'] = 'Heather Moore Support'
+        current[0]['name'] = 'Heather Moore'
+        self.assertEqual(classify_delta(old, current)['new'], current)
+
+    def test_shared_advertised_email_holds_a_new_brand_without_merging_people(self):
+        old = [{'canonicalId': 'bda:heather', 'name': 'Heather Moore',
+                'email': 'Heather@Tutoring.Example.org', 'sourceUrls': []}]
+        current = [{'canonicalId': 'new-brand', 'name': 'Dyslexia Insights',
+                    'email': ' heather@tutoring.example.org ', 'sourceUrls': [], 'outreachEligible': False}]
+        result = classify_delta(old, current)
+        self.assertEqual(result['new'], [])
+        self.assertEqual(result['needsReview'][0]['deltaHoldReason'], 'possible_baseline_email_match')
+        self.assertEqual(result['needsReview'][0]['canonicalId'], 'new-brand')
+        current[0]['name'] = 'Jane Smith'
+        self.assertEqual(classify_delta(old, current)['new'], [])
+        self.assertEqual(old[0]['name'], 'Heather Moore')
+        current[0]['email'] = 'different@tutoring.example.org'
+        self.assertEqual(classify_delta(old, current)['new'], current)
+
     def test_an_initial_surname_cannot_prove_that_a_contact_is_distinct(self):
         old = [{'canonicalId': 'old', 'name': 'Alex', 'aliases': ['alex'],
                 'professionalNameHint': 'alex p'}]

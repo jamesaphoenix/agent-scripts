@@ -2,11 +2,12 @@
 import argparse
 import csv
 import json
+import re
 from collections import defaultdict
 from pathlib import Path
 import urllib.parse
-from audit_directory_identities import normalize_name, complete_identity_hint
-from discovery import atomic_json, file_hash, now_iso, phone_key
+from audit_directory_identities import normalize_name, complete_identity_hint, complete_own_name
+from discovery import atomic_json, file_hash, now_iso, phone_key, clean_emails
 from baseline_names import verified_name_overlay
 
 
@@ -34,8 +35,19 @@ def classify_delta(baseline, current):
             value = row['canonicalId'].rsplit(':', 1)[-1]
         return phone_key(value)
     phones = {value for row in baseline if (value := contact_phone(row))}
+    def contact_email(row):
+        value = row.get('email')
+        valid = clean_emails([value]) if isinstance(value, str) else []
+        return valid[0] if valid else None
+    emails = {value for row in baseline if (value := contact_email(row))}
     def names(row):
         aliases = set(row.get('aliases', [])) | {normalize_name(row['name'])}
+        if row.get('canonicalId', '').startswith('business:'):
+            parts = re.split(r',|\||\s[-\u2013\u2014]\s', row['name'], maxsplit=1)
+            if len(parts) > 1 and (person := complete_own_name(parts[0])):
+                # A named business can already represent this person. This is
+                # a possible-match alias, not proof for merging identities.
+                aliases.add(person)
         hint = row.get('professionalNameHint')
         if isinstance(hint, str) and (parts := normalize_name(hint).split()) and len(parts[0]) >= 2:
             aliases.add(parts[0])
@@ -73,6 +85,8 @@ def classify_delta(baseline, current):
         if (members & member_keys or any(url.rstrip('/') in source_urls for url in row.get('sourceUrls', []))
                 or contact_phone(row) in phones):
             result['known'].append(row)
+        elif (email := contact_email(row)) and email in emails:
+            result['needsReview'].append(dict(row, deltaHoldReason='possible_baseline_email_match'))
         elif possible_match(row):
             result['needsReview'].append(dict(row, deltaHoldReason='possible_baseline_name_match'))
         elif (isinstance(row.get('organization'), str)

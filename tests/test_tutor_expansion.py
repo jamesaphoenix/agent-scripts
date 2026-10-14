@@ -121,7 +121,8 @@ class ExpansionTests(unittest.TestCase):
                     if number < 3:
                         cache.reserve(key, 'directories', payload, 100)
                         cache.settle(key, {'status_code': 20000, 'cost': .002, 'tasks': [{
-                            'id': key, 'status_code': 20000, 'cost': .002, 'result': []}]})
+                            'id': key, 'status_code': 20000, 'cost': .002,
+                            'result': [{'items': [{'url': f'https://{site}/index'}]}]}]})
                         completed.append(key)
             feedback = metrics(root, cache, plan)['tactics']
             self.assertEqual(set(feedback), {'superprof.co.uk', 'uktutors.com'})
@@ -207,6 +208,53 @@ class ExpansionTests(unittest.TestCase):
             ['https://www.tuitionlist.co.uk/tutor/jane-abcdef12', 'https://www.tuitionlist.co.uk/tutor/alex-abcdef13']]:
             with self.subTest(urls=urls):
                 self.assertNotEqual(website_key(urls[0]), website_key(urls[1]))
+
+    def test_site_restricted_url_reward_excludes_unrequested_hosts_and_keeps_subdomains(self):
+        from expansion_metrics import result_urls
+        reply = {'tasks': [{'result': [{'items': [
+            {'url': 'https://www.uktutors.com/tutor/42/jane'},
+            {'url': 'https://profiles.uktutors.com/jane'},
+            {'url': 'https://uktutors.com.example.org/not-the-source'},
+            {'url': 'https://www.tutorhunt.com/users/jane/'},
+            {'url': 'https://school.example.org/sen-report'}]}]}]}
+        self.assertEqual(result_urls(reply, 'site:uktutors.com tutor Amersham'),
+                         {'https://www.uktutors.com/tutor/42/jane', 'https://profiles.uktutors.com/jane'})
+        self.assertEqual(len(result_urls(reply, '(site:uktutors.com OR site:tutorhunt.com) tutor Amersham')), 3)
+        self.assertEqual(len(result_urls(reply, 'tutor Amersham -site:uktutors.com')), 5)
+
+    def test_successful_off_site_results_cannot_reward_requested_source_but_keep_billing_and_evidence(self):
+        from discovery import PaidCache, request_key, atomic_json, file_hash
+        from expansion_metrics import metrics
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            profile, review = root / 'profiles', root / 'audit'
+            atomic_json(root / 'manifest.json', {'profileRunDir': str(profile)})
+            atomic_json(profile / 'review/latest-expansion.json', {'outputDirectory': str(review)})
+            atomic_json(review / 'this-stage-delta/new.json', [
+                {'canonicalId': 'jane', 'sourceUrls': ['https://www.uktutors.com/tutor/42/jane']}])
+            cache = PaidCache(root, 200, 0)
+            self.addCleanup(cache.db.close)
+            payload = {'keyword': 'site:uktutors.com "Amersham" "primary"'}
+            key = request_key('directories', payload)
+            cache.reserve(key, 'directories', payload, 100)
+            reply = {'status_code': 20000, 'cost': .002, 'tasks': [{'id': key, 'status_code': 20000,
+                'cost': .002, 'result': [{'items': [{'url': 'https://school.example.org/sen-report'}]}]}]}
+            cache.settle(key, reply)
+            receipt = Path(cache.get(key)['receipt'])
+            before = (cache.usage(), file_hash(receipt))
+            value = metrics(root, cache, [{'lane': 'directories', 'tactic': 'public_profiles',
+                'key': key, 'payload': payload}])
+            item = value['tactics']['uktutors.com']
+            self.assertEqual(item['newResultUrls'], 0)
+            self.assertEqual(item['rawNewResultUrls'], 1)
+            self.assertEqual(item['outsideRequestedSiteUrls'], 1)
+            self.assertEqual(item['siteMatchRate'], 0)
+            self.assertEqual(item['auditedSourceIdentities'], 0)
+            self.assertEqual(item['successfulRequests'], 1)
+            self.assertEqual(item['emptySuccessfulRequests'], 0)
+            self.assertEqual(item['chargedCents'], 1)
+            self.assertEqual((cache.usage(), file_hash(receipt)), before)
+            self.assertEqual(cache.receipt(cache.get(key)), reply)
 
     def test_url_yield_excludes_search_navigation_ads_and_tracking_duplicates(self):
         from expansion_metrics import result_urls

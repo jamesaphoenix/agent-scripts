@@ -2,10 +2,12 @@ import hashlib
 from pathlib import Path
 import sys
 import tempfile
+import time
 import unittest
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).parents[1] / 'agent-loops/tutor-lead-pathways'))
-from directory_profiles import admitted_url, profile_record, listing_records, listing_profile_urls, local_directory_link, exclusion_reason
+from directory_profiles import admitted_url, profile_record, listing_records, listing_profile_urls, local_directory_link, exclusion_reason, replay_cached_profiles
 from audit_directory_identities import audit_rows
 from discovery import atomic_json, professional_profile, website_key, hold_reason
 
@@ -48,9 +50,43 @@ class ApprentusTests(unittest.TestCase):
         self.assertIsNone(profile_record(advert().replace('class="skill-title"', 'class="related-subject"'), URL))
 
     def test_multiple_owned_locations_or_headers_are_not_silently_combined(self):
-        text = advert().replace('</div></div></div>', '<div class="location">London, United Kingdom</div></div></div></div>')
+        text = advert().replace('</div></div></div>', '</div><div class="location">London, United Kingdom</div></div></div>')
         self.assertTrue(profile_record(text, URL)['locationConflict'])
         self.assertIsNone(profile_record(advert() + advert(), URL))
+
+    def test_owned_address_uses_town_after_street_and_retains_only_localities(self):
+        row = profile_record(advert(place='Shrubbery Road, High Wycombe, UK'), URL)
+        self.assertEqual(row['localityClaim'], 'High Wycombe')
+        self.assertEqual(row['ownLessonLocationClaims'], ['High Wycombe'])
+        text = advert(place='High Wycombe HP10, UK').replace('</div></div></div>',
+                    '</div><div class="location">marlow</div></div></div>')
+        row = profile_record(text, URL)
+        self.assertEqual(row['localityClaim'], 'High Wycombe')
+        self.assertFalse(row['locationConflict'])
+        self.assertIsNone(exclusion_reason(row))
+
+    def test_generic_tutoring_tag_can_use_the_owned_explicit_subject_list(self):
+        text = advert(subject='Tutoring').replace('Primary English tuition',
+                        'GCSE or below Math, English, Physics, Chemistry, Computer Science')
+        self.assertEqual(profile_record(text, URL)['services'],
+                         ['Tutoring', 'Math', 'English', 'Physics', 'Chemistry', 'Computer Science'])
+        text = advert(subject='Tutoring').replace('Primary English tuition', 'French tutor with a maths degree')
+        self.assertEqual(profile_record(text, URL)['services'], ['Tutoring'])
+
+    def test_cache_replay_updates_existing_advert_without_resetting_or_refetching(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp); body = advert(place='Shrubbery Road, High Wycombe, UK').encode()
+            key = hashlib.sha256(URL.encode()).hexdigest(); sha = hashlib.sha256(body).hexdigest()
+            page = root / 'pages' / (key + '.html'); page.parent.mkdir(); page.write_bytes(body)
+            atomic_json(root / 'receipts' / (key + '.json'), {'url': URL, 'sha256': sha, 'status': 200, 'observedAt': '2026-10-14T03:00:00+00:00'})
+            old = dict(profile_record(body.decode(), URL), localityClaim='Shrubbery Road')
+            state = {'seen': [URL], 'queue': [], 'records': [old], 'attempts': 9, 'errors': []}
+            with patch('directory_profiles.PageCache.download', side_effect=AssertionError('Unexpected HTTP')):
+                report = replay_cached_profiles(root, state, time.time() + 60, platform='apprentus')
+                self.assertEqual(report['updatedRecords'], 1)
+                replay_cached_profiles(root, state, time.time() + 60, platform='apprentus')
+            self.assertEqual((state['attempts'], state['seen'], len(state['records'])), (9, [URL], 1))
+            self.assertEqual(state['records'][0]['localityClaim'], 'High Wycombe')
 
     def test_local_listing_seeds_exclude_worldwide_recommendations(self):
         def card(source, name='Rebecca Jade'):

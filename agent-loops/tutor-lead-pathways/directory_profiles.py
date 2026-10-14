@@ -851,7 +851,7 @@ def replay_cached_profiles(root, state, deadline, clock=time.time, platform='tut
     sources = {'tutorhunt': ('tutorhunt-profile-name-v2', 'https://www.tutorhunt.com/users/'),
                'teachtutti': ('teachtutti-own-profile-v1', 'https://www.teachtutti.co.uk/tutor/'),
                'tta': ('tta-public-fields-v1', 'https://thetutorsassociation.wildapricot.org/Sys/PublicProfile/'),
-               'apprentus': ('apprentus-own-advert-v1', 'https://www.apprentus.co.uk/private-lessons/')}
+               'apprentus': ('apprentus-own-advert-v2', 'https://www.apprentus.co.uk/private-lessons/')}
     if platform not in sources:
         raise ValueError('Unsupported cached profile replay source')
     version, prefix = sources[platform]
@@ -870,7 +870,7 @@ def replay_cached_profiles(root, state, deadline, clock=time.time, platform='tut
         if key in done:
             continue
         try:
-            if url not in known:
+            if url not in known or platform == 'apprentus':
                 receipt_path = root / 'receipts' / (key + '.json')
                 receipt = json.loads(receipt_path.read_text())
                 page = cache.body_path(url)
@@ -885,9 +885,17 @@ def replay_cached_profiles(root, state, deadline, clock=time.time, platform='tut
                     raise ValueError('Cached page did not establish its own profile identity')
                 row['pageEvidence'] = [{'url': url, 'observedAt': receipt['observedAt'],
                     'sha256': receipt['sha256'], 'receipt': str(receipt_path)}]
+                previous = [r for r in state['records'] if url in r.get('sourceUrls', [])]
+                if previous and any(r.get('sourceUrls') != [url] or r.get('platform') != row['platform']
+                                    or r.get('personId') != row['personId'] for r in previous):
+                    raise ValueError('Existing cached advert identity does not match its page')
+                state['records'] = [r for r in state['records'] if url not in r.get('sourceUrls', [])]
                 state['records'].append(row)
                 known.add(url)
-                progress['recoveredRecords'] += 1
+                if previous:
+                    progress['updatedRecords'] = progress.get('updatedRecords', 0) + len(previous)
+                else:
+                    progress['recoveredRecords'] += 1
         except (OSError, ValueError, KeyError, TypeError, AttributeError):
             progress['heldPages'] += 1
         done.add(key)

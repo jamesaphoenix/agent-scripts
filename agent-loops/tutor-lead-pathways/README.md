@@ -106,6 +106,37 @@ no email permission is inferred. There is no automated admission from PDF text.
 
 ## Keyword expansion and upstream classification
 
+`candidate_review.py` applies saved Decisions API responses to a frozen business
+inventory. It opens the decision cache and crawl frontiers read-only, reconstructs
+the exact model request and verifies its SHA256, response schema and charged usage.
+It never calls a provider or resets a budget. Public profiles do not share decisions
+with other profiles on the same directory. Saved Go checkpoints can supply context
+for the remaining decision queue; search queries and URL towns cannot supply missing
+subject or locality evidence.
+
+```bash
+python3 agent-loops/tutor-lead-pathways/candidate_review.py \
+  --candidates state/my-campaign/exports/businesses.json \
+  --frontier state/my-focused-crawl/frontier.sqlite \
+  --decisions-cache state/tutor-decisions-cache.sqlite \
+  --crawl-root state/my-campaign \
+  --contacts state/my-campaign/exports/additional-contacts.json \
+  --scope-run-dir state/my-campaign \
+  --output-dir state/my-campaign/review/candidate-qualification
+```
+
+The output retains the original inventory, one assessment per research row, a
+provisional tutor shortlist and deduplicated requests missing from the cache.
+Institutions, irrelevant pages, directories, missing context and held responses
+remain separate. A positive model result is a research candidate. It still needs
+owned service, locality, identity and contact-route evidence before entering the
+audited tutor export. No result grants outreach eligibility. Pending requests are
+proposals only and require available authorised classifier allowance before use.
+
+The [Decisions API guide](https://developers.openai.com/api/docs/guides/decisions)
+describes the shared text input and named classification questions used by the
+existing classifier. This replay preserves that original request contract.
+
 `keyword_expansion.py` keeps a shared `state/keyword-search.sqlite` alongside the separate paid
 ledger. It generates plain location searches such as `11+ tutor Amersham`, `tutor Amersham`,
 `11 plus tutor High Wycombe` and subject variants for both Google Maps and organic search.

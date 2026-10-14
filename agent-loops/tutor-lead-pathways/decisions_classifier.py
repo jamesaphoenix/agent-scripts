@@ -115,6 +115,23 @@ def questions(towns):
          'Does this page explicitly offer or list tutors offering 11+, eleven-plus or grammar school entrance tuition?'}]
 
 
+def decision_text(evidence):
+    return ' '.join(str(evidence.get('text', '')).split()).encode()[:16000].decode('utf-8', errors='ignore')
+
+
+def decision_request(evidence, question_set):
+    """Build the same content-addressed contract for paid calls and offline replay."""
+    text = decision_text(evidence)
+    content = json.dumps({k: str(evidence.get(k, ''))[:2000] for k in ('url', 'title', 'description')})
+    payload = {'model': MODEL, 'input': content + '\n<untrusted_page>\n' + text + '\n</untrusted_page>',
+               'questions': question_set}
+    raw = json.dumps(payload, sort_keys=True, ensure_ascii=False).encode()
+    if len(raw) > 65536:
+        raise ValueError('Decision payload too large')
+    key = hashlib.sha256(PROMPT_VERSION.encode() + b'\n' + raw).hexdigest()
+    return payload, key, (len(raw) * 2 + 4096) * NANO_PER_INPUT_TOKEN
+
+
 class DecisionsCache:
     def __init__(self, path, towns, transport=post_decision, cap_nano=3_000_000_000,
                  prior_exposure_cents=6635):
@@ -151,19 +168,11 @@ class DecisionsCache:
         self.db.close()
 
     def request(self, evidence):
-        text = ' '.join(str(evidence.get('text', '')).split()).encode()[:16000].decode('utf-8', errors='ignore')
         # URL is part of the evidence contract; identical rendered text at a different
         # address must not inherit a locality decision from another tutor's website.
-        content = json.dumps({k: str(evidence.get(k, ''))[:2000] for k in ('url', 'title', 'description')})
-        payload = {'model': MODEL, 'input': content + '\n<untrusted_page>\n' + text + '\n</untrusted_page>',
-                   'questions': self.questions}
-        raw = json.dumps(payload, sort_keys=True, ensure_ascii=False).encode()
-        if len(raw) > 65536:
-            raise ValueError('Decision payload too large')
-        key = hashlib.sha256(PROMPT_VERSION.encode() + b'\n' + raw).hexdigest()
         # A conservative bound using twice the full UTF-8 request bytes plus
         # protocol overhead, rather than guessing tokens from word count.
-        return payload, key, (len(raw) * 2 + 4096) * NANO_PER_INPUT_TOKEN
+        return decision_request(evidence, self.questions)
 
     def reserve(self, key, payload, amount):
         self.db.execute('BEGIN IMMEDIATE')

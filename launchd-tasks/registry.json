@@ -439,6 +439,24 @@
         ]
       },
       "notes": "A single locked native observer checks NAS releases, public APIs and native compute. After 48 continuous healthy hours on unchanged releases, removes only obsolete Studio observability and stopped migrated application containers. Keeps CI databases, Redis, Temporal, all volumes, images, unrelated jobs and reusable caches. No agent dispatch or workflow starts from health probes."
+    },
+    {
+      "id": "synology-release-retention",
+      "name": "Synology immutable release and image retention",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.synology-retention",
+      "schedule": "hourly, plus initial observation at load",
+      "requiresOpServiceAccount": false,
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
+        "command": [
+          "python3",
+          "agent-loops/synology-retention/install.py"
+        ]
+      },
+      "notes": "Runs bounded cleanup over SSH on NAS. Keeps current plus two observed healthy rollback releases and a 48-hour grace period, protects every container image, excludes volumes and unrelated repositories. Takes shared deployment locks; fails closed on unhealthy services. Deletion requires the NAS maintenance/cleanup-enabled marker. No MacBook watchdog."
     }
   ]
 }

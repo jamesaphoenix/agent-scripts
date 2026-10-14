@@ -105,6 +105,25 @@ def verified_contact(root, item):
         evidence = {'url': source_url, 'contentHash': receipt['sha256'], 'text': unit_text}
         proof = {'page': str(page), 'receipt': str(receipt_path), 'receiptUrl': receipt['url'],
                  'receiptSha256': item['receiptSha256'], **selector, 'observedAt': receipt.get('observedAt')}
+    elif item.get('sourceType') == 'browser_advert':
+        source_root = (root / 'public-source-review').resolve(strict=True)
+        page = (root / item['page']).resolve(strict=True)
+        receipt_path = (root / item['receipt']).resolve(strict=True)
+        if not page.is_relative_to(source_root) or not receipt_path.is_relative_to(source_root):
+            raise ValueError('Browser evidence must belong to the campaign public-source cache')
+        if file_hash(receipt_path) != item['receiptSha256'] or page.stat().st_size > 65536:
+            raise ValueError('Browser receipt changed or snapshot exceeded its bound')
+        receipt = json.loads(receipt_path.read_text())
+        if (not isinstance(receipt, dict) or receipt.get('observationType') != 'browser_rendered_text'
+            or not receipt.get('observedAt') or 'status' in receipt or 'httpStatus' in receipt
+            or file_hash(page) != receipt.get('sha256') or item.get('sourceKind') != 'own_site'):
+            raise ValueError('Expected a hashed own-site browser text observation, without an HTTP status claim')
+        text = page.read_text(encoding='utf-8')
+        if not text.strip() or normal(text) != normal(item['unitText']):
+            raise ValueError('Expected the complete observed browser advert')
+        evidence = {'url': receipt['url'], 'contentHash': receipt['sha256'], 'text': text}
+        proof = {'page': str(page), 'receipt': str(receipt_path), 'receiptSha256': item['receiptSha256'],
+                 'observationType': receipt['observationType'], 'observedAt': receipt['observedAt']}
     elif item.get('sourceType') == 'html_advert':
         source_root = (root / 'public-source-review').resolve(strict=True)
         page = (root / item['page']).resolve(strict=True)

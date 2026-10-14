@@ -46,6 +46,51 @@ class HtmlAdvertUnitTests(unittest.TestCase):
 
 
 class ReviewedContactTests(unittest.TestCase):
+    def browser_fixture(self, root):
+        _, item = self.fixture(root)
+        text = item['unitText']
+        page = root / 'public-source-review/browser/rendered.txt'
+        page.parent.mkdir(parents=True)
+        page.write_text(text)
+        receipt = page.with_name('receipt.json')
+        atomic_json(receipt, {'url': 'https://tutor.example.org/', 'observationType': 'browser_rendered_text',
+            'sha256': hashlib.sha256(page.read_bytes()).hexdigest(), 'observedAt': item['reviewedAt']})
+        item.update(sourceType='browser_advert', sourceKind='own_site', website='https://tutor.example.org/',
+            page=str(page.relative_to(root)), receipt=str(receipt.relative_to(root)),
+            receiptSha256=hashlib.sha256(receipt.read_bytes()).hexdigest())
+        return page, receipt, item
+
+    def test_rendered_browser_advert_retains_its_source_kind_without_claiming_http_status(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _, _, item = self.browser_fixture(root)
+            report = self.run_review(root, [item])
+            self.assertEqual(report['newResearchContacts'], 1)
+            row = json.loads((root / 'review/public-contacts/contacts.json').read_text())[0]
+            self.assertEqual(row['email'], 'jane@example.net')
+            self.assertEqual(row['pageEvidence'][0]['observationType'], 'browser_rendered_text')
+            self.assertNotIn('status', row['pageEvidence'][0])
+            self.assertFalse(row['outreachEligible'])
+
+    def test_browser_advert_requires_complete_owned_snapshot_and_matching_body(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            page, _, item = self.browser_fixture(root)
+            for bad in (dict(item, sourceKind='public_advert'), dict(item, unitText='Jane Smith GCSE English tuition.')):
+                self.assertEqual(self.run_review(root, [bad])['held'], 1)
+            page.write_text(item['unitText'].replace('Haddenham', 'London'))
+            self.assertEqual(self.run_review(root, [item])['held'], 1)
+
+    def test_browser_receipt_cannot_be_relabelled_as_an_http_response(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _, receipt, item = self.browser_fixture(root)
+            value = json.loads(receipt.read_text())
+            for invalid in (dict(value, observationType='http_response', status=200), dict(value, status=200)):
+                atomic_json(receipt, invalid)
+                bad = dict(item, receiptSha256=hashlib.sha256(receipt.read_bytes()).hexdigest())
+                self.assertEqual(self.run_review(root, [bad])['held'], 1)
+
     def fixture(self, root):
         text = 'Jane Smith offers GCSE English tuition. I am based in Haddenham, Buckinghamshire. Contact jane@example.net or 07700 900123.'
         path = root / 'crawls/public-directory/crawl.json'

@@ -65,13 +65,15 @@ def extract_profile(key, candidate, pages, index, scope, towns):
             raise ValueError('Ambiguous public profile identity')
         page = profile_pages[0]
         fields = json.loads(page['text'])['publicProfileFields']
-        if profile_locality_status(fields) != 'advertised_bucks_locality':
+        if profile_locality_status(dict(fields, evidenceKind='public_person_profile')) != 'advertised_bucks_locality':
             raise ValueError('Public profile locality needs review')
         name = fields['name']
         subjects = matching_subjects({'services': fields['services']}, scope)
         locality = fields['localityClaim']
         member = fields['platform'] + ':' + str(fields['personId'])
         canonical = 'tutor:' + hashlib.sha256(member.encode()).hexdigest()
+        website = fields.get('website') if website_key(fields.get('website')) else None
+        organization = fields.get('organization')
     else:
         hostname = urlsplit(replayed[0]['url']).hostname.removeprefix('www.')
         if source_host(hostname):
@@ -89,6 +91,8 @@ def extract_profile(key, candidate, pages, index, scope, towns):
         subjects = sorted({s for p in replayed for s in matching_page_subjects(p['text'], scope)})
         member = 'website:' + owner
         canonical = 'research:' + hashlib.sha256(member.encode()).hexdigest()
+        website = candidate.get('website')
+        organization = None
     if not subjects:
         raise ValueError('Requested subjects are absent from the owned offer')
     emails = []
@@ -113,7 +117,7 @@ def extract_profile(key, candidate, pages, index, scope, towns):
         if phone_key(contacts.get('phone')):
             phone = {'value': contacts['phone'], 'sourceUrl': page['url'], 'verified': False}
     return {'schemaVersion': 1, 'canonicalId': canonical, 'memberKeys': [member],
-        'candidateId': key, 'name': name, 'website': candidate.get('website'),
+        'candidateId': key, 'name': name, 'website': website, 'organization': organization,
         'localityClaim': locality, 'matchedSubjects': subjects, 'services': subjects,
         'sourceUrls': [p['url'] for p in replayed], 'emails': emails,
         'phone': phone['value'] if phone else None, 'phoneEvidence': phone,

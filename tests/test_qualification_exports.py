@@ -63,6 +63,32 @@ class QualificationExportTests(unittest.TestCase):
         self.assertEqual(split['accepted'], [])
         self.assertEqual(len(split['known']), 1)
 
+    def test_public_profile_advertised_site_deduplicates_its_business_record(self):
+        url = 'https://www.childcare.co.uk/profile/111'
+        fields = {'name': 'Jane Smith', 'platform': 'childcare.co.uk', 'personId': '111',
+                  'localityClaim': 'Amersham', 'services': ['Maths'],
+                  'website': 'https://jane.example/', 'organization': 'Jane Smith Tuition'}
+        page = {'url': url, 'text': json.dumps({'publicProfileFields': fields}),
+                'extractionKind': 'public_profile_fields_v1',
+                'publicContacts': {'emails': ['jane@jane.example'], 'phone': '07722 868342'},
+                'replaySource': {'receipt': '/saved/receipt.json', 'receiptSha256': 'a' * 64}}
+        profile = extract_profile('profile', {'website': url}, [page], {url: page}, SCOPE, ['Amersham'])
+        business = extract_profile('business', self.candidate, [self.page], self.index, SCOPE, ['Amersham'])
+        self.assertEqual(profile['website'], 'https://jane.example/')
+        self.assertEqual(profile['phone'], '07722 868342')
+        self.assertEqual(profile['emailStatus'], 'observed')
+        self.assertEqual(len(partition_profiles([], [profile, business])['accepted']), 1)
+
+    def test_public_profile_county_conflict_cannot_be_overridden_by_a_local_city(self):
+        url = 'https://thetutorsassociation.wildapricot.org/Sys/PublicProfile/111/6119301'
+        fields = {'name': 'Jane Smith', 'platform': 'thetutorsassociation.wildapricot.org',
+                  'personId': '111', 'localityClaim': 'Amersham', 'profileCity': 'Amersham',
+                  'profileCounty': 'Essex', 'services': ['Maths']}
+        page = {'url': url, 'text': json.dumps({'publicProfileFields': fields}),
+                'extractionKind': 'public_profile_fields_v1',
+                'replaySource': {'receipt': '/saved/receipt.json', 'receiptSha256': 'a' * 64}}
+        with self.assertRaisesRegex(ValueError, 'locality'):
+            extract_profile('profile', {'website': url}, [page], {url: page}, SCOPE, ['Amersham'])
     def test_name_collisions_are_held_without_merging_distinct_people(self):
         row = extract_profile('one', self.candidate, [self.page], self.index, SCOPE, ['Amersham'])
         other = dict(row, canonicalId='different', memberKeys=['website:other.example'], website='https://other.example/',

@@ -16,14 +16,61 @@ from urllib.parse import urlsplit
 
 from candidate_review import CachedDecisions, candidate_urls, page_index
 from decisions_classifier import DecisionsCache, BudgetExhausted, APIUnavailable, HeldDecision, questions
-from discovery import atomic_json, file_hash, now_iso
+from discovery import atomic_json, file_hash, now_iso, website_key
 from focused_frontier import admitted, site_identity
 from focused_run import fetch
-from lead_scope import load_scope, scope_prompt, matching_page_subjects
+from lead_scope import load_scope, scope_prompt, matching_page_subjects, matching_subjects
 from configuration import loaded_source_sha
+from qualification_context import cache_path, context_urls, select_urls, select_pages, profile_context_index
+from directory_profiles import admitted_url
 
 VERSION = 'bucks-owned-candidate-v2'
 STOP = False
+
+
+def candidate_key(candidate):
+    return hashlib.sha256(json.dumps([candidate.get('name'),candidate.get('website'),candidate.get('sourceUrl'),
+        sorted(candidate.get('identifiers', []))],sort_keys=True).encode()).hexdigest()
+
+
+def publish_profile_seeds(job, urls):
+    if not job.get('profileRoots') or not urls:
+        return None
+    urls = sorted({u for url in urls if (u := admitted_url(url))})[:5000]
+    value = {'urls':urls,'priorityUrls':urls[:100],
+             'qualification':'Context-fetch queue only. Own profile, subjects and locality still require verification.'}
+    raw = (json.dumps(value,indent=2)+'\n').encode()
+    key = hashlib.sha256(raw).hexdigest()
+    path = Path(job['profileRoots'][0])/'seed-batches'/(key+'.json')
+    if not path.exists():atomic_json(path,value)
+    return key
+
+
+def import_profile_candidates(db, job, scope):
+    """Import verified local public profiles without borrowing directory headings."""
+    known = set(job.get('knownContactUrls', []))
+    existing = {url for row in db.execute('SELECT candidate FROM candidates')
+                for url in candidate_urls(json.loads(row['candidate']))}
+    for folder in job.get('profileRoots', []):
+        path = Path(folder)/'bucks-private-tutors.json'
+        if not path.exists() or path.stat().st_size > 32*1024*1024:
+            continue
+        for profile in json.loads(path.read_text()):
+            urls = profile.get('sourceUrls', [])
+            if not urls or not matching_subjects(profile, scope) or profile.get('institution') or profile.get('locationConflict'):
+                continue
+            url = urls[0]
+            if url in known or url in existing:
+                continue
+            candidate = {'name':profile['name'],'website':url,'sourceUrl':url,'status':'research',
+                         'description':'Public profile fields require owned context and identity review.',
+                         'identifiers':['public-profile:'+url],'aliases':[profile['name']]}
+            if url not in profile_context_index([Path(folder)], [candidate]):
+                continue
+            with db:
+                db.execute('INSERT OR IGNORE INTO candidates(key,candidate) VALUES(?,?)',
+                           (candidate_key(candidate),json.dumps(candidate)))
+            existing.add(url)
 
 
 def stop(*_):
@@ -135,18 +182,22 @@ def run(root):
     signal.signal(signal.SIGTERM, stop)
     signal.signal(signal.SIGINT, stop)
     job = json.loads((root / 'job.json').read_text())
+    if job.get('windowAuthorization') and file_hash(Path(job['windowAuthorization'])) != job['windowAuthorizationSha256']:
+        raise ValueError('The authorised context window changed')
     for key, pathkey in [('inputSha256', 'input'), ('scopeSha256', 'scope'), ('crawlerSha256', 'crawler')]:
         if file_hash(Path(job[pathkey])) != job[key]:
             raise ValueError('Immutable classification input changed: ' + pathkey)
     job['loadedSourceSha'] = loaded_source_sha()
     scope = load_scope(Path(job['scope']).parent)
-    with (root / 'run.lock').open('a') as lock:
+    ledger_path = cache_path(root, job)
+    with (root / 'run.lock').open('a') as lock, ledger_path.with_suffix('.owner.lock').open('a') as ledger_lock:
         try:
             fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            fcntl.flock(ledger_lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError:
             return
         db = create_database(root / 'candidates.sqlite')
-        cache = DecisionsCache(root / 'decisions.sqlite', job['towns'], cap_nano=job['authorization']['additionalCapCents'] * 10_000_000,
+        cache = DecisionsCache(ledger_path, job['towns'], cap_nano=job['authorization']['additionalCapCents'] * 10_000_000,
             prior_exposure_cents=10000, additional_authorization=job['authorization'],
             question_set=owned_questions(job['towns'], scope), prompt_version=VERSION)
         phase,reason='running',None
@@ -157,15 +208,18 @@ def run(root):
                 for candidate in json.loads(Path(job['input']).read_text()):
                     if candidate.get('status') != 'research' or candidate.get('sourceOnly'):
                         continue
-                    key = hashlib.sha256(json.dumps([candidate.get('name'),candidate.get('website'),candidate.get('sourceUrl'),
-                        sorted(candidate.get('identifiers', []))],sort_keys=True).encode()).hexdigest()
+                    key = candidate_key(candidate)
                     db.execute('INSERT OR IGNORE INTO candidates(key,candidate) VALUES(?,?)',(key,json.dumps(candidate)))
+            import_profile_candidates(db, job, scope)
             recheck_saved_outcomes(db, scope)
-            index = page_index([Path(p) for p in job['frontiers']], [Path(p) for p in job['crawlRoots']])
+            index = page_index([Path(p) for p in job['frontiers']], [Path(p) for p in job['crawlRoots']],
+                               [root, *[Path(p) for p in job.get('fetchRoots', [])]])
+            candidates = [json.loads(r['candidate']) for r in db.execute('SELECT candidate FROM candidates')]
+            index.update(profile_context_index([Path(p) for p in job.get('profileRoots', [])], candidates))
             # A verified saved observation can resolve a failed fetch without
             # retrying that request or resetting any paid submission.
             with db:
-                for row in db.execute("SELECT key,candidate FROM candidates WHERE state='fetch_held' AND decision IS NULL AND (evidence IS NULL OR evidence='[]')").fetchall():
+                for row in db.execute("SELECT key,candidate FROM candidates WHERE state IN ('fetch_held','awaiting_profile_context') AND decision IS NULL AND (evidence IS NULL OR evidence='[]')").fetchall():
                     if any(url in index for url in candidate_urls(json.loads(row['candidate']))):
                         db.execute("UPDATE candidates SET state='pending',error=NULL WHERE key=?",(row['key'],))
             api_failures = 0
@@ -191,17 +245,24 @@ def run(root):
                     raise
                 except HeldDecision as error:
                     with db:
-                        db.execute("UPDATE candidates SET state='decision_held',evidence=?,error=? WHERE key=?",
+                        db.execute("UPDATE candidates SET state='decision_held',decision=NULL,evidence=?,error=? WHERE key=?",
                             (json.dumps(pages),str(error),row['key']))
                     api_failures += 1
                     if api_failures >= 5:
                         raise APIUnavailable('Five consecutive held decisions; reconciliation required')
             pending_fetches = []
+            delegated_profiles = []
+            base_pages = {}
+            def observed_pages(candidate):
+                return select_pages(candidate, index) if job.get('expandOwnedContext') else [index[u] for u in candidate_urls(candidate) if u in index][:3]
+            def missing_context(candidate):
+                urls = select_urls(candidate, index) if job.get('expandOwnedContext') else candidate_urls(candidate)[:1]
+                return [u for u in urls if u not in index and u not in blocked_urls and site_identity(u) != 'google.com']
             for row in db.execute("SELECT * FROM candidates WHERE state='pending' ORDER BY key").fetchall():
                 if STOP or time.time() >= job['deadlineUnix']:
                     break
                 candidate = json.loads(row['candidate'])
-                pages = [index[u] for u in candidate_urls(candidate) if u in index][:3]
+                pages = observed_pages(candidate)
                 held=False
                 for page in pages:
                     try:legacy.lookup(page)
@@ -209,17 +270,24 @@ def run(root):
                 if held:
                     with db:db.execute("UPDATE candidates SET state='decision_held',error='Legacy decision requires reconciliation' WHERE key=?",(row['key'],))
                     continue
-                if pages:
+                missing = missing_context(candidate)
+                if pages and not missing:
                     complete(row,pages)
                 else:
-                    urls = [u for u in candidate_urls(candidate) if site_identity(u) != 'google.com']
+                    urls = missing or [u for u in candidate_urls(candidate) if site_identity(u) != 'google.com']
                     if not urls:
                         complete(row, [])
                     elif urls[0] in blocked_urls:
                         with db:db.execute("UPDATE candidates SET state='fetch_held',error='Previously blocked or failed public source; not retried' WHERE key=?",(row['key'],))
                     else:
+                        if job.get('profileRoots') and admitted_url(urls[0]):
+                            delegated_profiles.append(urls[0])
+                            with db:db.execute("UPDATE candidates SET state='awaiting_profile_context',decision=NULL,evidence=NULL,error='Delegated to the registered public-profile worker' WHERE key=?",(row['key'],))
+                            continue
+                        base_pages[row['key']] = pages
                         pending_fetches.append((row,urls[0]))
                 progress()
+            publish_profile_seeds(job,delegated_profiles)
             legacy.db.close()
             next_site, site_count, inflight = {}, Counter(), {}
             for claim in db.execute('SELECT url,started_at FROM fetch_claims'):
@@ -239,18 +307,23 @@ def run(root):
                         previous = db.execute('SELECT * FROM fetch_claims WHERE url=?',(url,)).fetchone()
                         if previous:
                             if previous['state']=='succeeded':
-                                complete(row,[json.loads(previous['evidence'])])
+                                index[url] = json.loads(previous['evidence'])
+                                complete(row,observed_pages(json.loads(row['candidate'])))
                             else:
-                                with db: db.execute("UPDATE candidates SET state='fetch_held',error='Previous fetch held' WHERE key=?",(row['key'],))
+                                if base_pages.get(row['key']):complete(row,base_pages[row['key']])
+                                else:
+                                    with db: db.execute("UPDATE candidates SET state='fetch_held',error='Previous fetch held' WHERE key=?",(row['key'],))
                             continue
                         if site_count[site] >= 8:
-                            with db: db.execute("UPDATE candidates SET state='fetch_held',error='Eight-page site allowance reached' WHERE key=?",(row['key'],))
+                            if base_pages.get(row['key']):complete(row,base_pages[row['key']])
+                            else:
+                                with db: db.execute("UPDATE candidates SET state='fetch_held',error='Eight-page site allowance reached' WHERE key=?",(row['key'],))
                             continue
                         site_count[site]+=1;next_site[site]=time.time()+60
                         with db:
                             db.execute("INSERT INTO fetch_claims VALUES(?,'submitting',NULL,NULL,?)",(url,time.time()))
                             db.execute("UPDATE candidates SET state='fetching' WHERE key=?",(row['key'],))
-                        fetch_row={'url':url,'key':row['key'],'site':site,'evidence':None}
+                        fetch_row={'url':url,'key':hashlib.sha256(url.encode()).hexdigest() if job.get('expandOwnedContext') else row['key'],'site':site,'evidence':None}
                         inflight[pool.submit(fetch,job,root,fetch_row)]=(row,url)
                     if not inflight:
                         time.sleep(1)
@@ -260,13 +333,26 @@ def run(root):
                         row,url=inflight.pop(future)
                         try:
                             evidence=future.result()
+                            if job.get('expandOwnedContext') and website_key(url) != website_key(evidence.get('url')):
+                                raise ValueError('Fetched context left its original owner')
                             with db: db.execute("UPDATE fetch_claims SET state='succeeded',evidence=? WHERE url=?",(json.dumps(evidence),url))
                         except Exception as error:
                             with db:
                                 db.execute("UPDATE fetch_claims SET state='held',error=? WHERE url=?",(type(error).__name__,url))
-                                db.execute("UPDATE candidates SET state='fetch_held',error=? WHERE key=?",(type(error).__name__,row['key']))
+                                if not base_pages.get(row['key']):
+                                    db.execute("UPDATE candidates SET state='fetch_held',error=? WHERE key=?",(type(error).__name__,row['key']))
+                            if base_pages.get(row['key']):complete(row,base_pages[row['key']])
                             continue
-                        complete(row,[evidence])
+                        index[url] = evidence
+                        candidate = json.loads(row['candidate'])
+                        pages = observed_pages(candidate)
+                        missing = missing_context(candidate)
+                        if job.get('expandOwnedContext') and missing:
+                            base_pages[row['key']] = pages
+                            pending_fetches.append((row,missing[0]))
+                            with db:db.execute("UPDATE candidates SET state='pending',evidence=? WHERE key=?",(json.dumps(pages),row['key']))
+                        else:
+                            complete(row,pages)
                     progress()
             unresolved=db.execute("SELECT count(*) FROM candidates WHERE state IN ('pending','fetching')").fetchone()[0]
             phase='interrupted' if STOP else 'deadline' if unresolved else 'complete'
@@ -291,7 +377,8 @@ def cleanup(root):
                 if path.is_file() and not path.is_symlink() and (name!='stderr.log' or path.stat().st_size==0):
                     path.unlink();removed.append(str(path))
         report={'observedAt':now_iso(),'removed':removed,
-            'retained':['job.json','input.json','discovery-scope.json','candidates.sqlite','decisions.sqlite',
+            'retained':['job.json','input.json','discovery-scope.json','candidates.sqlite',
+                str(cache_path(root,json.loads((root/'job.json').read_text()))) if (root/'job.json').exists() else 'decisions.sqlite',
                 'candidate-classifications.json','tutor-research-candidates.json','fetches/*/crawl.json',
                 'fetches/*/audit.json','nonempty fetch error logs','source checkout awaiting PR review'],
             'note':'Reusable caches, full source checkpoints, budget reservations and final exports are preserved.'}
@@ -303,15 +390,21 @@ def watch(root, owner, monitor):
     job=json.loads((root/'job.json').read_text())
     status=json.loads((root/'status.json').read_text()) if (root/'status.json').exists() else {}
     process=subprocess_status(owner)
-    terminal=status.get('phase') in ('complete','deadline','budget_reached','api_unavailable') or time.time()>=job['deadlineUnix']
+    producer_live = bool(job.get('refreshContext') and job.get('contextOwnerLabel') and subprocess_status(job['contextOwnerLabel']))
+    terminal=status.get('phase') in ('deadline','budget_reached','api_unavailable') or time.time()>=job['deadlineUnix'] or (status.get('phase')=='complete' and not producer_live)
     previous=json.loads((root/'monitor.json').read_text()) if (root/'monitor.json').exists() else {}
     recoveries=previous.get('recoveries',0)
-    report={'observedAt':now_iso(),'processLive':process,'phase':status.get('phase'),'terminal':terminal,'status':status,'recoveries':recoveries}
+    report={'observedAt':now_iso(),'processLive':process,'contextProducerLive':producer_live,'phase':status.get('phase'),'terminal':terminal,'status':status,'recoveries':recoveries}
     atomic_json(root/'monitor.json',report)
     if terminal and not process:
         cleanup(root)
         import subprocess
         subprocess.run(['launchctl','bootout',f'gui/{os.getuid()}/{monitor}'],capture_output=True,timeout=10)
+    elif not terminal and not process and status.get('phase')=='complete' and producer_live:
+        import subprocess
+        subprocess.run(['launchctl','kickstart',f'gui/{os.getuid()}/{owner}'],capture_output=True,timeout=10)
+        report['action']='refresh_saved_context'
+        atomic_json(root/'monitor.json',report)
     elif not terminal and not process and recoveries<3:
         import subprocess
         subprocess.run(['launchctl','kickstart',f'gui/{os.getuid()}/{owner}'],capture_output=True,timeout=10)

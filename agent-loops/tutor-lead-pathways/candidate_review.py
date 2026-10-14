@@ -109,7 +109,7 @@ def assess(row, pages, towns, known_urls, scope=None):
     return dict(result, subjectHints=hints, status='tutor_candidate' if hints else 'subject_review')
 
 
-def page_index(frontiers, crawl_roots=()):
+def page_index(frontiers, crawl_roots=(), fetch_roots=()):
     pages = {}
     def observe(url, evidence, proof):
         final = admitted(evidence.get('url'))
@@ -124,21 +124,28 @@ def page_index(frontiers, crawl_roots=()):
         observed = dict(evidence, replaySource=proof)
         pages[url] = observed
         pages[final] = observed
-    for root in crawl_roots:
-        for path in sorted((root / 'crawls').glob('*/crawl.json')):
-            try:
-                if path.is_symlink() or path.stat().st_size > 20 * 1024 * 1024:
-                    continue
-                raw = path.read_bytes()
-                checkpoint = json.loads(raw)
-                digest = hashlib.sha256(raw).hexdigest()
-                for row in checkpoint.get('results', []):
-                    evidence = row.get('evidence') or {}
-                    url = admitted(row.get('node', {}).get('url'))
-                    if not row.get('error'):
-                        observe(url, evidence, {'checkpoint': str(path), 'sha256': digest})
-            except (OSError, ValueError, TypeError, AttributeError):
+    checkpoints = [path for root in crawl_roots for path in (root / 'crawls').glob('*/crawl.json')]
+    checkpoints += [path for root in fetch_roots for path in (root / 'fetches').glob('*/crawl.json')]
+    checkpoints += [path for root in fetch_roots for path in (root / 'fetches').glob('*/audit.json')]
+    for path in sorted(checkpoints):
+        try:
+            if path.is_symlink() or path.stat().st_size > 20 * 1024 * 1024:
                 continue
+            raw = path.read_bytes()
+            checkpoint = json.loads(raw)
+            digest = hashlib.sha256(raw).hexdigest()
+            rows = checkpoint.get('results', [])
+            if path.name == 'audit.json':
+                rows = [{'node': {'url': row.get('url')}, 'error': row.get('error'),
+                         'evidence': {k: row.get(k) for k in ('url', 'title', 'text', 'links')}}
+                        for row in checkpoint.get('pages', [])]
+            for row in rows:
+                evidence = row.get('evidence') or {}
+                url = admitted(row.get('node', {}).get('url'))
+                if not row.get('error'):
+                    observe(url, evidence, {'checkpoint': str(path), 'sha256': digest})
+        except (OSError, ValueError, TypeError, AttributeError):
+            continue
     for path in frontiers:
         db = sqlite3.connect(Path(path).resolve().as_uri() + '?mode=ro', uri=True)
         db.row_factory = sqlite3.Row

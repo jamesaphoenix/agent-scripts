@@ -63,6 +63,65 @@ class InventoryQualificationTests(unittest.TestCase):
         self.assertEqual(outcome(decision,[{'text':'Primary school lessons. '+filler+' Piano tuition.'}],SCOPE),
                          'subject_review')
 
+    def test_followon_uses_the_existing_ledger_without_a_new_allowance_or_paid_replay(self):
+        with tempfile.TemporaryDirectory() as directory:
+            base=Path(directory);root=base/'followon';root.mkdir()
+            scope=dict(SCOPE,schemaVersion=1,authorization={'instruction':'English and maths tutors','recordedAt':'2026-10-14T08:40:00Z'})
+            (root/'discovery-scope.json').write_text(json.dumps(scope));(root/'crawler').write_text('test')
+            candidate={'name':'Jane Smith','status':'research'};(root/'input.json').write_text(json.dumps([candidate]))
+            authorization={'instruction':'Allocate another $10-$20 for classification etc.',
+                           'recordedAt':'2026-10-14T08:40:00Z','additionalCapCents':1000}
+            calls=[]
+            def transport(payload):calls.append(payload);return response()
+            shared=RealCache(base/'shared.sqlite',['Amersham'],transport=transport,cap_nano=10000000000,
+                prior_exposure_cents=10000,additional_authorization=authorization,
+                question_set=owned_questions(['Amersham'],scope),prompt_version='bucks-owned-candidate-v2')
+            shared.classify(input_evidence(candidate,[]));before=shared.summary()
+            config=shared.db.execute('SELECT value FROM decision_config WHERE id=1').fetchone()[0];shared.close()
+            legacy=RealCache(base/'legacy.sqlite',['Amersham']);legacy.close()
+            job={'input':str(root/'input.json'),'scope':str(root/'discovery-scope.json'),'crawler':str(root/'crawler'),
+                 'legacyCache':str(base/'legacy.sqlite'),'frontiers':[],'crawlRoots':[],'towns':['Amersham'],
+                 'deadlineUnix':time.time()+30,'authorizedDeadline':'test','authorization':authorization,
+                 'sharedCache':{'path':str(base/'shared.sqlite'),'configurationSha256':__import__('hashlib').sha256(config.encode()).hexdigest()}}
+            for field in ('input','scope','crawler'):job[field+'Sha256']=file_hash(Path(job[field]))
+            (root/'job.json').write_text(json.dumps(job))
+            def factory(*args,**kwargs):return RealCache(*args,transport=transport,**kwargs)
+            with patch('qualify_inventory.DecisionsCache',side_effect=factory):run(root);run(root)
+            self.assertEqual(len(calls),1)
+            self.assertEqual(json.loads((root/'status.json').read_text())['decisions'],before)
+            self.assertFalse((root/'decisions.sqlite').exists())
+
+    def test_observed_owned_pages_are_fetched_once_and_classified_together(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory)
+            scope=dict(SCOPE,schemaVersion=1,authorization={'instruction':'English and maths tutors','recordedAt':'2026-10-14T08:40:00Z'})
+            (root/'discovery-scope.json').write_text(json.dumps(scope));(root/'crawler').write_text('test')
+            candidate={'name':'Jane Smith','website':'https://jane.example/','status':'research'}
+            (root/'input.json').write_text(json.dumps([candidate]))
+            legacy=RealCache(root/'legacy.sqlite',['Amersham']);legacy.close()
+            job={'input':str(root/'input.json'),'scope':str(root/'discovery-scope.json'),'crawler':str(root/'crawler'),
+                 'legacyCache':str(root/'legacy.sqlite'),'frontiers':[],'crawlRoots':[],'towns':['Amersham'],
+                 'deadlineUnix':time.time()+100000,'authorizedDeadline':'test','expandOwnedContext':True,
+                 'authorization':{'instruction':'Allocate another $10-$20 for classification etc.',
+                     'recordedAt':'2026-10-14T08:40:00Z','additionalCapCents':1000}}
+            for field in ('input','scope','crawler'):job[field+'Sha256']=file_hash(Path(job[field]))
+            (root/'job.json').write_text(json.dumps(job))
+            calls=[];fetches=[];stamp=[time.time()]
+            def transport(payload):calls.append(payload);return response()
+            def factory(*args,**kwargs):return RealCache(*args,transport=transport,**kwargs)
+            def fetcher(job,root,row):
+                url=row['url'];fetches.append(url)
+                return {'url':url,'text':'I offer maths tuition in Amersham. My own teaching and contact information.',
+                        'links':[{'url':'https://jane.example/about','anchor':'About'},
+                                 {'url':'https://jane.example/contact','anchor':'Contact'}] if url.endswith('/') else []}
+            def advance():stamp[0]+=100;return stamp[0]
+            with patch('qualify_inventory.DecisionsCache',side_effect=factory),patch('qualify_inventory.fetch',side_effect=fetcher), \
+                 patch('qualify_inventory.page_index',return_value={}),patch('qualify_inventory.time.time',side_effect=advance):
+                run(root);run(root)
+            self.assertEqual(fetches,['https://jane.example/','https://jane.example/about','https://jane.example/contact'])
+            self.assertEqual(len(calls),1)
+            self.assertEqual(json.loads((root/'status.json').read_text())['counts'],{'tutor_research_candidate':1})
+
     def test_durable_batch_resumes_without_paid_replays_and_survives_a_bad_fetch(self):
         with tempfile.TemporaryDirectory() as directory:
             root=Path(directory)

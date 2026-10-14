@@ -279,6 +279,14 @@ An article shared by several tutors is provenance, not a shared person identity.
 Current availability and consent remain unverified; all entries remain ineligible
 for outreach. No additional source fetch or search is performed by this reader.
 
+Website research exports can recognise an advertised business name inside a
+decorated search title, or without its legal suffix or trailing tuition-business
+location. The shorter name must appear verbatim as whole words in both an owned
+page title segment and the owned text. Multiple possible names stay held; full
+person names and first-name-only holds remain intact. This affects offline
+publication only: original candidates, paid requests and qualification thresholds
+are unchanged.
+
 Owned directory context also supports UKTutors, TutorDex, TutorExtra and
 FindTutors adverts and public profiles. Newly supported pages require a matching
 canonical URL as well as the successful body-hash receipt. FindTutors advert IDs

@@ -24,6 +24,31 @@ PHONE = re.compile(r'(?<!\d)(?:\+44|0)[\d ().-]{8,22}\d(?!\d)')
 AMBIGUOUS_TOWNS = {'burnham', 'haddenham', 'penn', 'sands', 'bourton', 'denham'}
 
 
+def owned_name(candidate, pages, towns):
+    original = candidate.get('name', '').strip()
+    text = normalize_name(' '.join(p['text'] for p in pages))
+    def literal(value):
+        value = normalize_name(value)
+        return len(value.split()) >= 2 and bool(re.search(r'(?<!\w)' + re.escape(value) + r'(?!\w)', text))
+    if literal(original):
+        return original
+    choices = re.split(r'\s*[|:]\s*', original)
+    choices.append(re.sub(r'\s+(?:ltd\.?|limited|llp|llc)$', '', original, flags=re.I))
+    # Strip a location only from an advertised tuition-business label. A town
+    # that happens to be a person's surname must not shorten their identity.
+    for town in towns:
+        shorter = re.sub(r'\s+' + re.escape(town) + r'$', '', original, flags=re.I)
+        if shorter != original and re.search(r'\btutor\w*\b|\btuition\b', shorter, re.I):
+            choices.append(shorter)
+    titles = {normalize_name(part) for p in pages
+              for part in re.split(r'\s*[|:\u2013\u2014]\s*', p.get('title') or '')}
+    found = {normalize_name(value): value.strip() for value in choices
+             if literal(value) and normalize_name(value) in titles}
+    if len(found) != 1:
+        raise ValueError('Owned identity needs extraction or review')
+    return next(iter(found.values()))
+
+
 def settled_decision(db, stored, candidate, pages, question_set, scope):
     from qualify_inventory import input_evidence, VERSION
     row = db.execute('SELECT * FROM decision_requests WHERE key=?', (stored.get('decisionKey'),)).fetchone()
@@ -81,9 +106,7 @@ def extract_profile(key, candidate, pages, index, scope, towns):
         if source_host(hostname):
             raise ValueError('Directory text cannot identify one tutor')
         text = ' '.join(p['text'] for p in replayed)
-        name = candidate.get('name', '').strip()
-        if len(normalize_name(name).split()) < 2 or normalize_name(name) not in normalize_name(text):
-            raise ValueError('Owned identity needs extraction or review')
+        name = owned_name(candidate, replayed, towns)
         places = [t for t in [*towns, 'Buckinghamshire', 'Bucks', 'Milton Keynes']
                   if re.search(r'(?<!\w)' + re.escape(t) + r'(?!\w)', text, re.I)]
         qualified = [t for t in places if t.casefold() not in AMBIGUOUS_TOWNS]

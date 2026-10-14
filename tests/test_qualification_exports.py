@@ -53,6 +53,29 @@ class QualificationExportTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'locality'):
             extract_profile('key', self.candidate, [page], {page['url']: page}, SCOPE, ['Amersham'])
 
+    def test_search_title_decoration_and_legal_suffix_need_owned_title_corroboration(self):
+        page = dict(self.page, title='Home | Jane Smith Tuition')
+        for label in ['Registration | Jane Smith Tuition', 'Jane Smith Tuition Ltd', 'Jane Smith Tuition Amersham']:
+            with self.subTest(label=label):
+                row = extract_profile('key', dict(self.candidate, name=label), [page], {page['url']: page}, SCOPE, ['Amersham'])
+                self.assertEqual(row['name'], 'Jane Smith Tuition')
+        with self.assertRaisesRegex(ValueError, 'identity'):
+            extract_profile('key', dict(self.candidate, name='John Brown Tuition Ltd'), [page], {page['url']: page}, SCOPE, ['Amersham'])
+
+    def test_title_fallback_cannot_choose_between_two_named_owners(self):
+        page = dict(self.page, title='Jane Smith Tuition | John Brown Tuition',
+                    text=self.page['text'] + ' John Brown Tuition.')
+        with self.assertRaisesRegex(ValueError, 'identity'):
+            extract_profile('key', dict(self.candidate, name='Jane Smith Tuition | John Brown Tuition'), [page], {page['url']: page}, SCOPE, ['Amersham'])
+
+    def test_identity_match_requires_whole_words_and_retains_full_person_names(self):
+        page = dict(self.page, title='Joann Smith Tuition', text='Joann Smith Tuition. I offer maths tuition in Amersham.')
+        with self.assertRaisesRegex(ValueError, 'identity'):
+            extract_profile('key', dict(self.candidate, name='Ann Smith Tuition'), [page], {page['url']: page}, SCOPE, ['Amersham'])
+        page = dict(self.page, title='Jane Smith', text='Jane Smith. I offer maths tuition in Amersham.')
+        with self.assertRaisesRegex(ValueError, 'identity'):
+            extract_profile('key', dict(self.candidate, name='Jane Smith Amersham'), [page], {page['url']: page}, SCOPE, ['Amersham'])
+
     def test_duplicate_sites_and_existing_exports_are_not_added_again(self):
         row = extract_profile('one', self.candidate, [self.page], self.index, SCOPE, ['Amersham'])
         other = dict(row, candidateId='two', canonicalId='different')

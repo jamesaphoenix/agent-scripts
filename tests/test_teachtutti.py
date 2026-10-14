@@ -1,12 +1,15 @@
 import hashlib
 import json
+import runpy
 from pathlib import Path
 import sys
 import tempfile
+import time
 import unittest
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).parents[1] / 'agent-loops/tutor-lead-pathways'))
-from directory_profiles import admitted_url, exclusion_reason, listing_records, listing_profile_urls, local_directory_link, profile_record
+from directory_profiles import admitted_url, exclusion_reason, listing_records, listing_profile_urls, local_directory_link, profile_record, replay_cached_profiles
 from audit_directory_identities import audit_rows
 
 HOST = 'https://www.teachtutti.co.uk'
@@ -24,6 +27,30 @@ def profile(name='Branavi', town='Milton Keynes', subject='Maths (GCSE)', bio='I
 
 
 class TeachTuttiTests(unittest.TestCase):
+    def test_cli_loaded_dom_uses_the_same_own_subject_fields(self):
+        namespace = runpy.run_path(str(Path(__file__).parents[1] / 'agent-loops/tutor-lead-pathways/directory_profiles.py'),
+                                  run_name='profile_cli_entry_test')
+        row = namespace['profile_record'](profile(), URL)
+        self.assertIsNotNone(row)
+        self.assertEqual(row['services'], ['Maths (GCSE)'])
+
+    def test_cached_cli_misses_recover_without_fetching_or_resetting_counters(self):
+        body = profile().encode()
+        key, digest = hashlib.sha256(URL.encode()).hexdigest(), hashlib.sha256(body).hexdigest()
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / 'receipts').mkdir()
+            (root / 'pages').mkdir()
+            (root / 'pages' / (key + '.html')).write_bytes(body)
+            (root / 'receipts' / (key + '.json')).write_text(json.dumps(
+                {'url': URL, 'sha256': digest, 'status': 200, 'observedAt': '2026-10-14T00:42:00+00:00'}))
+            state = {'seen': [URL], 'records': [], 'queue': [], 'attempts': 9, 'errors': []}
+            with patch('directory_profiles.PageCache.download', side_effect=AssertionError('Unexpected HTTP request')):
+                report = replay_cached_profiles(root, state, time.time() + 60, platform='teachtutti')
+                self.assertEqual(report['recoveredRecords'], 1)
+                replay_cached_profiles(root, state, time.time() + 60, platform='teachtutti')
+            self.assertEqual((state['attempts'], state['seen'], len(state['records'])), (9, [URL], 1))
+
     def test_directory_members_do_not_share_business_or_reward_identity(self):
         from discovery import hold_reason, professional_profile, website_key
         other = HOST + '/tutor/folahan-a-architecture-photoshop-miltonkeynes/'

@@ -834,6 +834,7 @@ def write_profile_exports(root, state, phase='running'):
 def replay_cached_profiles(root, state, deadline, clock=time.time, platform='tutorhunt'):
     """Recover pages missed by an older layout parser, without fetching or resetting counters."""
     sources = {'tutorhunt': ('tutorhunt-profile-name-v2', 'https://www.tutorhunt.com/users/'),
+               'teachtutti': ('teachtutti-own-profile-v1', 'https://www.teachtutti.co.uk/tutor/'),
                'tta': ('tta-public-fields-v1', 'https://thetutorsassociation.wildapricot.org/Sys/PublicProfile/')}
     if platform not in sources:
         raise ValueError('Unsupported cached profile replay source')
@@ -909,6 +910,7 @@ def run(root, seeds, hours, page_limit, target):
         state['discoveryScopeSha256'] = hashlib.sha256((Path(job['seedSourceRun']) / 'discovery-scope.json').read_bytes()).hexdigest() if scope else None
         replay_cached_profiles(root, state, job['deadlineUnix'])
         replay_cached_profiles(root, state, job['deadlineUnix'], platform='tta')
+        replay_cached_profiles(root, state, job['deadlineUnix'], platform='teachtutti')
         cache, robots = PageCache(root), {}
         while state["attempts"] < job["pageLimit"] and time.time() < job["deadlineUnix"]:
             try:

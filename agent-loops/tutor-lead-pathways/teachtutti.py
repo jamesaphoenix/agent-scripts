@@ -26,7 +26,7 @@ def listing_records(document, url):
 
 
 def parse_profile(document, url):
-    from directory_profiles import Node, annotate_advert, public_person
+    from directory_profiles import annotate_advert, public_person
     if not PROFILE_PATH.fullmatch(urlsplit(url).path):
         return None
     headers = [n for n in document.walk() if n.attrs.get('id') == 'npc1']
@@ -50,7 +50,9 @@ def parse_profile(document, url):
         return None
     subjects = []
     for row in tables[0].walk():
-        cells = [n for n in row.children if isinstance(n, Node) and n.tag == 'td'] if row.tag == 'tr' else []
+        # The CLI's DOM class belongs to __main__; imported parsing helpers must
+        # use the node interface rather than require another module's class.
+        cells = [n for n in row.children if getattr(n, 'tag', None) == 'td'] if row.tag == 'tr' else []
         if cells and cells[0].text():
             subjects.append(cells[0].text())
     if not subjects:

@@ -14,9 +14,30 @@ STATUS = STATE / 'fleet-health.json'
 PROJECTS = ['octospark-staging', 'octospark-prod', 'trace-learn-staging', 'trace-learn-prod']
 PUBLIC = ['https://api-staging.octospark.ai/health', 'https://api.octospark.ai/health', 'https://api-staging.tracelearn.app/health', 'https://api.tracelearn.app/health']
 RETIRED = {'grafana', 'prometheus', 'node-exporter', 'promtail', 'loki', 'jaeger', 'langfuse-web', 'langfuse-worker', 'langfuse-postgres', 'langfuse-redis', 'langfuse-clickhouse', 'langfuse-minio'}
+MIGRATED = {
+    'desktop-linux': {'octospark-prod-live', 'octospark-staging-live', 'trace-learn-prod', 'trace-learn-staging'},
+    # CI shares this engine. Only the confirmed legacy staging stack is retired.
+    'colima-ci': {'octospark-staging-live'},
+}
+APPLICATIONS = {'api', 'mcp', 'worker', 'redis', 'cloudsql-proxy'}
+
+
+def studio_containers(context):
+    command = ['docker', '--context', context]
+    ids = subprocess.check_output(command + ['ps', '-aq'], text=True, timeout=5).split()
+    return json.loads(subprocess.check_output(command + ['inspect', *ids], timeout=8)) if ids else []
+
+
+def assert_primary_retired():
+    for context, projects in MIGRATED.items():
+        for container in studio_containers(context):
+            labels = container['Config'].get('Labels') or {}
+            if labels.get('com.docker.compose.project') in projects and labels.get('com.docker.compose.service') in APPLICATIONS and container['State']['Running']:
+                raise RuntimeError('Legacy Studio application is still running: ' + context + ':' + container['Name'])
 
 
 def check():
+    assert_primary_retired()
     # No inputs, credentials, workflow starts or agent invocations in health checks.
     remote = '''import json,subprocess,urllib.request
 from pathlib import Path
@@ -63,19 +84,17 @@ print(json.dumps(dict(telemetry=telemetry,releases=[dict(project=p['project'],re
 
 
 def cleanup_retired():
-    # CI runs on Colima. Cleanup is restricted to the Studio Docker Desktop engine.
-    ids = subprocess.check_output(['docker', '--context', 'desktop-linux', 'ps', '-aq'], text=True, timeout=10).split()
-    containers = json.loads(subprocess.check_output(['docker', '--context', 'desktop-linux', 'inspect', *ids], timeout=10)) if ids else []
     removed = []
-    for container in containers:
-        labels = container['Config'].get('Labels') or {}
-        project = labels.get('com.docker.compose.project')
-        service = labels.get('com.docker.compose.service')
-        obsolete = project in ['trace-learn', 'tx-agent-kit'] and service in RETIRED
-        migrated = project in ['octospark-prod-live', 'octospark-staging-live', 'trace-learn-prod', 'trace-learn-staging'] and service in ['api', 'mcp', 'worker', 'redis', 'cloudsql-proxy', 'otel-collector', 'otel-healthcheck'] and (service in ['otel-collector', 'otel-healthcheck'] or not container['State']['Running'])
-        if obsolete or migrated:
-            subprocess.run(['docker', '--context', 'desktop-linux', 'rm', '-f', container['Id']], check=True, timeout=20, stdout=subprocess.DEVNULL)
-            removed.append(container['Name'])
+    for context, projects in MIGRATED.items():
+        for container in studio_containers(context):
+            labels = container['Config'].get('Labels') or {}
+            project = labels.get('com.docker.compose.project')
+            service = labels.get('com.docker.compose.service')
+            obsolete = context == 'desktop-linux' and project in ['trace-learn', 'tx-agent-kit'] and service in RETIRED
+            migrated = project in projects and service in APPLICATIONS | {'otel-collector', 'otel-healthcheck'} and (service in ['otel-collector', 'otel-healthcheck'] or not container['State']['Running'])
+            if obsolete or migrated:
+                subprocess.run(['docker', '--context', context, 'rm', '-f', container['Id']], check=True, timeout=20, stdout=subprocess.DEVNULL)
+                removed.append(context + ':' + container['Name'])
     return removed
 
 

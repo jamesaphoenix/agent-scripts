@@ -263,6 +263,12 @@ local subject-matching candidate. This preserves the original receipt and never
 requeues an uncertain paid request. Unavailable, conflicting, institutional and
 music-only offers remain held or excluded. Publication replays both existing
 profile context and the new source contracts.
+Tutorperch, Tuitionlist, TeachTutti and Apprentus use the same receipt and
+canonical-page checks with their existing own-field parsers. Apprentus supplies
+the named advert owner's public handle without opening private profiles. A
+directory index's full route must identify Bucks; nearby place-name collisions
+such as Burnham-on-Sea, Wendover in Utah and Towcester do not enter its crawl
+queue. This admission rule is a seed filter, not proof of any tutor's locality.
 
 `keyword_expansion.py` keeps a shared `state/keyword-search.sqlite` alongside the separate paid
 ledger. It generates plain location searches such as `11+ tutor Amersham`, `tutor Amersham`,

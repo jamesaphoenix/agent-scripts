@@ -66,10 +66,14 @@ def profile_context_index(roots, candidates):
         expected = (path.split('/')[-2] if host == 'thetutorsassociation.wildapricot.org' and '/Sys/PublicProfile/' in path
                     else path.rstrip('/').rsplit('/', 1)[-1] if host in {'childcare.co.uk', 'tutorhunt.com'}
                     else path.split('/')[2] if host in {'uktutors.com', 'tutordex.net'} and path.startswith('/tutor/')
-                    else path.rsplit('-', 1)[-1] if host == 'tutorextra.co.uk' and path.startswith('/profile/') else None)
+                    else path.rsplit('-', 1)[-1] if host == 'tutorextra.co.uk' and path.startswith('/profile/')
+                    else path.rstrip('/').rsplit('/', 1)[-1] if host == 'tutorperch.com' and path.startswith('/t/')
+                    else path.rsplit('-', 1)[-1] if host == 'tuitionlist.co.uk' and path.startswith('/tutor/')
+                    else hashlib.sha256(url.encode()).hexdigest() if host == 'teachtutti.co.uk' and path.startswith('/tutor/') else None)
         own_findtutors = host == 'findtutors.co.uk' and bool(re.fullmatch(
             r'/tutor/[a-z0-9-]+\.htm|/(?:tutors-[^/]+|online-[^/]+)/[^/]+-\d+/?', path))
-        if expected is None and not own_findtutors:
+        own_apprentus = host == 'apprentus.co.uk' and path.startswith('/private-lessons/')
+        if expected is None and not (own_findtutors or own_apprentus):
             continue
         key = hashlib.sha256(url.encode()).hexdigest()
         for root in roots:
@@ -85,7 +89,8 @@ def profile_context_index(roots, candidates):
                     continue
                 decoded = decode_page(body, receipt.get('contentType', ''))
                 profile = profile_record(decoded, url)
-                if host in {'uktutors.com', 'tutordex.net', 'tutorextra.co.uk'}:
+                if host in {'uktutors.com', 'tutordex.net', 'tutorextra.co.uk', 'tutorperch.com',
+                            'tuitionlist.co.uk', 'teachtutti.co.uk', 'apprentus.co.uk'}:
                     document = Document(decoded).root
                     canonicals = [n.attrs.get('content') if n.tag == 'meta' else n.attrs.get('href')
                         for n in document.walk() if (n.tag == 'meta' and n.attrs.get('property') == 'og:url')
@@ -97,7 +102,7 @@ def profile_context_index(roots, candidates):
                     expected = advert_person_id(Document(decoded).root, url)
                 if (not profile or profile.get('sourceUrls') != [url]
                         or (own_findtutors and path.startswith('/tutor/') and profile.get('profileRoute') != url)
-                        or (not (own_findtutors and path.startswith('/tutor/')) and str(profile['personId']) != expected)):
+                        or (not own_apprentus and not (own_findtutors and path.startswith('/tutor/')) and str(profile['personId']) != expected)):
                     continue
                 fields = {k: profile.get(k) for k in ('name', 'personId', 'platform', 'localityClaim', 'services',
                     'profileCity', 'profileCounty', 'organization', 'tuitionLevels', 'website', 'locationConflict')}

@@ -97,5 +97,37 @@ class QualificationContextTests(unittest.TestCase):
             save(body.replace(url.encode(), url.replace('64971','999').encode()))
             self.assertEqual(profile_context_index([root],[{'website':url}]), {})
 
+    def test_more_owned_profile_formats_replay_with_their_source_identifiers(self):
+        from test_teachtutti import profile, URL as teach_url
+        from test_apprentus import advert, URL as lesson_url
+        tuition_url = 'https://www.tuitionlist.co.uk/tutor/jane-smith-maths-amersham-1234abcd'
+        perch_url = 'https://tutorperch.com/t/jane-smith-1234'
+        cases = [
+            (teach_url, profile(), hashlib.sha256(teach_url.encode()).hexdigest()),
+            (lesson_url, advert(), 'rebecca.jade'),
+            (perch_url, '<script type="application/ld+json">' + json.dumps({'@type':'ProfilePage',
+                'mainEntity':{'@type':'Person','name':'Jane Smith','jobTitle':'Tutor',
+                              'areaServed':{'name':'Amersham'},'knowsAbout':['English']}}) + '</script>', 'jane-smith-1234'),
+            (tuition_url, '<h1>Jane Smith</h1><section><h2>Subjects and levels</h2><span>Maths</span></section>'
+                '<section><h2>Lesson location</h2><p>Jane Smith is listed in Amersham.</p></section>', '1234abcd')]
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder); (root/'pages').mkdir(); (root/'receipts').mkdir()
+            for url, content, expected in cases:
+                with self.subTest(url=url):
+                    key=hashlib.sha256(url.encode()).hexdigest()
+                    raw=(f'<meta property="og:url" content="{url}">'+content).encode()
+                    (root/'pages'/f'{key}.html').write_bytes(raw)
+                    receipt=root/'receipts'/f'{key}.json'
+                    receipt.write_text(json.dumps({'url':url,'status':200,'sha256':hashlib.sha256(raw).hexdigest()}))
+                    page=profile_context_index([root],[{'website':url}])[url]
+                    self.assertEqual(json.loads(page['text'])['publicProfileFields']['personId'],expected)
+                    self.assertEqual(page['extractionKind'],'public_profile_fields_v2')
+                    self.assertEqual(page['publicContacts']['emails'],[])
+                    # Matching body hashes cannot excuse another owner's canonical URL.
+                    changed=raw.replace(url.encode(),b'https://another-owner.example/')
+                    (root/'pages'/f'{key}.html').write_bytes(changed)
+                    receipt.write_text(json.dumps({'url':url,'status':200,'sha256':hashlib.sha256(changed).hexdigest()}))
+                    self.assertEqual(profile_context_index([root],[{'website':url}]),{})
+
 
 if __name__=='__main__':unittest.main()

@@ -78,6 +78,20 @@ class CandidateReviewTests(unittest.TestCase):
         known = assess(row, [], ['Amersham'], {self.evidence['url']})
         self.assertEqual(known['status'], 'already_in_tutor_export')
 
+    def test_cached_review_checks_long_pages_without_relaxing_music_or_contact_rules(self):
+        decision = self.seed()
+        row = {'name': 'Jane Tutor', 'website': self.evidence['url']}
+        filler = 'Information about my individual lessons. ' * 100
+        page = dict(self.evidence, text=filler + ' I offer maths tuition in Amersham.')
+        result = assess(row, [{'evidence': page, 'decision': decision}], ['Amersham'], set())
+        self.assertEqual(result['status'], 'tutor_candidate')
+        self.assertEqual(result['subjectHints'], ['maths'])
+        self.assertFalse(result['qualifiedContact'])
+        page['text'] = 'Primary school lessons in Amersham. ' + filler + ' Piano tuition.'
+        result = assess(row, [{'evidence': page, 'decision': decision}], ['Amersham'], set())
+        self.assertEqual(result['status'], 'subject_review')
+        self.assertFalse(result['outreachEligible'])
+
     def test_two_profiles_on_one_directory_never_share_a_decision(self):
         self.evidence['url'] = 'https://www.childcare.co.uk/profile/111'
         self.seed()

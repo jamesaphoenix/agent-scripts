@@ -11,7 +11,7 @@ import sqlite3
 from decisions_classifier import MODEL, PROMPT_VERSION, NANO_PER_INPUT_TOKEN, decision_request, decision_text, parse_decision, questions
 from discovery import atomic_json, now_iso, source_host, website_key
 from focused_frontier import admitted, profile_key
-from lead_scope import matching_subjects, load_scope
+from lead_scope import matching_page_subjects, load_scope
 from urllib.parse import urlsplit
 
 
@@ -104,8 +104,8 @@ def assess(row, pages, towns, known_urls, scope=None):
         return dict(result, status='locality_review')
     scope = scope or {'subjects': ['english', 'maths', 'verbal_reasoning', 'non_verbal_reasoning'],
                      'includeElevenPlus': True, 'includePrimaryTutors': True}
-    hints = sorted({subject for p in local for subject in matching_subjects(
-        {'services': [decision_text(p['evidence'])]}, scope)})
+    hints = sorted({subject for p in local for subject in matching_page_subjects(
+        decision_text(p['evidence']), scope)})
     return dict(result, subjectHints=hints, status='tutor_candidate' if hints else 'subject_review')
 
 

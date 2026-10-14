@@ -25,7 +25,7 @@ MAX_OWNERS = 2000
 MAX_BRANCH = 15
 MAX_ROOT = 30
 MAX_HOPS = 2
-ACTIVE = ('pending', 'fetching', 'awaiting_profile_context')
+ACTIVE = ('pending', 'fetching')
 POSITIVE = 'tutor_research_candidate'
 
 
@@ -203,7 +203,7 @@ def link_offers(db, index, scope, towns, seen):
 def refill(root, job, db, scope, index):
     from qualify_inventory import candidate_key
     tables(db)
-    active = db.execute('SELECT count(*) FROM candidates WHERE state IN (?,?,?)', ACTIVE).fetchone()[0]
+    active = db.execute('SELECT count(*) FROM candidates WHERE state IN (?,?)', ACTIVE).fetchone()[0]
     if time.time() >= job['deadlineUnix'] or active >= LOW_WATER:
         return summary(db)
     seen = {website_key(c.get('website') or c.get('sourceUrl'))

@@ -229,7 +229,8 @@ exclusive owner lock, and finished-job cleanup retains checkpoints, exports,
 receipts and all budget evidence.
 
 `qualification_feeder.py` refills the context owner when fewer than 40 candidates
-are active, aiming for 80. It reads saved Maps/organic receipts, verified public
+are ready for classification or fetching, aiming for 80. Delegated profile waits
+do not consume the website crawler's refill capacity. It reads saved Maps/organic receipts, verified public
 profiles' advertised websites and relevant observed links from qualified tutors
 or local subject-matching directories. Search location and directory headings
 are seed hints; every child still needs its own identity, subjects and locality.

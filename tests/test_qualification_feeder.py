@@ -194,5 +194,15 @@ class QualificationFeederTests(unittest.TestCase):
         self.assertEqual(self.db.execute('SELECT count(*) FROM candidates').fetchone()[0], 1)
         self.assertEqual(len(list((root / 'seed-batches').glob('*.json'))), 1)
 
+    def test_delegated_profile_waits_do_not_starve_the_website_crawler(self):
+        self.search()
+        with self.db:
+            for number in range(50):
+                self.db.execute('INSERT INTO candidates(key,candidate,state) VALUES(?,?,?)',
+                    (f'waiting-{number}', json.dumps({'name':'Waiting tutor','website':f'https://www.childcare.co.uk/profile/{number+1}'}), 'awaiting_profile_context'))
+        result = refill(self.root, self.job, self.db, SCOPE, {})
+        self.assertEqual(result['lastRefill']['added'], 3)
+        self.assertEqual(self.db.execute("SELECT count(*) FROM candidates WHERE state='awaiting_profile_context'").fetchone()[0], 50)
+
 
 if __name__ == '__main__': unittest.main()

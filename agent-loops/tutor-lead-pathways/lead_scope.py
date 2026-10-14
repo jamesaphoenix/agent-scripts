@@ -46,22 +46,21 @@ def load_scope(root):
     return value
 
 
-def services_text(row):
-    services = row.get('services', [])
-    if not isinstance(services, list) or len(services) > 100 or any(not isinstance(s, str) or len(s) > 2000 for s in services):
-        return ''
-    text = unicodedata.normalize('NFKC', ' '.join(services))
+def normalize_subject_text(text):
+    text = unicodedata.normalize('NFKC', text)
     text = text.replace('\u2010', '-').replace('\u2011', '-').replace('\u2013', '-')
     return AGE_BAND.sub('', text)
 
 
+def services_text(row):
+    services = row.get('services', [])
+    if not isinstance(services, list) or len(services) > 100 or any(not isinstance(s, str) or len(s) > 2000 for s in services):
+        return ''
+    return normalize_subject_text(' '.join(services))
+
+
 def matching_subjects(row, scope):
     text = services_text(row)
-    matches = []
-    for name in SUBJECTS:
-        candidate = SUBJECTS['non_verbal_reasoning'].sub(' ', text) if name == 'verbal_reasoning' else text
-        if name in scope['subjects'] and SUBJECTS[name].search(candidate):
-            matches.append(name)
     # The identity audit also checks a FindTutors advert's own exam-preparation
     # headline. That verified claim can be absent from its separate subject tags.
     audited_exam_claim = (row.get('elevenPlusServiceClaim') is True
@@ -70,6 +69,22 @@ def matching_subjects(row, scope):
         and any(isinstance(e, dict) and e.get('url') in row.get('sourceUrls', [])
                 and isinstance(e.get('sha256'), str) and re.fullmatch(r'[a-f0-9]{64}', e['sha256'])
                 for e in row['pageEvidence']))
+    return subject_matches(text, scope, audited_exam_claim)
+
+
+def matching_page_subjects(text, scope):
+    """Check a bounded page without treating it as a short contact service field."""
+    if not isinstance(text, str) or len(text) > 256000:
+        return []
+    return subject_matches(normalize_subject_text(text), scope)
+
+
+def subject_matches(text, scope, audited_exam_claim=False):
+    matches = []
+    for name in SUBJECTS:
+        candidate = SUBJECTS['non_verbal_reasoning'].sub(' ', text) if name == 'verbal_reasoning' else text
+        if name in scope['subjects'] and SUBJECTS[name].search(candidate):
+            matches.append(name)
     if scope['includeElevenPlus'] and (ELEVEN_PLUS.search(text) or audited_exam_claim):
         matches.append('eleven_plus')
     if not matches and scope['includePrimaryTutors'] and PRIMARY.search(text) and not MUSIC.search(text):

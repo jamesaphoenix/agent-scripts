@@ -6,7 +6,7 @@ import tempfile
 import unittest
 
 sys.path.insert(0, str(Path(__file__).parents[1] / 'agent-loops/tutor-lead-pathways'))
-from lead_scope import load_scope, matching_subjects, partition_contacts, scope_prompt, inherit_scope, query_priority
+from lead_scope import load_scope, matching_subjects, matching_page_subjects, partition_contacts, scope_prompt, inherit_scope, query_priority
 
 
 SCOPE = {'schemaVersion': 1, 'subjects': ['english', 'maths', 'verbal_reasoning', 'non_verbal_reasoning'],
@@ -50,6 +50,14 @@ class LeadScopeTests(unittest.TestCase):
         self.assertEqual(matching_subjects({'services': ['Primary school piano lessons']}, SCOPE), [])
         self.assertEqual(matching_subjects({'services': ['Primary school', 'Piano']}, SCOPE), [])
         self.assertEqual(matching_subjects({'services': ['Primary school', 'Maths', 'Piano']}, SCOPE), ['maths'])
+
+    def test_page_matching_preserves_contact_field_limits_and_age_band_exclusion(self):
+        text='Lesson information. '*150+' Maths tuition and 11+ preparation.'
+        self.assertEqual(matching_subjects({'services':[text]},SCOPE),[])
+        self.assertEqual(matching_page_subjects(text,SCOPE),['maths','eleven_plus'])
+        self.assertEqual(matching_page_subjects('Lesson information. '*150+' 11+ (secondary)',SCOPE),[])
+        self.assertEqual(matching_page_subjects('Maths '+('x'*256000),SCOPE),[])
+        self.assertEqual(matching_page_subjects(None,SCOPE),[])
 
     def test_verified_own_advert_exam_claim_survives_subject_tag_filtering(self):
         row = {'services': ['French'], 'elevenPlusServiceClaim': True}

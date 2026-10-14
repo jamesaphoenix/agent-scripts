@@ -19,7 +19,7 @@ from decisions_classifier import DecisionsCache, BudgetExhausted, APIUnavailable
 from discovery import atomic_json, file_hash, now_iso
 from focused_frontier import admitted, site_identity
 from focused_run import fetch
-from lead_scope import load_scope, scope_prompt, matching_subjects
+from lead_scope import load_scope, scope_prompt, matching_page_subjects
 from configuration import loaded_source_sha
 
 VERSION = 'bucks-owned-candidate-v2'
@@ -76,9 +76,25 @@ def outcome(decision, pages, scope):
         return 'locality_review'
     if not pages:
         return 'needs_owned_page_review'
-    if not any(matching_subjects({'services': [p.get('text', '')]}, scope) for p in pages):
+    if not any(matching_page_subjects(p.get('text', ''), scope) for p in pages):
         return 'subject_review'
     return 'tutor_research_candidate'
+
+
+def recheck_saved_outcomes(db, scope):
+    """Reapply local disposition rules to settled decisions without API requests."""
+    states = ('uncertain', 'excluded_institution', 'excluded_irrelevant', 'source_to_expand',
+              'outside_area', 'subject_review', 'locality_review', 'needs_owned_page_review',
+              'tutor_research_candidate')
+    placeholders = ','.join('?' for _ in states)
+    rows = db.execute(f'SELECT key,state,evidence,decision FROM candidates '
+                      f'WHERE state IN ({placeholders}) AND decision IS NOT NULL', states).fetchall()
+    with db:
+        for row in rows:
+            state = outcome(json.loads(row['decision']), json.loads(row['evidence'] or '[]'), scope)
+            if state != row['state']:
+                db.execute('UPDATE candidates SET state=?,updated_at=CURRENT_TIMESTAMP WHERE key=?',
+                           (state, row['key']))
 
 
 def create_database(path):
@@ -144,6 +160,7 @@ def run(root):
                     key = hashlib.sha256(json.dumps([candidate.get('name'),candidate.get('website'),candidate.get('sourceUrl'),
                         sorted(candidate.get('identifiers', []))],sort_keys=True).encode()).hexdigest()
                     db.execute('INSERT OR IGNORE INTO candidates(key,candidate) VALUES(?,?)',(key,json.dumps(candidate)))
+            recheck_saved_outcomes(db, scope)
             index = page_index([Path(p) for p in job['frontiers']], [Path(p) for p in job['crawlRoots']])
             # A verified saved observation can resolve a failed fetch without
             # retrying that request or resetting any paid submission.

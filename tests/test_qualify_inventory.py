@@ -1,4 +1,5 @@
 import json
+import sqlite3
 from pathlib import Path
 import sys
 import tempfile
@@ -54,6 +55,14 @@ class InventoryQualificationTests(unittest.TestCase):
         self.assertEqual(outcome(decision,[{'text':'I offer maths tuition in Amersham.'}],SCOPE),'tutor_research_candidate')
         self.assertEqual(outcome(dict(decision,local=.5),[{'text':'Maths tuition.'}],SCOPE),'locality_review')
 
+    def test_subject_check_accepts_long_owned_pages_without_accepting_music_only(self):
+        decision=parse_decision(response())
+        filler='Public information about individual lessons. ' * 100
+        self.assertEqual(outcome(decision,[{'text':filler+' I offer maths and 11+ tuition in Amersham.'}],SCOPE),
+                         'tutor_research_candidate')
+        self.assertEqual(outcome(decision,[{'text':'Primary school lessons. '+filler+' Piano tuition.'}],SCOPE),
+                         'subject_review')
+
     def test_durable_batch_resumes_without_paid_replays_and_survives_a_bad_fetch(self):
         with tempfile.TemporaryDirectory() as directory:
             root=Path(directory)
@@ -100,6 +109,12 @@ class InventoryQualificationTests(unittest.TestCase):
                 run(root)
                 self.assertEqual(len(calls),3)
                 self.assertEqual(json.loads((root/'status.json').read_text())['newAuditedContacts'],0)
+                with sqlite3.connect(root/'candidates.sqlite') as db:
+                    db.execute("UPDATE candidates SET state='subject_review',evidence=?",
+                               (json.dumps([{'url':'https://ready.example/','text':'Lesson information. '*150+' Maths tuition.'}]),))
+                run(root)
+                self.assertEqual(len(calls),3)
+                self.assertEqual(json.loads((root/'status.json').read_text())['counts'],{'tutor_research_candidate':3})
 
 
 if __name__=='__main__':unittest.main()

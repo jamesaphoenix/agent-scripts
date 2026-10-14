@@ -25,8 +25,9 @@ def watch(paid_root, profile_root, baseline, stage_baseline=None, new_only=False
     output = profile_root / 'review/identity-audits' / stamp
     known_sources = {url for row in json.loads(baseline.read_text()) for url in row.get('sourceUrls', [])} if new_only else None
     audited = audit(profile_root, output, None, exclude_source_urls=known_sources)
-    novelty = delta(baseline, output / 'tutors.json', output / 'delta')
-    stage_novelty = delta(stage_baseline, output / 'tutors.json', output / 'this-stage-delta') if stage_baseline else None
+    novelty = delta(baseline, output / 'tutors.json', output / 'delta', profile_root=profile_root)
+    stage_novelty = delta(stage_baseline, output / 'tutors.json', output / 'this-stage-delta',
+                         profile_root=profile_root) if stage_baseline else None
     value = {'observedAt': now_iso(), 'sourceSeedUrls': seeds['urls'], 'audit': audited,
              'delta': novelty, 'outputDirectory': str(output), 'paidCalls': 0,
              'baselineSha256': file_hash(baseline)}

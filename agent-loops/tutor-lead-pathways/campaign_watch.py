@@ -18,6 +18,7 @@ from new_leads import classify_delta, run as publish_delta
 from watch_expansion import watch as audit_progress
 from lead_scope import load_scope, partition_contacts
 from tta_scraper import publish_websites
+from baseline_names import verified_name_overlay
 
 HERE = Path(__file__).resolve().parent
 
@@ -25,10 +26,12 @@ HERE = Path(__file__).resolve().parent
 def aggregate_contacts(root, report):
     scope = load_scope(root)
     baseline = root / 'baseline/contacts.json'
-    known = json.loads(baseline.read_text())
     rows = json.loads((Path(report['outputDirectory']) / 'this-stage-delta/new.json').read_text())
     manifest_path = root / 'manifest.json'
     manifest = json.loads(manifest_path.read_text()) if manifest_path.exists() else {}
+    profile_root = Path(manifest['profileRunDir']) if manifest.get('profileRunDir') else None
+    known, name_proof = verified_name_overlay(json.loads(baseline.read_text()), profile_root)
+    atomic_json(root / 'review/baseline-name-evidence.json', dict(name_proof, baselineSha256=file_hash(baseline)))
     if manifest.get('previousCampaignRoot'):
         previous = Path(manifest['previousCampaignRoot']) / 'exports/additional-contacts.json'
         if file_hash(previous) != manifest['previousAdditionalContactsSha256']:
@@ -38,7 +41,7 @@ def aggregate_contacts(root, report):
     register_report = None
     if (register / 'receipt.json').exists():
         register_report = replay_register(register / 'page.html', register / 'receipt.json', baseline,
-            register / 'contacts', root / 'review/candidates/bda-public-professionals.json')
+            register / 'contacts', root / 'review/candidates/bda-public-professionals.json', baseline_rows=known)
         candidates = json.loads((register / 'contacts/contacts.json').read_text())
         # A register card and a newly collected directory profile may represent
         # the same tutor. Hold name collisions rather than adding both.
@@ -50,7 +53,7 @@ def aggregate_contacts(root, report):
     public_report = None
     if public_reviews.exists():
         public_output = root / 'review/public-contacts'
-        public_report = replay_public_contacts(root, public_reviews, baseline, public_output)
+        public_report = replay_public_contacts(root, public_reviews, baseline, public_output, baseline_rows=known)
         candidates = json.loads((public_output / 'new.json').read_text())
         matches = classify_delta(known + rows, candidates)
         rows.extend(matches['new'])
@@ -63,9 +66,10 @@ def aggregate_contacts(root, report):
         atomic_json(root / 'exports/contacts-outside-subject-scope.json', held)
         atomic_json(root / 'exports/subject-scope-summary.json', subject_scope)
     atomic_json(path, rows)
-    value = publish_delta(baseline, path, root / 'exports/additional-contacts')
+    value = publish_delta(baseline, path, root / 'exports/additional-contacts', profile_root=profile_root)
     return {'delta': value, 'register': register_report, 'publicContacts': public_report, 'export': str(path),
-        'subjectScope': subject_scope}
+        'subjectScope': subject_scope, 'baselineNames': {'verifiedNames': name_proof['verifiedNames'],
+                                                       'frozenBaselineModified': False}}
 
 
 def prepare_classifier(root, job, parent, target, pages, record):

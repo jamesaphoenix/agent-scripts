@@ -73,12 +73,12 @@ def parse_bda(text, receipt):
     return [row for row in unique if names[normalize_name(row['name'])] == 1], held + repeated
 
 
-def replay(page, receipt_path, baseline, output, candidate_artifact=None):
+def replay(page, receipt_path, baseline, output, candidate_artifact=None, baseline_rows=None):
     body, receipt = page.read_bytes(), json.loads(receipt_path.read_text())
     if hashlib.sha256(body).hexdigest() != receipt.get('sha256'):
         raise ValueError('Public register body hash mismatch')
     rows, held = parse_bda(decode_page(body, receipt.get('contentType', 'text/html')), receipt)
-    result = classify_delta(json.loads(baseline.read_text()), rows)
+    result = classify_delta(json.loads(baseline.read_text()) if baseline_rows is None else baseline_rows, rows)
     atomic_json(output / 'contacts.json', rows)
     atomic_json(output / 'held.json', held)
     for key, values in result.items():

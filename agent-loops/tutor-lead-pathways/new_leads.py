@@ -7,6 +7,7 @@ from pathlib import Path
 import urllib.parse
 from audit_directory_identities import normalize_name
 from discovery import atomic_json, file_hash, now_iso, phone_key
+from baseline_names import verified_name_overlay
 
 
 def classify_delta(baseline, current):
@@ -66,8 +67,9 @@ def classify_delta(baseline, current):
     return result
 
 
-def run(baseline_path, current_path, output):
-    result = classify_delta(json.loads(baseline_path.read_text()), json.loads(current_path.read_text()))
+def run(baseline_path, current_path, output, profile_root=None):
+    baseline, name_proof = verified_name_overlay(json.loads(baseline_path.read_text()), profile_root)
+    result = classify_delta(baseline, json.loads(current_path.read_text()))
     for key, rows in result.items():
         atomic_json(output / (key + '.json'), rows)
         path = output / (key + '.csv')
@@ -83,7 +85,9 @@ def run(baseline_path, current_path, output):
     summary = {'observedAt': now_iso(), 'baselineSha256': file_hash(baseline_path),
         'currentSha256': file_hash(current_path), 'newAcceptedResearchIdentities': len(result['new']),
         'knownIdentities': len(result['known']), 'needsBaselineMatchReview': len(result['needsReview']),
-        'outreachEligible': 0}
+        'outreachEligible': 0, 'baselineNamesVerified': name_proof['verifiedNames']}
+    if profile_root is not None:
+        atomic_json(output / 'baseline-name-evidence.json', name_proof)
     atomic_json(output / 'summary.json', summary)
     return summary
 
@@ -93,5 +97,7 @@ if __name__ == '__main__':
     parser.add_argument('--baseline', type=Path, required=True)
     parser.add_argument('--current', type=Path, required=True)
     parser.add_argument('--output-dir', type=Path, required=True)
+    parser.add_argument('--profile-run-dir', type=Path,
+                        help='Replay missing baseline full-name hints from its frozen cached page evidence')
     args = parser.parse_args()
-    print(json.dumps(run(args.baseline, args.current, args.output_dir)))
+    print(json.dumps(run(args.baseline, args.current, args.output_dir, profile_root=args.profile_run_dir)))

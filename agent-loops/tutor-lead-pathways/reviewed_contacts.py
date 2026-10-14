@@ -233,7 +233,7 @@ def verified_contact(root, item):
         'qualification': 'Reviewed public advert or own-site claims. Availability, ownership and consent unverified.'}
 
 
-def replay(root, reviews, baseline, output):
+def replay(root, reviews, baseline, output, baseline_rows=None):
     candidates, held = [], []
     for item in json.loads(reviews.read_text()):
         try:
@@ -257,7 +257,7 @@ def replay(root, reviews, baseline, output):
             held.append(dict(row, holdReason='possible_duplicate_requires_review'))
         else:
             rows.append(row)
-    known = json.loads(baseline.read_text())
+    known = json.loads(baseline.read_text()) if baseline_rows is None else baseline_rows
     # Own-site pages can change paths, protocols and www aliases. Directory
     # profiles must still be matched individually, never by their shared host.
     known_hosts = {host(u) for r in known if r.get('canonicalId', '').startswith('business:') or r.get('website')

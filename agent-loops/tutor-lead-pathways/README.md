@@ -164,6 +164,40 @@ Positive results remain research candidates until owned identities, contact
 routes and duplicate matching are checked. `tutor-research-candidates.json` is
 separate from the audited contact export.
 
+`prepare_qualification_followon.py` prepares a newly authorised context window
+from a completed classification stage. It freezes the current research inventory,
+backs up candidate and fetch states, retains held Decisions submissions and
+references the existing USD10 SQLite ledger through a configuration hash. It
+does not create another paid allowance. The original stage and deadline remain
+unchanged. The new deadline comes from the explicit window authorisation and
+does not move when installation or recovery takes time.
+
+```bash
+python3 agent-loops/tutor-lead-pathways/prepare_qualification_followon.py \
+  --previous state/tutor-qualification-20261014 \
+  --run-dir state/tutor-qualification-20261014-context-12h \
+  --candidates state/tutor-lead-pathways-20261013-extra-12h/exports/businesses.json \
+  --authorization state/bucks-private-tutors-20261014-context-12h/authorization.json \
+  --profile-run-dir state/bucks-private-tutors-20261014-context-12h
+```
+
+The registered `tutor-qualification-20261014-context-12h` owner and its watcher
+run on Studio. Own websites can supply up to three context pages, selected from
+the original URLs and observed links within the same owner. About, teacher,
+contact, locality and tuition pages receive priority. Shared website-builder
+tenants keep separate identities. Existing fetch claims, site counts and
+cooldowns survive stage changes and restarts.
+
+Directory context is delegated to the public-profile worker, preserving that
+worker's host limits. Its saved receipts must pass body-hash and owned-profile
+ID checks before classification uses public fields. Newly discovered local
+profiles are imported only after those checks; known audited source URLs are
+skipped. The watcher checks every fifteen minutes and can refresh a completed
+classification batch while its profile producer is still active. The immutable
+deadline and paid-request holds take precedence. The shared ledger also has an
+exclusive owner lock, and finished-job cleanup retains checkpoints, exports,
+receipts and all budget evidence.
+
 `keyword_expansion.py` keeps a shared `state/keyword-search.sqlite` alongside the separate paid
 ledger. It generates plain location searches such as `11+ tutor Amersham`, `tutor Amersham`,
 `11 plus tutor High Wycombe` and subject variants for both Google Maps and organic search.

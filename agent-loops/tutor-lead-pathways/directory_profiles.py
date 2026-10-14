@@ -21,7 +21,7 @@ from discovery import tls_context
 from configuration import loaded_source_sha
 from lead_scope import load_scope, query_priority, services_text
 
-HOSTS = {"www.findtutors.co.uk", "tutorperch.com", "www.childcare.co.uk", "tutordex.net", "tutorextra.co.uk", "www.uktutors.com", "www.tutorhunt.com", "www.tuitionlist.co.uk", "thetutorsassociation.wildapricot.org"}
+HOSTS = {"www.findtutors.co.uk", "tutorperch.com", "www.childcare.co.uk", "tutordex.net", "tutorextra.co.uk", "www.uktutors.com", "www.tutorhunt.com", "www.tuitionlist.co.uk", "www.teachtutti.co.uk", "thetutorsassociation.wildapricot.org"}
 AGENT = "TutorResearch/1.0"
 BUCKS = {
     "amersham", "amersham on the hill", "aylesbury", "beaconsfield", "bierton", "buckingham",
@@ -86,7 +86,11 @@ def admitted_url(value):
         p = urllib.parse.urlsplit(value)
         if p.scheme != "https" or p.hostname not in HOSTS or p.port not in (None, 443) or p.username or p.password:
             return None
-        if p.hostname == 'thetutorsassociation.wildapricot.org':
+        if p.hostname == 'www.teachtutti.co.uk':
+            from teachtutti import LISTING_PATH, PROFILE_PATH
+            profile = bool(PROFILE_PATH.fullmatch(p.path))
+            allowed = profile or p.path == '/robots.txt' or bool(LISTING_PATH.fullmatch(p.path))
+        elif p.hostname == 'thetutorsassociation.wildapricot.org':
             from tta_scraper import PROFILE_PATH
             profile = bool(PROFILE_PATH.fullmatch(p.path))
             allowed = profile or p.path == '/robots.txt'
@@ -262,6 +266,9 @@ def listing_records(text, url):
     document = Document(text).root
     host = urllib.parse.urlsplit(url).hostname
     rows = []
+    if host == 'www.teachtutti.co.uk':
+        from teachtutti import listing_records as parse_cards
+        return parse_cards(document, url)
     if host == 'www.tuitionlist.co.uk':
         seen = set()
         for card in document.walk():
@@ -352,7 +359,10 @@ def profile_record(text, url):
         return None
     p = urllib.parse.urlsplit(url)
     document = Document(text).root
-    if p.hostname == 'thetutorsassociation.wildapricot.org':
+    if p.hostname == 'www.teachtutti.co.uk':
+        from teachtutti import parse_profile
+        return parse_profile(document, url)
+    elif p.hostname == 'thetutorsassociation.wildapricot.org':
         from tta_scraper import parse_profile
         return parse_profile(document, url)
     elif p.hostname == 'www.tuitionlist.co.uk':
@@ -682,6 +692,11 @@ def local_directory_link(value, source):
     parsed, origin = urllib.parse.urlsplit(value), urllib.parse.urlsplit(source)
     if parsed.hostname != origin.hostname:
         return False
+    if parsed.hostname == 'www.teachtutti.co.uk':
+        from teachtutti import LISTING_PATH
+        # Listing cards queue only local profiles through listing_profile_urls.
+        # Do not follow a nationwide collection of related tutors or subjects.
+        return bool(LISTING_PATH.fullmatch(parsed.path) and parsed.path == origin.path)
     if parsed.hostname == 'thetutorsassociation.wildapricot.org':
         from tta_scraper import PROFILE_PATH
         return bool(PROFILE_PATH.fullmatch(parsed.path))

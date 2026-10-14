@@ -14,6 +14,7 @@ import ssl
 import urllib.error
 import urllib.parse
 import urllib.request
+from teachtutti import PROFILE_PATH as TEACHTUTTI_PROFILE_PATH
 
 UTC = datetime.timezone.utc
 ENDPOINTS = {
@@ -58,9 +59,10 @@ SOURCE_HOSTS = {
     "childcare.co.uk", "bark.com", "yell.com", "schoolguide.co.uk", "cylex-uk.co.uk",
     "yelp.com", "yelp.co.uk", "yelp.ca", "pmt.education", "tutorperch.com",
     "thetutorsassociation.wildapricot.org",
-    "uktutors.com", "tutorextra.co.uk", "tutordex.net", "tuitionlist.co.uk",
+    "uktutors.com", "tutorextra.co.uk", "tutordex.net", "tuitionlist.co.uk", "teachtutti.co.uk",
 }
 PROFILE_PATHS = {
+    "teachtutti.co.uk": TEACHTUTTI_PROFILE_PATH,
     "childcare.co.uk": re.compile(r"^/profile/\d+/?$"),
     "tutorperch.com": re.compile(r"^/t/[a-z0-9]+(?:-[a-z0-9]+)+/?$"),
     "thetutorsassociation.wildapricot.org": re.compile(r"^/Sys/PublicProfile/[1-9]\d{0,15}/6119301$"),

@@ -10,9 +10,9 @@ from pathlib import Path
 import re
 import sqlite3
 import time
-from urllib.parse import urlsplit
+from urllib.parse import urlsplit, unquote_plus
 
-from directory_profiles import admitted_url, decode_page, profile_record, profile_locality_status
+from directory_profiles import admitted_url, BUCKS, CHILDCARE_DISTRICTS, decode_page, profile_record, profile_locality_status
 from discovery import file_hash, now_iso, professional_profile, request_key, source_host, website_key
 from focused_frontier import admitted, link_signals, profile_key, TUTOR
 from keyword_expansion import search_identity, upstream_results
@@ -65,6 +65,37 @@ def directory_entry(url):
     return source_host(urlsplit(url).hostname.removeprefix('www.')) and not (profile_key(url) or professional_profile(url))
 
 
+def local_directory_entry(url):
+    """An index's own route must nominate Bucks, not a nearby-name collision."""
+    parsed = urlsplit(url)
+    path = unquote_plus(parsed.path).casefold().strip('/')
+    town = None
+    if parsed.hostname == 'www.tutorhunt.com':
+        match = re.fullmatch(r'(?:subjects/[a-z0-9-]+/)?locations/([a-z0-9-]+)', path)
+        town = match[1] if match else None
+    elif parsed.hostname == 'www.uktutors.com':
+        match = re.fullmatch(r'tutor-regions/private-(?:[a-z0-9-]+-)?tutors-and-tuition-in-([a-z0-9-]+)', path)
+        town = match[1] if match else None
+    elif parsed.hostname == 'www.childcare.co.uk':
+        match = re.match(r'search/private-tutors/([^/]+)(?:/|$)', path)
+        town = match[1] if match else None
+    elif parsed.hostname == 'tutorextra.co.uk':
+        match = re.fullmatch(r'search/[a-z0-9-]+-lessons-in/([a-z0-9-]+)', path)
+        town = match[1] if match else None
+    elif parsed.hostname == 'www.findtutors.co.uk':
+        match = re.fullmatch(r'(?:[a-z0-9-]+-)?tutors-([a-z0-9-]+)|([a-z0-9-]+)-tutors', path)
+        if match:
+            # A greedy subject prefix must not turn "burnham-on-sea" into
+            # "burnham". Match a full approved location at the route's end.
+            places = {p.replace(' ', '-') for p in BUCKS | {'buckinghamshire', 'bucks'}}
+            return any(path == p + '-tutors' or path.endswith('tutors-' + p) for p in places)
+    else:
+        return False
+    place = town.replace('-', ' ') if town else ''
+    qualified = re.fullmatch(r'(.+?) (?:buckinghamshire|bucks|milton keynes)', place)
+    return place in BUCKS | CHILDCARE_DISTRICTS | {'buckinghamshire', 'bucks'} or bool(qualified and qualified[1] in BUCKS)
+
+
 def search_offers(path, towns, seen):
     if not path or not Path(path).is_file() or Path(path).is_symlink():
         return []
@@ -92,7 +123,7 @@ def search_offers(path, towns, seen):
             if cue < .9:
                 continue
             directory = directory_entry(url)
-            if directory and (local < .8 or not admitted_url(url)):
+            if directory and (not local_directory_entry(url) or not admitted_url(url)):
                 continue
             offers.append({'url': url, 'name': context.get('name') or context.get('title') or urlsplit(url).hostname,
                 'group': 'search:' + row['lane'] + ':' + row['town'], 'parent': 'search:' + row['request_key'],
@@ -189,7 +220,7 @@ def link_offers(db, index, scope, towns, seen):
                     continue
                 cue, local = link_signals(url, {'anchor': anchor}, towns)
                 directory = directory_entry(url)
-                if directory and local < .8:
+                if directory and not local_directory_entry(url):
                     continue
                 if directory and (not admitted_url(url) or not matching_page_subjects(url + ' ' + anchor, scope)):
                     continue

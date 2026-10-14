@@ -11,7 +11,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'agent-loops/tutor-
 from discovery import PaidCache, atomic_json, request_key
 from directory_profiles import profile_record
 from keyword_expansion import SearchIndex
-from qualification_feeder import refill, link_offers, tables, summary
+from qualification_feeder import refill, link_offers, tables, summary, local_directory_entry
 from qualification_seeds import import_batches
 from qualify_inventory import create_database, candidate_key, watch
 from test_tta_scraper import profile as tta_profile
@@ -203,6 +203,20 @@ class QualificationFeederTests(unittest.TestCase):
         result = refill(self.root, self.job, self.db, SCOPE, {})
         self.assertEqual(result['lastRefill']['added'], 3)
         self.assertEqual(self.db.execute("SELECT count(*) FROM candidates WHERE state='awaiting_profile_context'").fetchone()[0], 50)
+
+    def test_directory_route_rejects_nearby_and_foreign_place_collisions(self):
+        for url in ('https://www.tutorhunt.com/subjects/maths/locations/burnham-on-sea/',
+                    'https://www.tutorhunt.com/subjects/eleven-plus/locations/towcester/',
+                    'https://www.tutorhunt.com/subjects/maths/locations/cookham-dean/',
+                    'https://www.findtutors.co.uk/english-tutors-wendover-utah/',
+                    'https://www.uktutors.com/tutor-regions/private-maths-tutors-and-tuition-in-haddenham-cambridgeshire/'):
+            self.assertFalse(local_directory_entry(url), url)
+        for url in ('https://www.tutorhunt.com/subjects/maths/locations/farnham-common/',
+                    'https://www.tutorhunt.com/subjects/maths/locations/burnham-buckinghamshire/',
+                    'https://www.findtutors.co.uk/english-tutors-high-wycombe/?page=2',
+                    'https://www.childcare.co.uk/search/Private-Tutors/High+Wycombe/10-miles/Maths-Tutor',
+                    'https://www.uktutors.com/tutor-regions/private-maths-tutors-and-tuition-in-marlow/'):
+            self.assertTrue(local_directory_entry(url), url)
 
 
 if __name__ == '__main__': unittest.main()

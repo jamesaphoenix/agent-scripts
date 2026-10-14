@@ -2,6 +2,7 @@
 """Observe the profile stage without making provider calls or killing owners."""
 import argparse
 import datetime
+import fcntl
 import json
 import os
 from pathlib import Path
@@ -10,6 +11,29 @@ import subprocess
 import time
 
 from directory_profiles import now, save
+
+
+def cleanup(root):
+    """Clean finished writes while preserving reusable public-source evidence."""
+    with (root / 'owner.lock').open('a') as lock:
+        try:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            return None
+        removed = []
+        for name in ('job.json', 'state.json', 'profiles.json', 'bucks-private-tutors.json',
+                     'bucks-private-tutors.csv', 'status.json'):
+            path = root / (name + '.tmp')
+            if path.is_file() and not path.is_symlink():
+                path.unlink()
+                removed.append(str(path))
+        report = {'completedAt': now(), 'removed': removed,
+                  'retained': [str(root / name) for name in ('job.json', 'state.json', 'profiles.json',
+                      'bucks-private-tutors.json', 'bucks-private-tutors.csv', 'pages', 'receipts',
+                      'seed-batches', 'request-times.json', 'monitor')],
+                  'note': 'Final exports, source receipts, reusable caches and the source checkout awaiting PR review are retained.'}
+        save(root / 'cleanup.json', report)
+        return report
 
 
 def health(status, job, live, current):
@@ -49,7 +73,7 @@ def watch(root, owner_label, monitor_label):
     save(root / "monitor/reports" / (stamp + ".json"), report)
     save(previous, report)
     print(json.dumps(report))
-    if report["stageTerminal"]:
+    if report["stageTerminal"] and live is False and cleanup(root) is not None:
         subprocess.run(["launchctl", "bootout", f"gui/{os.getuid()}/{monitor_label}"], capture_output=True, timeout=10)
 
 

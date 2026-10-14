@@ -1,4 +1,5 @@
 import importlib.util
+import fcntl
 import json
 from pathlib import Path
 import subprocess
@@ -15,6 +16,36 @@ spec.loader.exec_module(monitor)
 
 
 class MonitorTests(unittest.TestCase):
+    def test_terminal_cleanup_removes_only_scratch_and_retains_evidence(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            monitor.save(root / 'job.json', {'deadlineUnix': 2000000000, 'target': 5000})
+            monitor.save(root / 'status.json', {'phase': 'stage_complete', 'observedAt': monitor.now(), 'pid': 123})
+            (root / 'state.json.tmp').write_text('interrupted write')
+            (root / 'profiles.json').write_text('retained evidence')
+            (root / 'status.json.tmp').symlink_to(root / 'profiles.json')
+            with patch.object(monitor.subprocess, 'run', side_effect=[
+                    subprocess.CompletedProcess(['ps'], 1, '', ''),
+                    subprocess.CompletedProcess(['launchctl'], 0, '', '')]) as run:
+                monitor.watch(root, 'com.jud.profile-test', 'com.jud.profile-test-watch')
+            self.assertEqual(run.call_args_list[-1].args[0][1], 'bootout')
+            self.assertFalse((root / 'state.json.tmp').exists())
+            self.assertTrue((root / 'status.json.tmp').is_symlink())
+            self.assertEqual((root / 'profiles.json').read_text(), 'retained evidence')
+            report = json.loads((root / 'cleanup.json').read_text())
+            self.assertEqual(report['removed'], [str(root / 'state.json.tmp')])
+            self.assertIn(str(root / 'pages'), report['retained'])
+
+    def test_terminal_cleanup_waits_for_the_owner_lock(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / 'state.json.tmp').write_text('active write')
+            with (root / 'owner.lock').open('a') as lock:
+                fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                self.assertIsNone(monitor.cleanup(root))
+            self.assertTrue((root / 'state.json.tmp').exists())
+            self.assertFalse((root / 'cleanup.json').exists())
+
     def test_recovery_timeout_is_recorded_without_claiming_a_restart_succeeded(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

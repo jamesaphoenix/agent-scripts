@@ -24,6 +24,7 @@ from configuration import loaded_source_sha
 from qualification_context import cache_path, context_urls, select_urls, select_pages, profile_context_index
 from directory_profiles import admitted_url
 from qualification_exports import publish as publish_structured_profiles
+from qualification_seeds import import_batches as import_website_seeds
 
 VERSION = 'bucks-owned-candidate-v2'
 STOP = False
@@ -185,6 +186,11 @@ def snapshot(root, job, db, cache, phase, reason=None):
         'additionalClassificationCapUsd': job['authorization']['additionalCapCents'] / 100,
         'outreachEligible': 0, 'newAuditedContacts': 0, 'reason': reason,
         'qualification': 'Model-assessed research candidates. Owned identities, contact routes and duplicate matching remain required before audited contact export.'}
+    if db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='website_seed_batches'").fetchone():
+        status['websiteSeeds'] = {'importedCandidates': db.execute(
+            'SELECT coalesce(sum(imported),0) FROM website_seed_batches').fetchone()[0],
+            'skippedExistingOwners': db.execute('SELECT coalesce(sum(skipped),0) FROM website_seed_batches').fetchone()[0],
+            'heldBatches': db.execute("SELECT count(*) FROM website_seed_batches WHERE state='held'").fetchone()[0]}
     atomic_json(root / 'status.json', status)
     return status
 
@@ -223,6 +229,8 @@ def run(root):
                     key = candidate_key(candidate)
                     db.execute('INSERT OR IGNORE INTO candidates(key,candidate) VALUES(?,?)',(key,json.dumps(candidate)))
             import_profile_candidates(db, job, scope)
+            if job.get('expandOwnedContext'):
+                import_website_seeds(root, db)
             recheck_saved_outcomes(db, scope)
             index = page_index([Path(p) for p in job['frontiers']], [Path(p) for p in job['crawlRoots']],
                                [root, *[Path(p) for p in job.get('fetchRoots', [])]])

@@ -2,6 +2,15 @@
 
 ## Automated qualification and contact enrichment
 
+`qualification_seeds.publish` feeds observed public websites into the registered
+qualification owner. Its content-addressed batches live in `website-seeds/`.
+The owner imports each batch once into SQLite, rejects private routes and foreign
+context, and preserves existing owners' decisions and failed fetch holds. Up to
+100 websites per batch and 2,000 new owners per pass are admitted. Names and search
+sources are metadata, never subject or locality proof. Go fetching, Decisions
+requests and final exports use the existing deadline, per-site limits and shared
+classification allowance. Status records imported candidates and rejected batches.
+
 Completed qualification batches now publish structured research profiles under
 `exports/automated-qualification/`. The publisher reconstructs each settled
 Decisions request and usage receipt, replays its owned page context, checks

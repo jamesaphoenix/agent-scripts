@@ -314,6 +314,17 @@ selector, excludes already assessed text, preserves fetch and paid-request holds
 and distinguishes cached inputs from pages still needing a fetch. It cannot
 dispatch requests or create a new authorised window.
 
+`paid_budget_audit.py --history-root <state> --latest-run <last-paid-run>
+--initial-run <first-paid-run>` verifies the complete saved paid history while
+holding every owner lock and checking that its launchd owner is stopped. Provider
+receipt charges are counted once; duplicate unknown submissions keep each original
+reservation. The audit retains the original classification reserve and the first
+owner's full prior floor as an additional baseline buffer. It uses integer nanos
+and rounds available headroom down to whole cents. Changed or incomplete evidence
+blocks reconciliation. The report is saved under the latest run's
+`verification/paid-budget-reconciliation.json`; it never changes a ledger,
+submits requests, or authorises a new run window.
+
 Owned directory context also supports UKTutors, TutorDex, TutorExtra and
 FindTutors adverts and public profiles. Newly supported pages require a matching
 canonical URL as well as the successful body-hash receipt. FindTutors advert IDs

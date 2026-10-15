@@ -70,7 +70,8 @@ def prepare(root, authorization, history, previous_qualification, qualification_
         raise ValueError('Authorised discovery window has ended')
     # A second directory must not mint another bank for this same request.
     for existing in history.glob('tutor-incremental-*/authorization.json'):
-        if json.loads(existing.read_text()).get('requestedAt') == auth['requestedAt']:
+        if ((existing.parent / 'paid.sqlite').exists() and (existing.parent / 'manifest.json').exists()
+                and json.loads(existing.read_text()).get('requestedAt') == auth['requestedAt']):
             raise ValueError('This additional allowance already has an owner')
     prior, archives = archive_history(history)
     if (prior != auth['originalBankExposureCents'] or prior > 10000

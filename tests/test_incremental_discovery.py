@@ -140,6 +140,7 @@ class IncrementalDiscoveryTests(unittest.TestCase):
             original = (old / 'manifest.json').read_bytes()
             authorization = history / 'request.json'
             atomic_json(authorization, self.auth())
+            atomic_json(history / 'tutor-incremental-preflight/authorization.json', json.loads(authorization.read_text()))
             payload = {'keyword': 'private tutor Amersham'}
             archives = [(old, [('maps', payload, None, 'Unknown response')])]
             root = history / 'tutor-incremental-test'

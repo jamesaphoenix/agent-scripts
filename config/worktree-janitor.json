@@ -4,7 +4,7 @@
   "repos": [
     {
       "id": "trace-learn",
-      "path": "~/Desktop/projects/just-understanding-data/trace-learn",
+      "path": "~/Desktop/projects/just-understanding-data/smart-cub-learning",
       "targets": [
         "main",
         "staging"

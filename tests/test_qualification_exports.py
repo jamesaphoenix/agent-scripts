@@ -53,6 +53,20 @@ class QualificationExportTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'locality'):
             extract_profile('key', self.candidate, [page], {page['url']: page}, SCOPE, ['Amersham'])
 
+    def test_unparsed_business_listings_cannot_supply_owned_website_identity(self):
+        for url in ('https://www.infobel.com/en/uk/jane_smith/amersham/businessdetails.aspx',
+                    'https://www.netmums.com/local/l/jane-smith-tuition'):
+            with self.subTest(url=url):
+                page = dict(self.page, url=url)
+                with self.assertRaisesRegex(ValueError, 'Directory text'):
+                    extract_profile('key', dict(self.candidate, website=url), [page], {url: page}, SCOPE, ['Amersham'])
+
+    def test_an_article_headline_cannot_be_published_as_a_tutor_name(self):
+        headline = 'How to Choose the Best Maths Tutor in Amersham'
+        page = dict(self.page, title=headline, text=headline + '. ' + self.page['text'])
+        with self.assertRaisesRegex(ValueError, 'identity'):
+            extract_profile('key', dict(self.candidate, name=headline), [page], {page['url']: page}, SCOPE, ['Amersham'])
+
     def test_search_title_decoration_and_legal_suffix_need_owned_title_corroboration(self):
         page = dict(self.page, title='Home | Jane Smith Tuition')
         for label in ['Registration | Jane Smith Tuition', 'Jane Smith Tuition Ltd', 'Jane Smith Tuition Amersham']:

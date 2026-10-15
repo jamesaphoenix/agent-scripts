@@ -57,7 +57,7 @@ SOURCE_HOSTS = {
     "firsttutors.com", "bdadyslexia.org.uk", "haddenham.net", "chilternchatter.com",
     "directory.familyinfo.buckinghamshire.gov.uk", "findtutors.co.uk", "uk.indeed.com",
     "childcare.co.uk", "bark.com", "yell.com", "schoolguide.co.uk", "cylex-uk.co.uk",
-    "yelp.com", "yelp.co.uk", "yelp.ca", "pmt.education", "tutorperch.com",
+    "yelp.com", "yelp.co.uk", "yelp.ca", "pmt.education", "tutorperch.com", "infobel.com", "netmums.com",
     "thetutorsassociation.wildapricot.org",
     "uktutors.com", "tutorextra.co.uk", "tutordex.net", "tuitionlist.co.uk", "teachtutti.co.uk", "apprentus.co.uk",
 }

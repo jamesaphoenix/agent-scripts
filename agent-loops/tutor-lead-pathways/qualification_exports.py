@@ -26,6 +26,8 @@ AMBIGUOUS_TOWNS = {'burnham', 'haddenham', 'penn', 'sands', 'bourton', 'denham'}
 
 def owned_name(candidate, pages, towns):
     original = candidate.get('name', '').strip()
+    if re.match(r'^(?:how to|why choose|what is|what are)\b', original, re.I):
+        raise ValueError('Owned identity is an article headline, not a tutor name')
     text = normalize_name(' '.join(p['text'] for p in pages))
     def literal(value):
         value = normalize_name(value)

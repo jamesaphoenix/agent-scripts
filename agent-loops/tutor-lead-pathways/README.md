@@ -294,6 +294,11 @@ person names and first-name-only holds remain intact. This affects offline
 publication only: original candidates, paid requests and qualification thresholds
 are unchanged.
 
+Infobel and Netmums are shared listing sources, with a separate identity for
+each route. Their generic page text cannot pass as an owned tutor website;
+publication holds it until an own-record extractor can replay the listing.
+Question-style article headlines also stay held instead of becoming tutor names.
+
 Owned directory context also supports UKTutors, TutorDex, TutorExtra and
 FindTutors adverts and public profiles. Newly supported pages require a matching
 canonical URL as well as the successful body-hash receipt. FindTutors advert IDs

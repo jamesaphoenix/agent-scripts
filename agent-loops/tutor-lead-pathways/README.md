@@ -299,6 +299,21 @@ each route. Their generic page text cannot pass as an owned tutor website;
 publication holds it until an own-record extractor can replay the listing.
 Question-style article headlines also stay held instead of becoming tutor names.
 
+Owned context recognises navigation labels such as Tutoring, Services and Lessons.
+One of the existing three page slots goes to an observed subject or tuition page
+when home/about/contact would otherwise omit the offer. Contact context is kept
+where possible, and an already selected equally specific offer keeps its original
+ordering. Blog and news articles cannot displace the offer slot. No URLs are guessed,
+and this selector does not reset settled decisions or fetch holds.
+If an extra page fails, a still-replayable previous input is reused instead of
+charging for a reduced version of the same context. The failed fetch stays held.
+
+`prepare_context_revisits.py --run-dir <completed-run>` writes an offline proposal
+under `verification/owned-context-revisits-proposal.json`. It uses the actual
+selector, excludes already assessed text, preserves fetch and paid-request holds,
+and distinguishes cached inputs from pages still needing a fetch. It cannot
+dispatch requests or create a new authorised window.
+
 Owned directory context also supports UKTutors, TutorDex, TutorExtra and
 FindTutors adverts and public profiles. Newly supported pages require a matching
 canonical URL as well as the successful body-hash receipt. FindTutors advert IDs

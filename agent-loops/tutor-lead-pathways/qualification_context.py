@@ -5,15 +5,27 @@ from pathlib import Path
 import re
 import sqlite3
 from contextlib import closing
-from urllib.parse import urlsplit
+from urllib.parse import urlsplit, unquote
 
 from candidate_review import candidate_urls, primary_urls
 from directory_profiles import admitted_url, decode_page, Document, profile_record
 from discovery import source_host, website_key
 from focused_frontier import admitted, profile_key
 
-CUE = re.compile(r'\b(?:about|contact|location|teacher|tutor|tuition|lesson|course|service|maths|english|11)\b', re.I)
+CUE = re.compile(r'\b(?:about|contact|locations?|teachers?|tutors?|tutoring|tuition|lessons?|courses?|services?|maths?|english|literacy|phonics|reading|spelling|numeracy|eleven|11)\b', re.I)
 PRIVATE_ROUTE = re.compile(r'/(?:login|signup|register|account|privacy|terms)(?:/|$)', re.I)
+
+
+def offering_rank(url):
+    path = unquote(urlsplit(url).path).casefold()
+    if re.search(r'/(?:blog|blogs|news|articles?|20\d{2})(?:/|$)|/(?:how-to|why-choose|what-is)-', path):
+        return None
+    for priority, terms in enumerate((
+            r'maths?|english|11(?:-?plus)?|eleven-plus|primary|literacy|phonics|reading|spelling|numeracy',
+            r'tutoring|tuition|lessons?', r'services?')):
+        if re.search(r'(?:^|[/_-])(?:' + terms + r')(?:[/_-]|$)', path):
+            return priority
+    return None
 
 
 def context_urls(candidate, index):
@@ -43,7 +55,25 @@ def select_urls(candidate, index):
         path = urlsplit(url).path.lower()
         priority = 0 if url in primary else 1 if re.search(r'about|meet|teacher', path) else 2 if re.search(r'contact|location', path) else 3
         return priority, len(path), url
-    return sorted(context_urls(candidate, index), key=rank)[:3]
+    observed = sorted(context_urls(candidate, index), key=rank)
+    selected = observed[:3]
+    # A home/about/contact trio can omit the actual offer. Reserve one slot
+    # for a directly observed service page while preserving existing ordering
+    # whenever the selected context already covers an equally specific offer.
+    offerings = [url for url in observed if offering_rank(url) is not None]
+    if not offerings:
+        return selected
+    best = min(offerings, key=lambda url: (offering_rank(url), len(urlsplit(url).path), url))
+    if any(offering_rank(url) is not None and offering_rank(url) <= offering_rank(best) for url in selected):
+        return selected
+    replaceable = [url for url in selected if url not in primary]
+    protected_contact = [url for url in replaceable if not re.search(r'contact|location', urlsplit(url).path, re.I)]
+    if protected_contact:
+        replaceable = protected_contact
+    if replaceable:
+        remove = max(replaceable, key=lambda url: (offering_rank(url) is not None, rank(url)))
+        selected[selected.index(remove)] = best
+    return sorted(selected, key=rank)
 
 
 def select_pages(candidate, index):
@@ -55,6 +85,19 @@ def select_pages(candidate, index):
         if len(pages) == 3:
             break
     return pages
+
+
+def fallback_pages(candidate, prior, index):
+    """Keep a replayable paid input when an additional context fetch fails."""
+    owner = website_key(candidate.get('website') or candidate.get('sourceUrl'))
+    if owner and prior and len(prior) <= 3 and all(
+            website_key(page.get('url')) == owner
+            and (saved := index.get(page.get('url')))
+            and saved.get('replaySource')
+            and saved.get('text') == page.get('text')
+            and saved.get('title') == page.get('title') for page in prior):
+        return prior
+    return select_pages(candidate, index)
 
 
 def profile_context_index(roots, candidates):

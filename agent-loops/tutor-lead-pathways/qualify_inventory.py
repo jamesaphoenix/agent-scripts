@@ -21,7 +21,7 @@ from focused_frontier import admitted, site_identity
 from focused_run import fetch
 from lead_scope import load_scope, scope_prompt, matching_page_subjects, matching_subjects
 from configuration import loaded_source_sha
-from qualification_context import cache_path, context_urls, select_urls, select_pages, profile_context_index
+from qualification_context import cache_path, context_urls, select_urls, select_pages, fallback_pages, profile_context_index
 from directory_profiles import admitted_url, exclusion_reason, profile_locality_status
 from qualification_exports import publish as publish_structured_profiles
 from qualification_seeds import import_batches as import_website_seeds, pending_batches
@@ -373,7 +373,8 @@ def run(root):
                             delegated_profiles.append(urls[0])
                             with db:db.execute("UPDATE candidates SET state='awaiting_profile_context',decision=NULL,evidence=NULL,error='Delegated to the registered public-profile worker' WHERE key=?",(row['key'],))
                             continue
-                        base_pages[row['key']] = pages
+                        base_pages[row['key']] = (fallback_pages(candidate, json.loads(row['evidence'] or '[]'), index)
+                                                  if job.get('expandOwnedContext') else pages)
                         pending_fetches.append((row,urls[0]))
                 progress()
             publish_profile_seeds(job,delegated_profiles)
@@ -437,7 +438,7 @@ def run(root):
                         pages = observed_pages(candidate)
                         missing = missing_context(candidate)
                         if job.get('expandOwnedContext') and missing:
-                            base_pages[row['key']] = pages
+                            base_pages[row['key']] = fallback_pages(candidate, json.loads(row['evidence'] or '[]'), index)
                             pending_fetches.append((row,missing[0]))
                             with db:db.execute("UPDATE candidates SET state='pending',evidence=? WHERE key=?",(json.dumps(pages),row['key']))
                         else:

@@ -127,19 +127,33 @@ class InventoryQualificationTests(unittest.TestCase):
                      'recordedAt':'2026-10-14T08:40:00Z','additionalCapCents':1000}}
             for field in ('input','scope','crawler'):job[field+'Sha256']=file_hash(Path(job[field]))
             (root/'job.json').write_text(json.dumps(job))
-            calls=[];fetches=[];stamp=[time.time()]
+            calls=[];fetches=[];stamp=[time.time()];index={}
             def transport(payload):calls.append(payload);return response()
             def factory(*args,**kwargs):return RealCache(*args,transport=transport,**kwargs)
             def fetcher(job,root,row):
                 url=row['url'];fetches.append(url)
+                if url.endswith('/tutoring'):
+                    raise ValueError('Additional service page unavailable')
                 return {'url':url,'text':'I offer maths tuition in Amersham. My own teaching and contact information.',
+                        'replaySource':{'checkpoint':'/fixture/crawl.json','sha256':'a'*64},
                         'links':[{'url':'https://jane.example/about','anchor':'About'},
                                  {'url':'https://jane.example/contact','anchor':'Contact'}] if url.endswith('/') else []}
             def advance():stamp[0]+=100;return stamp[0]
             with patch('qualify_inventory.DecisionsCache',side_effect=factory),patch('qualify_inventory.fetch',side_effect=fetcher), \
-                 patch('qualify_inventory.page_index',return_value={}),patch('qualify_inventory.time.time',side_effect=advance):
+                 patch('qualify_inventory.page_index',return_value=index),patch('qualify_inventory.time.time',side_effect=advance):
                 run(root);run(root)
-            self.assertEqual(fetches,['https://jane.example/','https://jane.example/about','https://jane.example/contact'])
+                self.assertEqual(len(calls),1)
+                index['https://jane.example/']['links'].append({'url':'https://jane.example/tutoring','anchor':'Tutoring'})
+                with sqlite3.connect(root/'candidates.sqlite') as db:
+                    db.execute("UPDATE candidates SET state='pending'")
+                run(root)
+                self.assertEqual(len(calls),1)
+                with sqlite3.connect(root/'candidates.sqlite') as db:
+                    self.assertEqual(db.execute("SELECT state FROM fetch_claims WHERE url LIKE '%/tutoring'").fetchone()[0],'held')
+                    db.execute("UPDATE candidates SET state='pending'")
+                run(root)
+            self.assertEqual(fetches,['https://jane.example/','https://jane.example/about','https://jane.example/contact',
+                                     'https://jane.example/tutoring'])
             self.assertEqual(len(calls),1)
             self.assertEqual(json.loads((root/'status.json').read_text())['counts'],{'tutor_research_candidate':1})
 

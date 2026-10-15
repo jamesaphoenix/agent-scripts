@@ -8,10 +8,62 @@ import unittest
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'agent-loops/tutor-lead-pathways'))
-from qualification_context import context_urls, select_pages, profile_context_index, cache_path
+from qualification_context import context_urls, select_urls, select_pages, fallback_pages, profile_context_index, cache_path
 
 
 class QualificationContextTests(unittest.TestCase):
+    def test_an_observed_tuition_page_gets_a_slot_beside_home_and_contact(self):
+        url = 'https://jane.example/'
+        index = {url: {'url': url, 'links': [
+            {'url': url + 'about', 'anchor': 'About'},
+            {'url': url + 'contact', 'anchor': 'Contact'},
+            {'url': url + 'tutoring', 'anchor': 'Tutoring'},
+            {'url': 'https://another.example/tuition', 'anchor': 'Tuition'}]}}
+        self.assertEqual(select_urls({'website': url}, index), [url, url + 'contact', url + 'tutoring'])
+
+    def test_existing_selection_order_stays_stable_without_a_new_offering_page(self):
+        url = 'https://jane.example/'
+        index = {url: {'url': url, 'links': [
+            {'url': url + 'about', 'anchor': 'About'},
+            {'url': url + 'contact', 'anchor': 'Contact'},
+            {'url': url + 'blog/how-to-choose-maths-tuition', 'anchor': 'Maths tuition guide'},
+            {'url': url + 'login/tuition', 'anchor': 'Tuition login'}]}}
+        self.assertEqual(select_urls({'website': url}, index), [url, url + 'about', url + 'contact'])
+
+    def test_one_offering_slot_does_not_displace_an_already_selected_subject_page(self):
+        url = 'https://jane.example/'
+        candidate = {'website': url, 'sourceUrl': url + 'maths-tuition'}
+        index = {url: {'url': url, 'links': [
+            {'url': url + 'about', 'anchor': 'About'},
+            {'url': url + 'contact', 'anchor': 'Contact'},
+            {'url': url + 'english-tuition', 'anchor': 'English tuition'}]}}
+        self.assertEqual(select_urls(candidate, index), [url, url + 'maths-tuition', url + 'about'])
+
+    def test_plural_navigation_labels_can_nominate_owned_offering_pages(self):
+        url = 'https://jane.example/'
+        for label in ('Tutoring', 'Services', 'Lessons', 'Courses', 'Literacy', 'Phonics'):
+            with self.subTest(label=label):
+                target = url + label.casefold()
+                index = {url: {'links': [{'url': target, 'anchor': label}]}}
+                self.assertIn(target, context_urls({'website': url}, index))
+
+    def test_a_specific_tuition_page_displaces_a_generic_services_index(self):
+        url = 'https://jane.example/'
+        index = {url: {'url': url, 'links': [
+            {'url': url + 'about', 'anchor': 'About'},
+            {'url': url + 'services', 'anchor': 'Services'},
+            {'url': url + 'tutoring', 'anchor': 'Tutoring'}]}}
+        self.assertEqual(select_urls({'website': url}, index), [url, url + 'about', url + 'tutoring'])
+
+    def test_fallback_cannot_reuse_changed_text_or_another_owners_page(self):
+        url = 'https://jane.example/'
+        page = {'url': url, 'title': 'Jane', 'text': 'Current offer', 'replaySource': {'sha256': 'a' * 64}}
+        foreign = dict(page, url='https://other.example/')
+        index = {url: page, foreign['url']: foreign}
+        for prior in ([dict(page, text='Superseded offer')], [foreign]):
+            with self.subTest(prior=prior):
+                self.assertEqual(fallback_pages({'website': url}, prior, index), [page])
+
     def test_enrichment_uses_observed_owned_links_and_keeps_profile_and_tenant_boundaries(self):
         candidate={'website':'https://jane.example/'}
         index={'https://jane.example/':{'url':'https://jane.example/','links':[

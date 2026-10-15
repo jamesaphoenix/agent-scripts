@@ -1182,6 +1182,138 @@
         ]
       },
       "notes": "Explicit extra twelve-hour window requested 13 October 2026. Activate only after the original 23:43:51 UTC deadline and sealed owners; finish 14 October 11:43:51 UTC (12:43 BST). Prioritise 11+ and private academic tutors in Bucks/Milton Keynes. Carry forward USD100 lifetime budget, all uncertain holds, the existing USD3 Decisions reserve and cumulative four-million SDK token admission ceiling. No fresh classifier allowance or outreach. Inherit raw evidence, semantic query ledger, original baseline and contact exports. Add at most 12000 public fetch attempts within 32000 cumulative. Native health checks every fifteen minutes and terminal scratch cleanup; retain source awaiting PR review."
+    },
+    {
+      "id": "tutor-incremental-20261015-12h",
+      "name": "tutor-incremental-20261015-12h",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.tutor-incremental-20261015-12h",
+      "schedule": "request-anchored twelve-hour pass, 15 October 21:17:40 to 16 October 09:17:40 UTC",
+      "requiresOpServiceAccount": true,
+      "opServiceAccountSource": "profile-or-keychain",
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
+        "command": [
+          "bash",
+          ".worktrees/tutor-campaign-20261013-12h/agent-loops/tutor-lead-pathways/install-incremental.sh",
+          "run",
+          "tutor-incremental-20261015-12h",
+          "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts"
+        ]
+      },
+      "notes": "Explicit additional USD50 and new twelve-hour window. New discovery bank only, old USD100 ledger and all uncertain reservations preserved. Existing separate USD10 Decisions cache reused; no SDK turns or Anthropic key. Bucks and Milton Keynes independent academic tutors only. Go crawler, public profiles, Maps and organic query seeding, source yield and SHA256 reuse. No outreach or purchases. Native fifteen-minute checks preserve deadline and budgets across recovery. Clean task scratch on completion; retain exports, evidence, caches, ledgers and source awaiting PR review."
+    },
+    {
+      "id": "tutor-incremental-20261015-12h-watch",
+      "name": "tutor-incremental-20261015-12h health checks",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.tutor-incremental-20261015-12h-watch",
+      "schedule": "every fifteen minutes until 16 October 09:17:40 UTC",
+      "requiresOpServiceAccount": false,
+      "opServiceAccountSource": null,
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
+        "command": [
+          "bash",
+          ".worktrees/tutor-campaign-20261013-12h/agent-loops/tutor-lead-pathways/install-incremental.sh",
+          "watch",
+          "tutor-incremental-20261015-12h",
+          "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts"
+        ]
+      },
+      "notes": "Explicit additional USD50 and new twelve-hour window. New discovery bank only, old USD100 ledger and all uncertain reservations preserved. Existing separate USD10 Decisions cache reused; no SDK turns or Anthropic key. Bucks and Milton Keynes independent academic tutors only. Go crawler, public profiles, Maps and organic query seeding, source yield and SHA256 reuse. No outreach or purchases. Native fifteen-minute checks preserve deadline and budgets across recovery. Clean task scratch on completion; retain exports, evidence, caches, ledgers and source awaiting PR review."
+    },
+    {
+      "id": "tutor-qualification-20261015-extra50-12h",
+      "name": "tutor-qualification-20261015-extra50-12h",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.tutor-qualification-20261015-extra50-12h",
+      "schedule": "request-anchored twelve-hour pass, 15 October 21:17:40 to 16 October 09:17:40 UTC",
+      "requiresOpServiceAccount": true,
+      "opServiceAccountSource": "profile-or-keychain",
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
+        "command": [
+          "bash",
+          ".worktrees/tutor-campaign-20261013-12h/agent-loops/tutor-lead-pathways/install-qualification.sh",
+          "run",
+          "tutor-qualification-20261015-extra50-12h",
+          "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts"
+        ]
+      },
+      "notes": "Explicit additional USD50 and new twelve-hour window. New discovery bank only, old USD100 ledger and all uncertain reservations preserved. Existing separate USD10 Decisions cache reused; no SDK turns or Anthropic key. Bucks and Milton Keynes independent academic tutors only. Go crawler, public profiles, Maps and organic query seeding, source yield and SHA256 reuse. No outreach or purchases. Native fifteen-minute checks preserve deadline and budgets across recovery. Clean task scratch on completion; retain exports, evidence, caches, ledgers and source awaiting PR review."
+    },
+    {
+      "id": "tutor-qualification-20261015-extra50-12h-watch",
+      "name": "tutor-qualification-20261015-extra50-12h health checks",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.tutor-qualification-20261015-extra50-12h-watch",
+      "schedule": "every fifteen minutes until 16 October 09:17:40 UTC",
+      "requiresOpServiceAccount": false,
+      "opServiceAccountSource": null,
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
+        "command": [
+          "bash",
+          ".worktrees/tutor-campaign-20261013-12h/agent-loops/tutor-lead-pathways/install-qualification.sh",
+          "watch",
+          "tutor-qualification-20261015-extra50-12h",
+          "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts"
+        ]
+      },
+      "notes": "Explicit additional USD50 and new twelve-hour window. New discovery bank only, old USD100 ledger and all uncertain reservations preserved. Existing separate USD10 Decisions cache reused; no SDK turns or Anthropic key. Bucks and Milton Keynes independent academic tutors only. Go crawler, public profiles, Maps and organic query seeding, source yield and SHA256 reuse. No outreach or purchases. Native fifteen-minute checks preserve deadline and budgets across recovery. Clean task scratch on completion; retain exports, evidence, caches, ledgers and source awaiting PR review."
+    },
+    {
+      "id": "bucks-private-tutors-20261015-extra50-12h",
+      "name": "bucks-private-tutors-20261015-extra50-12h",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.bucks-private-tutors-20261015-extra50-12h",
+      "schedule": "request-anchored twelve-hour pass, 15 October 21:17:40 to 16 October 09:17:40 UTC",
+      "requiresOpServiceAccount": false,
+      "opServiceAccountSource": null,
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
+        "command": [
+          "bash",
+          ".worktrees/tutor-campaign-20261013-12h/agent-loops/tutor-lead-pathways/install-directory-profiles.sh",
+          "run",
+          "bucks-private-tutors-20261015-extra50-12h",
+          "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts"
+        ]
+      },
+      "notes": "Explicit additional USD50 and new twelve-hour window. New discovery bank only, old USD100 ledger and all uncertain reservations preserved. Existing separate USD10 Decisions cache reused; no SDK turns or Anthropic key. Bucks and Milton Keynes independent academic tutors only. Go crawler, public profiles, Maps and organic query seeding, source yield and SHA256 reuse. No outreach or purchases. Native fifteen-minute checks preserve deadline and budgets across recovery. Clean task scratch on completion; retain exports, evidence, caches, ledgers and source awaiting PR review."
+    },
+    {
+      "id": "bucks-private-tutors-20261015-extra50-12h-watch",
+      "name": "bucks-private-tutors-20261015-extra50-12h health checks",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.bucks-private-tutors-20261015-extra50-12h-watch",
+      "schedule": "every fifteen minutes until 16 October 09:17:40 UTC",
+      "requiresOpServiceAccount": false,
+      "opServiceAccountSource": null,
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
+        "command": [
+          "bash",
+          ".worktrees/tutor-campaign-20261013-12h/agent-loops/tutor-lead-pathways/install-directory-profiles.sh",
+          "watch",
+          "bucks-private-tutors-20261015-extra50-12h",
+          "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts"
+        ]
+      },
+      "notes": "Explicit additional USD50 and new twelve-hour window. New discovery bank only, old USD100 ledger and all uncertain reservations preserved. Existing separate USD10 Decisions cache reused; no SDK turns or Anthropic key. Bucks and Milton Keynes independent academic tutors only. Go crawler, public profiles, Maps and organic query seeding, source yield and SHA256 reuse. No outreach or purchases. Native fifteen-minute checks preserve deadline and budgets across recovery. Clean task scratch on completion; retain exports, evidence, caches, ledgers and source awaiting PR review."
     }
   ]
 }

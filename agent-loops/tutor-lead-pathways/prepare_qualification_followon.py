@@ -13,6 +13,8 @@ import tempfile
 from discovery import atomic_json, file_hash, now_iso
 from qualification_context import cache_path
 
+ADDITIONAL_DISCOVERY_INSTRUCTION = 'My suggestion is have another $50 of budget and go find more tutors for the next 12 hours plz.'
+
 
 def prepare(previous, output, candidates, authorization, profile_root):
     previous, output = previous.resolve(), output.resolve()
@@ -21,7 +23,12 @@ def prepare(previous, output, candidates, authorization, profile_root):
     auth = json.loads(authorization.read_text())
     start = datetime.datetime.fromisoformat(auth['requestedAt'])
     deadline = datetime.datetime.fromisoformat(auth['deadline'])
-    if (auth.get('instruction') != 'Yes, start the new pass' or start.tzinfo is None or deadline.tzinfo is None
+    approved = auth.get('instruction') == 'Yes, start the new pass'
+    if auth.get('instruction') == ADDITIONAL_DISCOVERY_INSTRUCTION:
+        from incremental_discovery import validate_authorization
+        validate_authorization(auth)
+        approved = True
+    if (not approved or start.tzinfo is None or deadline.tzinfo is None
             or deadline-start != datetime.timedelta(hours=12)):
         raise ValueError('The new pass requires its explicit twelve-hour authorisation')
     with (previous/'run.lock').open('a') as lock:

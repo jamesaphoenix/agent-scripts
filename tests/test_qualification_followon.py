@@ -44,6 +44,14 @@ class QualificationFollowonTests(unittest.TestCase):
                 self.assertEqual(states,{'missing':'pending','review':'pending','uncertain-paid':'decision_held'})
                 self.assertEqual(db.execute('SELECT state,error,started_at FROM fetch_claims').fetchone(),('held','403',123))
             with self.assertRaises(ValueError):prepare(parent,child,inventory,auth,base/'profiles')
+            instruction = 'My suggestion is have another $50 of budget and go find more tutors for the next 12 hours plz.'
+            auth.write_text(json.dumps({'instruction':instruction,'requestedAt':start.isoformat(),
+                'deadline':(start+datetime.timedelta(hours=12)).isoformat(),
+                'additionalDiscoveryCents':5000,'previousDiscoveryCapCents':10000,'combinedDiscoveryCapCents':15000}))
+            new_job=prepare(parent,base/'additional-discovery-pass',inventory,auth,base/'new-profiles')
+            self.assertEqual(new_job['sharedCache'],job['sharedCache'])
+            self.assertEqual(new_job['authorizedDeadline'],job['authorizedDeadline'])
+            self.assertEqual(before,((parent/'job.json').read_bytes(),ledger.read_bytes()))
 
 
 if __name__=='__main__':unittest.main()

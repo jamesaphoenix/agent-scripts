@@ -10,6 +10,7 @@ import re
 import socket
 import subprocess
 import sys
+import time
 
 RUN = Path('/Users/jamesphoenix/render-tmp/smart-cub-refresh-20261016')
 APP = RUN / 'revision/smart-cub/apps/prototypes/founder-videos'
@@ -23,6 +24,9 @@ HELPERS = {'scripts/render-teaching-corrections.ts': RENDERER_SHA,
            'scripts/render-batch-support.ts': '4d42133281a2d224db5c37e861ba69f6fc995fc011259407467486e3d68cf72e'}
 STATUS = RUN / 'workflow/teaching-final-five-dispatch-status.json'
 NODE = '/opt/homebrew/opt/node@22/bin/node'
+PREDECESSOR_IDS = ['v3-y6-select-pronoun-form-wide', 'v3-y6-select-pronoun-form-tall',
+                   'v3-y6-expand-common-abbreviation-wide', 'v3-y6-expand-common-abbreviation-tall']
+PREDECESSOR_GRAPH = '7a362e17ab32876fbced3b1e17ec92f091c769f890fd35228a30da69e170b190'
 
 
 def sha(path):
@@ -71,14 +75,91 @@ def preflight():
     temporary = Path(subprocess.check_output([NODE, '-p', 'require("node:os").tmpdir()'], text=True).strip())
     host_lease = temporary / 'smart-cub-founder-render.lock'
     assert not host_lease.exists(), 'Shared render lease requires ownership reconciliation: ' + str(host_lease)
+    subprocess.run([str(RUN / '.venv/bin/python'), '-B', str(RUN / 'workflow/render_tmpdir.py')], check=True)
     return {'manifestSha256': MANIFEST_SHA, 'rendererSha256': RENDERER_SHA,
             'stagedFilesVerified': 17, 'voiceProofsVerified': len(data['voiceProofs']),
             'selection': 'final-five', 'helperHashes': HELPERS, 'sharedLeasePath': str(host_lease)}
 
 
+def process_alive(pid):
+    try:
+        os.kill(pid, 0)
+        return True
+    except ProcessLookupError:
+        return False
+
+
+def predecessor_receipts(project):
+    result = []
+    for identity in PREDECESSOR_IDS:
+        receipt_path = project / 'out' / (identity + '.source-receipt.json')
+        receipt = json.loads(receipt_path.read_text())
+        assert receipt['sourceSnapshot'] == PREDECESSOR_GRAPH
+        assert receipt['selection'] == 'follow-up-pair'
+        assert receipt['selectedCompositionIds'] == PREDECESSOR_IDS
+        output = receipt['output']
+        assert output['path'] == 'out/' + identity + '.mp4'
+        media = project / output['path']
+        assert media.stat().st_size == output['bytes'] and sha(media) == output['sha256']
+        result.append({'id': identity, 'media': str(media), 'sha256': output['sha256'],
+                       'bytes': output['bytes'], 'receipt': str(receipt_path),
+                       'receiptSha256': sha(receipt_path)})
+    return result
+
+
+def wait_for_predecessor(state):
+    deadline = time.monotonic() + 7200
+    status = RUN / 'workflow/teaching-follow-up-dispatch-status.json'
+    while True:
+        previous = json.loads(status.read_text())
+        if previous['state'] == 'halted':
+            raise ValueError('Follow-up renderer halted; explicit reconciliation required')
+        if previous['state'] == 'complete_rendered_needs_review':
+            assert previous['exitCode'] == 0 and previous['manifestSha256'] == '660f7f438ce6f0222f996c95a4f9a324c953d0aeb0cf76dd6fbc9722f2ac32bc'
+            if not any(process_alive(previous[key]) for key in ('pid', 'renderControllerPid')):
+                project = RUN / 'teaching-repairs/pronoun-style-lab'
+                outputs = predecessor_receipts(project)
+                canonical = Path(subprocess.check_output(['/usr/bin/getconf', 'DARWIN_USER_TEMP_DIR'], text=True).strip())
+                lease = canonical / 'smart-cub-founder-render.lock'
+                cleanup = None
+                if lease.exists():
+                    owner_path = lease / 'owner.json'
+                    raw = owner_path.read_bytes()
+                    owner = json.loads(raw)
+                    assert owner['pid'] == previous['renderControllerPid'] and not process_alive(owner['pid'])
+                    assert owner['host'] == socket.gethostname() and owner['cwd'] == str(APP)
+                    assert [path.name for path in lease.iterdir()] == ['owner.json']
+                    archive = RUN / 'workflow/teaching-final-five-predecessor-lease-owner.json'
+                    with archive.open('xb') as stream:
+                        stream.write(raw)
+                        stream.flush()
+                        os.fsync(stream.fileno())
+                    assert owner_path.read_bytes() == raw and not process_alive(owner['pid'])
+                    owner_path.unlink()
+                    lease.rmdir()
+                    cleanup = {'ownerArchive': str(archive), 'sha256': sha(archive),
+                               'removedOnlyProvenDeadPredecessorLease': True}
+                proof = {'at': now(), 'sourceSnapshot': PREDECESSOR_GRAPH, 'outputs': outputs,
+                         'predecessorParentsExited': True, 'deadLeaseCleanup': cleanup,
+                         'canonicalLeasePath': str(lease), 'publicationApproval': False}
+                target = RUN / 'workflow/teaching-final-five-predecessor-proof.json'
+                with target.open('x') as stream:
+                    json.dump(proof, stream, indent=2)
+                    stream.write('\n')
+                    stream.flush()
+                    os.fsync(stream.fileno())
+                return {'predecessorProof': str(target), 'predecessorProofSha256': sha(target)}
+        if time.monotonic() > deadline:
+            raise TimeoutError('Follow-up predecessor did not finish within two hours')
+        state.update(state='waiting-for-follow-up', predecessorState=previous['state'], checkedAt=now())
+        save(state)
+        time.sleep(20)
+
+
 def main():
-    proof = preflight()
+    assert re.sub(r'[^a-z0-9]', '', socket.gethostname().split('.')[0].lower()) == 'jamessmacstudio'
     if '--check' in sys.argv:
+        proof = preflight()
         print(json.dumps({'state': 'preflight_verified', **proof}))
         return
     STATUS.parent.mkdir(exist_ok=True)
@@ -88,11 +169,15 @@ def main():
             previous = json.loads(STATUS.read_text())
             if previous.get('state') in ['halted', 'complete_rendered_needs_review']:
                 raise ValueError('Explicit reconciliation required before restarting a finished correction job')
-        state = {'state': 'starting', 'pid': os.getpid(), 'startedAt': now(), **proof,
+        state = {'state': 'waiting-for-follow-up', 'pid': os.getpid(), 'startedAt': now(),
                  'project': str(PROJECT), 'qualityApproved': False, 'paidCalls': 0,
                  'jobs': 1, 'workers': 4, 'nice': 10}
         save(state)
         try:
+            predecessor = wait_for_predecessor(state)
+            proof = preflight()
+            state.update(state='starting', **proof, **predecessor)
+            save(state)
             child = subprocess.Popen([NODE, '--import', 'tsx', str(RUNNER / 'scripts/render-teaching-corrections.ts'),
                                       '--project', str(PROJECT), '--selection', 'final-five', '--execute'], cwd=APP)
             state.update(state='rendering', renderControllerPid=child.pid)

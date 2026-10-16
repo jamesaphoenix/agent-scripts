@@ -10,7 +10,7 @@ import unittest
 sys.path.insert(0, str(Path(__file__).parents[1] / 'agent-loops/tutor-lead-pathways'))
 from discovery import atomic_json
 from reviewed_contacts import replay
-from pdf_adverts import inspect_advert, pdf_advert_unit
+from pdf_adverts import MAX_PDF_BYTES, inspect_advert, pdf_advert_unit
 
 
 def fixture_pdf(path):
@@ -96,6 +96,32 @@ class PdfAdvertTests(unittest.TestCase):
             report = self.replay(root, [dict(item, pdfPage=2), item])
             self.assertEqual(report['held'], 1)
             self.assertEqual(report['newResearchContacts'], 1)
+
+    def test_a_seventeen_megabyte_newsletter_keeps_original_body_and_advert_proof(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            page, receipt, item = self.fixture(root)
+            with page.open('ab') as stream:
+                stream.write(b'\n%' + b' ' * 17000000 + b'\n')
+            saved = json.loads(receipt.read_text())
+            saved['sha256'] = hashlib.sha256(page.read_bytes()).hexdigest()
+            atomic_json(receipt, saved)
+            updated = inspect_advert(root, page, receipt, 1, item['bounds'], page.parent / 'large-jane-unit')
+            for key in ('name', 'nameQuote', 'localityClaim', 'localityQuote', 'services',
+                        'email', 'phone', 'reviewer', 'reviewedAt'):
+                updated[key] = item[key]
+            self.assertEqual(self.replay(root, [updated])['newResearchContacts'], 1)
+            self.assertEqual(updated['visualReview']['pdfSha256'], saved['sha256'])
+            self.assertNotIn('alex@example.net', updated['unitText'])
+
+    def test_documents_above_the_finite_pdf_limit_are_rejected_before_poppler(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            page, _, item = self.fixture(root)
+            with page.open('r+b') as stream:
+                stream.truncate(MAX_PDF_BYTES + 1)
+            with self.assertRaisesRegex(ValueError, 'bounded public PDF'):
+                pdf_advert_unit(page, item)
 
     def test_missing_or_changed_visual_evidence_is_held(self):
         with tempfile.TemporaryDirectory() as tmp:

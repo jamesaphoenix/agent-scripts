@@ -159,3 +159,10 @@ Blocked or held requests, unchanged final pages, directory members and other
 tenants do not gain retries. Articles, advice, reviews and tag/category archives
 cannot take the reserved offer slot. The state records `refreshedOwnedContexts`
 separately from profile refreshes; original receipts and spending limits remain.
+
+Cached newsletter adverts retain the complete original PDF response and its
+receipt. The PDF review helper accepts documents up to 20 MiB, including the
+17 MB October-November Penn newsletter. Each advert still needs a bounded page
+rectangle, matching rendered image and source hashes, complete extracted text,
+literal contact details and duplicate review. A reduced or rewritten PDF cannot
+stand in for the downloaded response.

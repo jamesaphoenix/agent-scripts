@@ -8,6 +8,8 @@ import subprocess
 
 from discovery import atomic_json, file_hash
 
+MAX_PDF_BYTES = 20 * 1024 * 1024
+
 
 def normal(value):
     return ' '.join(value.split())
@@ -27,7 +29,7 @@ def pdf_advert_unit(page, item):
             or any(type(n) is not int or not 0 <= n <= 2000 for n in bounds)
             or not bounds[2] or not bounds[3]):
         raise ValueError('Expected a bounded PDF page and rectangle in points')
-    if page.stat().st_size > 16000000 or not page.read_bytes().startswith(b'%PDF-'):
+    if page.stat().st_size > MAX_PDF_BYTES or not page.read_bytes().startswith(b'%PDF-'):
         raise ValueError('Expected a bounded public PDF document')
     info = command(['pdfinfo', '-f', str(number), '-l', str(number), str(page)])
     pages = re.search(r'^Pages:\s+(\d+)\s*$', info, re.M)
@@ -53,7 +55,7 @@ def source_files(root, item):
     if receipt_path.stat().st_size > 64000 or file_hash(receipt_path) != item['receiptSha256']:
         raise ValueError('PDF receipt hash or size mismatch')
     receipt = json.loads(receipt_path.read_text())
-    if (receipt.get('status') != 200 or page.stat().st_size > 16000000
+    if (receipt.get('status') != 200 or page.stat().st_size > MAX_PDF_BYTES
             or file_hash(page) != receipt.get('sha256')
             or receipt.get('contentType', '').split(';')[0].strip() != 'application/pdf'):
         raise ValueError('PDF body, response or content type mismatch')

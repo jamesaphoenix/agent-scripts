@@ -1446,6 +1446,26 @@
         ]
       },
       "notes": "User explicitly requested fixing the script, another ten hours and checks every thirty minutes. No additional money authorised: use the original USD50 paid.sqlite, retaining USD0.56 conservative exposure and USD49.44 remaining at handoff, plus the existing USD10 Decisions cache. No new paid bank, SDK turns, Anthropic key or outreach. Empty results are neutral; engine/query errors pause their tactic; Maps and plain organic have reserved slots. Account/billing errors and uncertain submissions remain binding stops. Preserve immutable old windows, all receipts, source caches, scope and branch caps. Final native cleanup removes only task scratch and retains unmerged review work."
+    },
+    {
+      "id": "tutor-agent-reviews-20261016",
+      "name": "Wake the existing tutor conversation for actual agent reviews",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.tutor-agent-reviews-20261016",
+      "schedule": "minutes 00 and 30 until 16 October 18:50:02 UTC, plus a final review",
+      "requiresOpServiceAccount": false,
+      "opServiceAccountSource": null,
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
+        "command": [
+          "bash",
+          ".worktrees/tutor-agent-reviews-20261016/agent-loops/tutor-lead-pathways/install-agent-reviews.sh",
+          "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts"
+        ]
+      },
+      "notes": "James clarified that the assistant must inspect the run every thirty minutes. Queue review prompts into the same existing Codex conversation, not another agent. Use pinned SSH to the MacBook app-server and record delivery receipts separately from model-written review acknowledgements. Actual reviews require the MacBook/app-server awake; do not claim delayed or unacknowledged reviews were completed. Retain snapshots for missed slots. No new paid discovery bank, model override, SDK reset or Anthropic key. Stop delivery after the original deadline/final audit grace and retain evidence."
     }
   ]
 }

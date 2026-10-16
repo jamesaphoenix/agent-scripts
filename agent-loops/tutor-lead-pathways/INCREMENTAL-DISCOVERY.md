@@ -68,3 +68,22 @@ preserving its old job, deadline, records and fetch receipts. It refuses live or
 nonempty parents. The new profile and qualification stages retain reusable
 context and their shared Decisions bank, with all three native monitors set to
 1,800 seconds. Final cleanup retains paid evidence and source awaiting PR review.
+
+## Actual agent reviews
+
+The native health probes are separate from James's request for the assistant to
+inspect the run every thirty minutes. `agent_review_dispatch.py` queues prompts
+into the existing Codex conversation at minutes 00 and 30. It does not start a
+new agent, use an SDK turn or change the discovery budget. The Studio owns the
+schedule and uses pinned SSH to invoke the MacBook's existing Codex queue.
+
+Each slot keeps a source snapshot and a delivery receipt. An accepted queue
+message is not a completed review. Only the model writes `reviews/<slot>.json`
+with its actual inspection time, findings and actions. An uncertain delivery is
+held rather than resubmitted. The last prompt requests a final result and cleanup
+audit after the original deadline; delivery retires within a bounded grace period.
+
+The current conversation is hosted on the MacBook. That Mac and its app-server
+must remain available for these reviews to execute. The Studio crawler continues
+independently when the MacBook sleeps. Missing or delayed agent reviews remain
+visible in the saved receipts and snapshots, without claiming they happened.

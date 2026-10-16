@@ -12,6 +12,9 @@ class SuccessorTests(unittest.TestCase):
  def test_derived_fixed_pair_waits_cloze_and_uses_separate_release(self):
   m=self.module('derived-word-spacing');c=m.config();self.assertEqual(c['predecessor']['selection'],'cloze-context');self.assertEqual(c['job']['compositionIds'],['v3-y6-form-derived-word-wide','v3-y6-form-derived-word-tall']);self.assertEqual(c['job']['sourceFingerprint'],'545e8182b9aef0b426483ca1abacec5ef44b1696dc793e030b5e8af26b96535e')
   self.assertIn('derived-word-source-successor-release-20261016.json',Path(m.__file__).read_text());self.assertNotIn('ordinary-teaching-source-successors-release-20261016.json',Path(m.__file__).read_text())
+ def test_cloze_v2_fixed_pair_follows_derived_without_mutating_v1_release(self):
+  m=self.module('cloze-context-v2');c=m.config();self.assertEqual(c['predecessor']['selection'],'derived-word-spacing');self.assertEqual(c['job']['compositionIds'],['v3-y6-complete-context-cloze-wide','v3-y6-complete-context-cloze-tall']);self.assertEqual(c['job']['sourceFingerprint'],'19c69b88714b2d3170d0b0befc3546648e17c4afd005ce92dfbf5b0fd15918a9')
+  self.assertIn('cloze-v2-source-successor-release-20261016.json',Path(m.__file__).read_text());self.assertNotIn('ordinary-teaching-source-successors-release-20261016.json',Path(m.__file__).read_text())
  def test_config_tamper_refused(self):
   m=self.module('transfer-ticket')
   with mock.patch.object(m,'CONFIG_SHA','wrong'):

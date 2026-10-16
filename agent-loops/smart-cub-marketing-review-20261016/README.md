@@ -5,7 +5,9 @@ One task-owned Studio queue observes all 130 finished marketing pairs using the 
 at a time, leaving one process slot for the separately orchestrated teaching review.
 
 Install only this registered job with `scripts/install-launchd-tasks.sh --task smart-cub-marketing-review-20261016`.
-The job runs once at load, with no KeepAlive or schedule. It waits for both exact frozen-source
+The installer copies only this task and its secret helper into the Studio agent-runtime tree,
+so launchd does not need access to the macOS Desktop-protected authoring checkout. The job runs
+once at load, with no KeepAlive or schedule. It waits for both exact frozen-source
 render receipts, verifies encoded hashes, and keeps durable status under
 `~/render-tmp/smart-cub-refresh-20261016/workflow/marketing-review-dispatch-status.json`.
 The official reviewer reuses current exact advisory caches and refuses unresolved paid jobs.

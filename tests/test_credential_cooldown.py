@@ -9,6 +9,7 @@ from unittest.mock import patch
 sys.path.insert(0, str(Path(__file__).parents[1] / 'agent-loops/tutor-lead-pathways'))
 import launch
 import qualify_inventory
+from incremental_discovery import endpoint_probe_pending
 from discovery import atomic_json
 
 
@@ -57,6 +58,17 @@ class CredentialCooldownTests(unittest.TestCase):
                         patch.object(qualify_inventory,'STOP',False),patch.object(qualify_inventory.time,'sleep') as sleep:
                     qualify_inventory.resident(root)
                 self.assertEqual(batches.call_count,1);sleep.assert_not_called()
+
+    def test_regular_discovery_waits_for_the_current_probe_source(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);probe=root/'probe';probe.mkdir()
+            atomic_json(root/'endpoint-probe-priority.json',{'probeRoot':str(probe),'sourceSha':'b'*40})
+            atomic_json(probe/'status.json',{'loadedSourceSha':'a'*40,'phase':'complete'})
+            self.assertTrue(endpoint_probe_pending(root))
+            atomic_json(probe/'status.json',{'loadedSourceSha':'b'*40,'phase':'running'})
+            self.assertTrue(endpoint_probe_pending(root))
+            atomic_json(probe/'status.json',{'loadedSourceSha':'b'*40,'phase':'complete'})
+            self.assertFalse(endpoint_probe_pending(root))
 
 
 if __name__=='__main__':unittest.main()

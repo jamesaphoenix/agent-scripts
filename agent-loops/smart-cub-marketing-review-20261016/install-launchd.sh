@@ -19,7 +19,7 @@ import plistlib,sys
 path,script,root,label=sys.argv[1:]
 with open(path,'wb') as stream:
  plistlib.dump({'Label':label,'ProgramArguments':['/bin/zsh',script],
-  'RunAtLoad':True,'KeepAlive':False,'ProcessType':'Background','LowPriorityIO':True,
+  'RunAtLoad':True,'KeepAlive':False,'ProcessType':'Standard','LowPriorityIO':False,
   'StandardOutPath':root+'/evidence/marketing-review-dispatch-stdout.log',
   'StandardErrorPath':root+'/evidence/marketing-review-dispatch-stderr.log'},stream)
 PY

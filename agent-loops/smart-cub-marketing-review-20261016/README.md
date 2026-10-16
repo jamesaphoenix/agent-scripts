@@ -24,3 +24,8 @@ agent judgements and a fresh exact-version ledger inventory remain required.
 Retain output clips, review receipts, budget ledger, judgement notes, logs and status. After the
 phase ends, unload this label and remove its installed task-owned plist. Do not stop another job
 or delete active render checkpoints. Remove this dated registry entry only after the phase ends.
+
+Scheduling uses Standard process policy and normal I/O priority, with explicit nice 10 and the
+authorised concurrency limits. Do not add Background or LowPriorityIO throttling to these
+user-requested media jobs. Task-local live corrections use supported taskpolicy -B on verified
+own process trees; do not restart a paid request or change global host settings.

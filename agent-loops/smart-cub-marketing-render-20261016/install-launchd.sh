@@ -13,7 +13,7 @@ import plistlib,sys
 path,script,root,label=sys.argv[1:]
 with open(path,'wb') as stream:
  plistlib.dump({'Label':label,'ProgramArguments':['/bin/bash',script],
-  'RunAtLoad':False,'KeepAlive':False,'ProcessType':'Background','LowPriorityIO':True,
+  'RunAtLoad':False,'KeepAlive':False,'ProcessType':'Standard','LowPriorityIO':False,
   'StandardOutPath':root+'/evidence/marketing-render-dispatch-stdout.log',
   'StandardErrorPath':root+'/evidence/marketing-render-dispatch-stderr.log'},stream)
 PY

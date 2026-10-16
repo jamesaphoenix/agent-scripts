@@ -11,5 +11,10 @@
     "plistPath": "agent-loops/smart-cub-teaching-blends-20261016/com.jud.smart-cub-teaching-blends-20261016.plist",
     "kickstart": false
   },
-  "notes": "Authorised 288 teaching derivatives; one serial hardware encode at nice 10, 50 GiB floor. Exact inputs/CTA receipts, no paid calls or automatic final quality passes."
+  "notes": "Authorised 288 teaching derivatives; one serial hardware encode at nice 10, 50 GiB floor. Exact inputs/CTA receipts, no paid calls or automatic final quality passes.",
+  "schedulingPolicy": {
+    "processType": "Standard",
+    "lowPriorityIO": false,
+    "nice": 10
+  }
 }

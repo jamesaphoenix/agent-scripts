@@ -15,5 +15,10 @@
       "agent-loops/smart-cub-marketing-review-20261016/install-launchd.sh"
     ]
   },
-  "notes": "Task-owned review of 130 marketing pairs. One reviewer process, shared USD 100 ledger, no automatic final passes; stop on uncertainty/cap/error. Preserve output/evidence/ledger."
+  "notes": "Task-owned review of 130 marketing pairs. One reviewer process, shared USD 100 ledger, no automatic final passes; stop on uncertainty/cap/error. Preserve output/evidence/ledger.",
+  "schedulingPolicy": {
+    "processType": "Standard",
+    "lowPriorityIO": false,
+    "nice": 10
+  }
 }

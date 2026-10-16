@@ -13,3 +13,8 @@ The original batch report/receipts remain under the founder app's `out/` folder.
 source fingerprint or renderer error stops without automatic restart. Completed exact receipts
 skip; an interrupted unfinished output can render again. Retain exports/evidence/ledgers and
 remove only the task's installed launchd plist after completion and verified cleanup.
+
+Scheduling uses Standard process policy and normal I/O priority, with explicit nice 10 and the
+authorised concurrency limits. Do not add Background or LowPriorityIO throttling to these
+user-requested media jobs. Task-local live corrections use supported taskpolicy -B on verified
+own process trees; do not restart a paid request or change global host settings.

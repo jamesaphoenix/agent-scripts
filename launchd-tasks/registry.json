@@ -453,6 +453,25 @@
         "managedBy": "Synology DSM: agent-loops/synology-retention/install-dsm.py"
       },
       "notes": "Retired Studio SSH job. NAS-local cleanup.sh now owns bounded release/image retention. Do not reinstall this LaunchAgent. See agent-loops/synology-retention/README.md."
+    },
+    {
+      "id": "smart-cub-marketing-review-20261016",
+      "name": "Smart Cub one-shot marketing media review",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.smart-cub-marketing-review-20261016",
+      "schedule": "one-shot RunAtLoad; no KeepAlive or interval",
+      "requiresOpServiceAccount": true,
+      "opServiceAccountSource": "profile-or-keychain",
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/Desktop/projects/just-understanding-data/agent-scripts",
+        "command": [
+          "bash",
+          "agent-loops/smart-cub-marketing-review-20261016/install-launchd.sh"
+        ]
+      },
+      "notes": "Task-owned review of 130 marketing pairs. One reviewer process, shared USD 100 ledger, no automatic final passes; stop on uncertainty/cap/error. Preserve output/evidence/ledger."
     }
   ]
 }

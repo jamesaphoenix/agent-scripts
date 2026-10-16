@@ -9,6 +9,9 @@ class SuccessorTests(unittest.TestCase):
   prior='rotate-markers'
   for short in ['transfer-ticket','shift-sheet-label','cloze-context']:
    m=self.module(short);c=m.config();self.assertEqual(len(c['job']['compositionIds']),2);self.assertEqual(c['predecessorStatus'],f'teaching-{prior}-dispatch-status.json');self.assertEqual(c['job']['selection'],short);prior=short
+ def test_derived_fixed_pair_waits_cloze_and_uses_separate_release(self):
+  m=self.module('derived-word-spacing');c=m.config();self.assertEqual(c['predecessor']['selection'],'cloze-context');self.assertEqual(c['job']['compositionIds'],['v3-y6-form-derived-word-wide','v3-y6-form-derived-word-tall']);self.assertEqual(c['job']['sourceFingerprint'],'545e8182b9aef0b426483ca1abacec5ef44b1696dc793e030b5e8af26b96535e')
+  self.assertIn('derived-word-source-successor-release-20261016.json',Path(m.__file__).read_text());self.assertNotIn('ordinary-teaching-source-successors-release-20261016.json',Path(m.__file__).read_text())
  def test_config_tamper_refused(self):
   m=self.module('transfer-ticket')
   with mock.patch.object(m,'CONFIG_SHA','wrong'):

@@ -269,6 +269,11 @@ def public_person(platform, person_id, name, location, services, url):
 
 
 def annotate_advert(row, title="", description=""):
+    # Keep the selected own advert text as well as its derived flags. Bare
+    # subject labels cannot explain whether these are lessons or qualifications.
+    row.pop('ownOfferExcerpt', None)
+    if row.get('evidenceKind') == 'public_person_profile' and description.strip():
+        row['ownOfferExcerpt'] = description.strip()[:2000]
     non_tuition = r"\b(?:anxiety coaching|life coaching|therapy|psychotherapy|counselling|personal training|fitness|yoga|pilates|swimming|driving)\b"
     teaching = r"\b(?:tutor|tuition|lessons?|teaching|teacher|gcse|a[ -]level|exams?)\b|11\+"
     row["nonTuitionAdvert"] = bool(re.search(non_tuition, title, re.I) and not re.search(teaching, title, re.I))

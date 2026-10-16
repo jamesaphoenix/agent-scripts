@@ -155,6 +155,11 @@ def profile_context_index(roots, candidates):
                     kind = 'public_profile_fields_v2'
                     fields.update({k: profile.get(k) for k in ('evidenceKind', 'institution', 'advertisedUnavailable',
                         'nonTuitionAdvert', 'currentLocalityDeclarations', 'additionalLocalityClaims')})
+                    # These quotes come from the replayed own-profile parser,
+                    # never from a search snippet, another card or caller input.
+                    for key in ('ownOfferExcerpt', 'ownRoleQuote'):
+                        if profile.get(key):
+                            fields[key] = profile[key]
                 text = json.dumps({'publicProfileFields': fields}, ensure_ascii=False, sort_keys=True)
                 result[url] = {'url': url, 'title': profile['name'], 'text': text, 'links': [],
                     'publicContacts': {'emails': profile.get('emails') or ([profile['email']] if profile.get('email') else []),

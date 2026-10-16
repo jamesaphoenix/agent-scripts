@@ -48,6 +48,8 @@ class UniversityTutorTests(unittest.TestCase):
         self.assertEqual(row['personId'], '997974')
         self.assertEqual(row['localityClaim'], 'Wendover')
         self.assertEqual(row['services'], ['English'])
+        self.assertEqual(row['ownRoleQuote'], 'Private tutor in Wendover, United Kingdom')
+        self.assertEqual(row['ownOfferExcerpt'], 'I offer individual lessons.')
         self.assertFalse(row['outreachEligible'])
         music = profile_record(profile(subject='Piano'), URL)
         self.assertEqual(music['services'], ['Piano'])
@@ -84,7 +86,8 @@ class UniversityTutorTests(unittest.TestCase):
             fields = json.loads(result[URL]['text'])['publicProfileFields']
             self.assertEqual(fields['services'], ['English'])
             self.assertEqual(fields['personId'], '997974')
+            self.assertEqual(fields['ownRoleQuote'], 'Private tutor in Wendover, United Kingdom')
+            self.assertEqual(fields['ownOfferExcerpt'], 'I offer individual lessons.')
             self.assertEqual(result[URL]['extractionKind'], 'public_profile_fields_v2')
             page.write_bytes(body + b'changed')
             self.assertEqual(profile_context_index([root], [{'website': URL}]), {})
-

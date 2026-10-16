@@ -80,4 +80,5 @@ def parse_profile(document, url):
     if not services or len(services) > 80:
         return None
     row = public_person('universitytutor.com', match[1], name, place, services, url)
+    row['ownRoleQuote'] = roles[0].text()
     return annotate_advert(row, description=experience)

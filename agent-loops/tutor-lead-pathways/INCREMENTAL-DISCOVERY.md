@@ -129,3 +129,12 @@ not treat navigation, qualifications or neighbouring cards as advertised subject
 The existing subject policy, locality checks, source receipts, duplicate holds,
 Decisions ledger, USD15 shared reduction and original deadline still apply.
 Missing public email remains an enrichment task; no addresses are guessed.
+
+Public-profile qualification also retains the parser-selected own advert excerpt
+(up to 2,000 characters), and a literal role quote where available. It never
+substitutes navigation or neighbouring biographies. Replayed body hashes and
+canonical ownership checks precede this extraction. Changed settled contexts
+receive a new content-derived Decisions identity; unchanged inputs remain cached
+and uncertain requests are never replayed. Earlier receipts and source versions
+remain available. Subject, locality, independence and duplicate thresholds stay
+unchanged.

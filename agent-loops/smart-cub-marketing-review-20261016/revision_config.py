@@ -26,6 +26,8 @@ def load_revision(path, run):
         raise ValueError('Marketing revision review evidence must stay in its own output directory')
     if not re.fullmatch('[0-9a-f]{64}', data['frozenSourceSnapshot']):
         raise ValueError('Explicit frozen graph fingerprint required')
+    if data.get('renderPhases') != ['marketing']:
+        raise ValueError('The isolated production revision may render marketing only')
     if data['verifiedNarrationContracts'] != 149:
         raise ValueError('Root must verify all149 narration contracts before activation')
     proof = data['narrationContractProof']

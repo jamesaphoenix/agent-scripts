@@ -87,7 +87,7 @@ def main():
             if actual!=FROZEN:raise ValueError('Source freeze changed; render handoff refused')
             if revision and sha_config(revision[0]) != revision[2]:raise ValueError('Revision config changed after preflight')
             state.update({'phase':'rendering','sourceSnapshot':actual});save(state)
-            selections = ['ctas', 'marketing'] if revision else ['marketing']
+            selections = revision[1]['renderPhases'] if revision else ['marketing']
             state['completedSelections'] = []
             for selection in selections:
                 if revision and selection == 'marketing':

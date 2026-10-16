@@ -84,6 +84,15 @@ disagreeing bank attachments and insufficient headroom prevent new submissions.
 Restarting workers cannot recreate the allowance. Cached request identities stay
 readable after the spending ceiling is reached.
 
+`endpoint_probe.py` compares Google Local Finder, Bing organic and Domains by
+HTML Terms using up to fifty cents of that shared allowance. It owns the same
+paid-bank lock while the regular paid owner is drained, then resumes that owner
+within its original deadline. Request SHA256 identities and failed/uncertain
+receipts cannot be replayed. Two consecutive trials without new nominations
+stop that endpoint. Each request nominates at most fifteen public websites;
+owned evidence and qualification remain required. Source observations report
+returned URLs, duplicates, held reasons, cost and qualification intake hashes.
+
 ## Actual agent reviews
 
 The native health probes are separate from James's request for the assistant to

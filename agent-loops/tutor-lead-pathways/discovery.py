@@ -23,6 +23,9 @@ ENDPOINTS = {
     "organic": "/v3/serp/google/organic/live/advanced",
     "directories": "/v3/serp/google/organic/live/advanced",
     "business": "/v3/business_data/business_listings/search/live",
+    "local_finder": "/v3/serp/google/local_finder/live/advanced",
+    "bing": "/v3/serp/bing/organic/live/advanced",
+    "html_terms": "/v3/domain_analytics/technologies/domains_by_html_terms/live",
 }
 CHAINS = re.compile(
     r"\b(?:kumon|explore learning|first class learning|mathnasium|tutor doctor|teachers to your home|"

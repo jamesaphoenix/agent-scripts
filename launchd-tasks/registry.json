@@ -1466,6 +1466,26 @@
         ]
       },
       "notes": "James clarified that the assistant must inspect the run every thirty minutes. Queue review prompts into the same existing Codex conversation, not another agent. Use pinned SSH to the MacBook app-server and record delivery receipts separately from model-written review acknowledgements. Actual reviews require the MacBook/app-server awake; do not claim delayed or unacknowledged reviews were completed. Retain snapshots for missed slots. No new paid discovery bank, model override, SDK reset or Anthropic key. Stop delivery after the original deadline/final audit grace and retain evidence."
+    },
+    {
+      "id": "tutor-endpoint-probe-20261016",
+      "name": "Bounded alternative tutor discovery indexes",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.tutor-endpoint-probe-20261016",
+      "schedule": "one bounded trial within the original 16 October 18:50:02 UTC deadline",
+      "requiresOpServiceAccount": true,
+      "opServiceAccountSource": "profile-or-keychain",
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
+        "command": [
+          "bash",
+          ".worktrees/tutor-endpoint-probe-20261016/agent-loops/tutor-lead-pathways/install-endpoint-probe.sh",
+          "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts"
+        ]
+      },
+      "notes": "James requested exploring other DataForSEO endpoints. Native bounded Local Finder, Bing and homepage HTML term trials use at most fifty cents of the reduced shared USD15 remaining cap. Reuses the existing paid bank and lock, source receipts, duplicate inventory, Go/Decisions intake, uncertain holds and original deadline. No new budget, SDK turns or outreach. Retain source/evidence pending PR review; final cleanup removes owned stopped scratch only."
     }
   ]
 }

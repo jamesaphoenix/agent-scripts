@@ -12,7 +12,6 @@ if launchctl print "gui/$(id -u)/$LABEL" 2>/dev/null | /usr/bin/grep -q 'pid =';
 fi
 mkdir -p "$RUNTIME" "$HOME/Library/LaunchAgents" "$RUN_DIR/evidence"
 mkdir -p "$RUN_DIR/workflow"
-cp "$SCRIPT_DIR/../smart-cub-marketing-render-20261016/render_tmpdir.py" "$RUN_DIR/workflow/render_tmpdir.py"
 cp "$SCRIPT_DIR/run.sh" "$SCRIPT_DIR/render.py" "$SCRIPT_DIR/config.json" "$RUNTIME/"
 python3 - "$PLIST" "$RUNTIME/run.sh" "$RUN_DIR" "$LABEL" <<'PY'
 import plistlib, sys

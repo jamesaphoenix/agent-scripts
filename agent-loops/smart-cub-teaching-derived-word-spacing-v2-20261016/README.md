@@ -7,3 +7,5 @@ Same existing held target20, visual revision only. V1 source/media/receipts/hold
 Waits exact cloze-context-v2 normal two outputs/receipts, graph19c69b88714b2d3170d0b0befc3546648e17c4afd005ce92dfbf5b0fd15918a9, all four positive real dispatcher/controller PIDandPGID values and no live owner/descendant/group member. Both canonical and legacy Remotion leases must be clear. Checks complete2160 source file-set/hash equality, exact three staged files, staging/typecheck/plan and nine helper hashes/CLI. Standard normalIO nice10 serial1x4,50GiBfloor.
 
 Terminal retains all four real identities for fixed40 admission. No provider call, source registration, ledger/budget mutation or quality approval. No new resolver scope. Existing checkpoints/failed predecessor require explicit reconciliation. Official one-shot install/kick only after root releases exact prepared version.
+
+The installer never copies or rewrites the existing shared workflow/render_tmpdir.py policy. Runtime reads the same canonical policy only.

@@ -18,6 +18,9 @@ class SuccessorTests(unittest.TestCase):
  def test_final_derived_v2_follows_exact_cloze_v2_not_original(self):
   m=self.module('derived-word-spacing-v2');c=m.config();self.assertEqual(c['predecessor']['selection'],'cloze-context-v2');self.assertEqual(c['predecessor']['sourceFingerprint'],'19c69b88714b2d3170d0b0befc3546648e17c4afd005ce92dfbf5b0fd15918a9');self.assertEqual(c['job']['sourceFingerprint'],'cb4212b077a1bf75d34cc5f42933632598f258e1cb2eeafc4e93700ca488d365');self.assertEqual(c['job']['compositionIds'],['v3-y6-form-derived-word-wide','v3-y6-form-derived-word-tall'])
   self.assertIn('derived-v2-source-successor-release-20261016.json',Path(m.__file__).read_text())
+ def test_final_derived_v2_installer_never_copies_shared_tmpdir_policy(self):
+  import re
+  source=(BASE/'smart-cub-teaching-derived-word-spacing-v2-20261016/install-launchd.sh').read_text();self.assertIsNone(re.search(r'(?m)^\s*cp .*render_tmpdir\.py',source))
  def test_config_tamper_refused(self):
   m=self.module('transfer-ticket')
   with mock.patch.object(m,'CONFIG_SHA','wrong'):

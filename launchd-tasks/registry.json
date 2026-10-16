@@ -640,6 +640,29 @@
         "lowPriorityIO": false,
         "nice": 10
       }
+    },
+    {
+      "id": "smart-cub-teaching-final-five-20261016",
+      "name": "Smart Cub isolated final five teaching source repairs",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.smart-cub-teaching-final-five-20261016",
+      "schedule": "manual one-shot kick; RunAtLoad=false, KeepAlive=false",
+      "requiresOpServiceAccount": false,
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/Desktop/projects/just-understanding-data/agent-scripts",
+        "command": [
+          "bash",
+          "agent-loops/smart-cub-teaching-final-five-20261016/install-launchd.sh"
+        ]
+      },
+      "notes": "Ten final-five source renders only, separate pinned runner and isolated final-style-lab. Seventeen staged input hashes, five voice proofs and copy/renderer/selector/support hashes verified. Serial four-worker rendering, canonical TMPDIR and both legacy/canonical lease checks, nice10,50GiB floor. No paid API or automatic quality approval.",
+      "schedulingPolicy": {
+        "processType": "Standard",
+        "lowPriorityIO": false,
+        "nice": 10
+      }
     }
   ]
 }

@@ -939,6 +939,30 @@
         "lowPriorityIO": false,
         "nice": 10
       }
+    },
+    {
+      "id": "smart-cub-partial286-delivery-20261016",
+      "name": "Smart Cub strict partial286 approved delivery",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.smart-cub-partial286-delivery-20261016",
+      "schedule": "manual one-shot kick; RunAtLoad=false, KeepAlive=false",
+      "requiresOpServiceAccount": false,
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/Desktop/projects/just-understanding-data/agent-scripts",
+        "command": [
+          "bash",
+          "agent-loops/smart-cub-partial286-delivery-20261016/install-launchd.sh"
+        ]
+      },
+      "notes": "Exactly approved partial286 export only, plan02f474/wrapper67cdaba/helper70dba and143IDs. Preserve previous38 generation; reports286of586 false. Controller nice0, strict helper nice10 applied once by unchanged approved wrapper. Standard normalIO/manual one-shot; no provider/render/source/authority writes.",
+      "schedulingPolicy": {
+        "processType": "Standard",
+        "lowPriorityIO": false,
+        "controllerNice": 0,
+        "workerNice": 10
+      }
     }
   ]
 }

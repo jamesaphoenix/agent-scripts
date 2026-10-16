@@ -105,6 +105,21 @@ class OwnedContextRefreshTests(unittest.TestCase):
         self.index[self.target] = final
         self.assertEqual(refresh(self.db, self.cache, self.index, SCOPE, {}), 0)
 
+    def test_a_cached_service_can_replace_an_article_without_refetching_it(self):
+        about = self.url + 'specialist-teacher-and-assessor/'
+        article = self.url + 'more-information-about-dyslexia-assessment-and-tuition/'
+        tuition = self.url + 'dyslexia-tuition/'
+        candidate = dict(self.candidate, siteEvidence=[{'url': u} for u in (about, article, tuition)])
+        index = {self.url: dict(self.page, links=[])}
+        for url in (about, article, tuition):
+            index[url] = dict(self.page, url=url, links=[])
+        self.insert(candidate=candidate, pages=[index[u] for u in (self.url, about, article)])
+        self.assertEqual(refresh(self.db, self.cache, index, SCOPE, {}), 1)
+        self.assertEqual(self.db.execute('SELECT state FROM candidates').fetchone()[0], 'pending')
+        self.assertEqual(self.db.execute('SELECT count(*) FROM fetch_claims').fetchone()[0], 0)
+        self.assertEqual(tuple(self.cache.db.execute('SELECT state,reservation FROM decision_requests').fetchone()),
+                         ('succeeded', 77))
+
     def test_directory_and_shared_tenant_boundaries_are_preserved(self):
         for url, target in [('https://www.childcare.co.uk/profile/111', 'https://www.childcare.co.uk/profile/222'),
                             ('https://jane.wixsite.com/tuition', 'https://jane.wixsite.com/other/tutoring')]:

@@ -18,7 +18,7 @@ PRIVATE_ROUTE = re.compile(r'/(?:login|signup|register|account|privacy|terms)(?:
 
 def offering_rank(url):
     path = unquote(urlsplit(url).path).casefold()
-    if re.search(r'/(?:blog|blogs|news|articles?|advice|guides?|tips|tags?|categor(?:y|ies)|reviews|testimonials|20\d{2})(?:/|$)|/(?:how-to|why-choose|what-is)-', path):
+    if re.search(r'/(?:blog|blogs|news|articles?|advice|guides?|tips|tags?|categor(?:y|ies)|reviews|testimonials|20\d{2})(?:/|$)|/(?:how-to|why-choose|what-is|more-information-about)-', path):
         return None
     for priority, terms in enumerate((
             r'maths?|english|11(?:-?plus)?|eleven-plus|primary|literacy|phonics|reading|spelling|numeracy',

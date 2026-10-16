@@ -67,6 +67,19 @@ class QualificationContextTests(unittest.TestCase):
                 self.assertEqual(select_urls({'website': url}, index),
                                  [url, url + 'about', url + 'contact'])
 
+    def test_an_article_slug_cannot_hide_the_actual_tuition_page(self):
+        url = 'https://jane.example/'
+        article = url + 'more-information-about-dyslexia-assessment-and-tuition/'
+        tuition = url + 'dyslexia-tuition/'
+        about = url + 'specialist-teacher-and-assessor/'
+        candidate = {'website': url, 'siteEvidence': [
+            {'url': article}, {'url': about}, {'url': tuition}]}
+        index = {url: {'url': url, 'links': [
+            {'url': article, 'anchor': 'Blog'},
+            {'url': about, 'anchor': 'About'},
+            {'url': tuition, 'anchor': 'Tuition'}]}}
+        self.assertEqual(select_urls(candidate, index), [url, about, tuition])
+
     def test_fallback_cannot_reuse_changed_text_or_another_owners_page(self):
         url = 'https://jane.example/'
         page = {'url': url, 'title': 'Jane', 'text': 'Current offer', 'replaySource': {'sha256': 'a' * 64}}

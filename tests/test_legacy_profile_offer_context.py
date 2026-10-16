@@ -84,6 +84,13 @@ class LegacyProfileOfferContextTests(unittest.TestCase):
         self.assertIsNone(profile_record(html, CHILD))
         self.assertEqual(self.replay(CHILD, html), {})
 
+    def test_identical_responsive_subject_table_can_be_replayed(self):
+        table = '<table class="profilesubjectstattable"><tr><td class="marksub">Maths</td></tr></table>'
+        html = hunt_profile() + table
+        page = self.replay(HUNT, html)[HUNT]
+        self.assertEqual(page['extractionKind'], 'public_profile_fields_v2')
+        self.assertIn('GCSE maths tuition in Amersham', page['text'])
+
     def test_repeated_tutorhunt_subject_tables_do_not_gain_new_context(self):
         html = hunt_profile() + '<table class="profilesubjectstattable"><tr><td class="marksub">Music</td></tr></table>'
         page = self.replay(HUNT, html)[HUNT]

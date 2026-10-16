@@ -1329,13 +1329,14 @@
         "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
         "command": [
           "bash",
-          ".worktrees/tutor-credentials-20261016/agent-loops/tutor-lead-pathways/install-incremental.sh",
+          ".worktrees/tutor-credential-recovery-20261016/agent-loops/tutor-lead-pathways/install-incremental.sh",
           "run",
           "tutor-incremental-20261016-recovery-10h",
           "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts"
         ]
       },
-      "notes": "User explicitly requested fixing the script, another ten hours and checks every thirty minutes. No additional money authorised: use the original USD50 paid.sqlite, retaining USD0.56 conservative exposure and USD49.44 remaining at handoff, plus the existing USD10 Decisions cache. No new paid bank, SDK turns, Anthropic key or outreach. Empty results are neutral; engine/query errors pause their tactic; Maps and plain organic have reserved slots. Account/billing errors and uncertain submissions remain binding stops. Preserve immutable old windows, all receipts, source caches, scope and branch caps. Final native cleanup removes only task scratch and retains unmerged review work."
+      "notes": "User explicitly requested fixing the script, another ten hours and checks every thirty minutes. No additional money authorised: use the original USD50 paid.sqlite, retaining USD0.56 conservative exposure and USD49.44 remaining at handoff, plus the existing USD10 Decisions cache. No new paid bank, SDK turns, Anthropic key or outreach. Empty results are neutral; engine/query errors pause their tactic; Maps and plain organic have reserved slots. Account/billing errors and uncertain submissions remain binding stops. Preserve immutable old windows, all receipts, source caches, scope and branch caps. Final native cleanup removes only task scratch and retains unmerged review work.",
+      "credentialCooldownPath": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts/state/tutor-incremental-20261016-recovery-10h/credential-wait.json"
     },
     {
       "id": "tutor-incremental-20261016-recovery-10h-watch",
@@ -1351,7 +1352,7 @@
         "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
         "command": [
           "bash",
-          ".worktrees/tutor-credentials-20261016/agent-loops/tutor-lead-pathways/install-incremental.sh",
+          ".worktrees/tutor-credential-recovery-20261016/agent-loops/tutor-lead-pathways/install-incremental.sh",
           "watch",
           "tutor-incremental-20261016-recovery-10h",
           "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts"
@@ -1373,13 +1374,14 @@
         "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
         "command": [
           "bash",
-          ".worktrees/tutor-credentials-20261016/agent-loops/tutor-lead-pathways/install-qualification.sh",
+          ".worktrees/tutor-credential-recovery-20261016/agent-loops/tutor-lead-pathways/install-qualification.sh",
           "run",
           "tutor-qualification-20261016-recovery-10h",
           "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts"
         ]
       },
-      "notes": "User explicitly requested fixing the script, another ten hours and checks every thirty minutes. No additional money authorised: use the original USD50 paid.sqlite, retaining USD0.56 conservative exposure and USD49.44 remaining at handoff, plus the existing USD10 Decisions cache. No new paid bank, SDK turns, Anthropic key or outreach. Empty results are neutral; engine/query errors pause their tactic; Maps and plain organic have reserved slots. Account/billing errors and uncertain submissions remain binding stops. Preserve immutable old windows, all receipts, source caches, scope and branch caps. Final native cleanup removes only task scratch and retains unmerged review work."
+      "notes": "User explicitly requested fixing the script, another ten hours and checks every thirty minutes. No additional money authorised: use the original USD50 paid.sqlite, retaining USD0.56 conservative exposure and USD49.44 remaining at handoff, plus the existing USD10 Decisions cache. No new paid bank, SDK turns, Anthropic key or outreach. Empty results are neutral; engine/query errors pause their tactic; Maps and plain organic have reserved slots. Account/billing errors and uncertain submissions remain binding stops. Preserve immutable old windows, all receipts, source caches, scope and branch caps. Final native cleanup removes only task scratch and retains unmerged review work.",
+      "credentialCooldownPath": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts/state/tutor-qualification-20261016-recovery-10h/credential-wait.json"
     },
     {
       "id": "tutor-qualification-20261016-recovery-10h-watch",
@@ -1395,7 +1397,7 @@
         "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
         "command": [
           "bash",
-          ".worktrees/tutor-credentials-20261016/agent-loops/tutor-lead-pathways/install-qualification.sh",
+          ".worktrees/tutor-credential-recovery-20261016/agent-loops/tutor-lead-pathways/install-qualification.sh",
           "watch",
           "tutor-qualification-20261016-recovery-10h",
           "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts"
@@ -1481,11 +1483,12 @@
         "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
         "command": [
           "bash",
-          ".worktrees/tutor-credentials-20261016/agent-loops/tutor-lead-pathways/install-endpoint-probe.sh",
+          ".worktrees/tutor-credential-recovery-20261016/agent-loops/tutor-lead-pathways/install-endpoint-probe.sh",
           "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts"
         ]
       },
-      "notes": "James requested exploring other DataForSEO endpoints. Native bounded Local Finder, Bing and homepage HTML term trials use at most fifty cents of the reduced shared USD15 remaining cap. Reuses the existing paid bank and lock, source receipts, duplicate inventory, Go/Decisions intake, uncertain holds and original deadline. No new budget, SDK turns or outreach. Retain source/evidence pending PR review; final cleanup removes owned stopped scratch only."
+      "notes": "James requested exploring other DataForSEO endpoints. Native bounded Local Finder, Bing and homepage HTML term trials use at most fifty cents of the reduced shared USD15 remaining cap. Reuses the existing paid bank and lock, source receipts, duplicate inventory, Go/Decisions intake, uncertain holds and original deadline. No new budget, SDK turns or outreach. Retain source/evidence pending PR review; final cleanup removes owned stopped scratch only.",
+      "credentialCooldownPath": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts/state/tutor-endpoint-probe-20261016/credential-wait.json"
     }
   ]
 }

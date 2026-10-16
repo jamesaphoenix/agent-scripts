@@ -1,0 +1,23 @@
+{
+  "id": "smart-cub-teaching-corrections-20261016",
+  "name": "Smart Cub one-shot isolated teaching source corrections",
+  "enabled": true,
+  "machine": "mac-studio",
+  "launchdLabel": "com.jud.smart-cub-teaching-corrections-20261016",
+  "schedule": "manual one-shot kick; RunAtLoad=false, KeepAlive=false",
+  "requiresOpServiceAccount": false,
+  "install": {
+    "kind": "command",
+    "workdir": "/Users/jamesphoenix/Desktop/projects/just-understanding-data/agent-scripts",
+    "command": [
+      "bash",
+      "agent-loops/smart-cub-teaching-corrections-20261016/install-launchd.sh"
+    ]
+  },
+  "notes": "Four corrected sources only, isolated project; eleven staged hashes and two voice proofs pinned, serial four-worker renders, nice10,50GiBfloor, shared host lease. No paid API or approval.",
+  "schedulingPolicy": {
+    "processType": "Standard",
+    "lowPriorityIO": false,
+    "nice": 10
+  }
+}

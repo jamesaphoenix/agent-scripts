@@ -1,0 +1,66 @@
+{
+  "version": 1,
+  "task": "smart-cub-teaching-cloze-context-20261016",
+  "handoff": {
+    "path": "/Users/jamesphoenix/render-tmp/smart-cub-refresh-20261016/teaching-repairs/runners/cloze-5d2e29d26/render-handoff.json",
+    "sha256": "ddd9a961f665c0fe0e7c147b4ffad205de98785a1848216af8bd71a7d90c91e7",
+    "bytes": 2567
+  },
+  "jobIndex": 0,
+  "job": {
+    "selection": "cloze-context",
+    "compositionIds": [
+      "v3-y6-complete-context-cloze-wide",
+      "v3-y6-complete-context-cloze-tall"
+    ],
+    "sourceFingerprint": "4f8cf879ff99f7d8c137225affc81c39261c8c26453fd2589fb95950b3a561dd",
+    "project": "/Users/jamesphoenix/render-tmp/smart-cub-refresh-20261016/teaching-repairs/cloze-context-style-lab",
+    "cwd": "/Users/jamesphoenix/render-tmp/smart-cub-refresh-20261016/revision/smart-cub/apps/prototypes/founder-videos",
+    "argv": [
+      "/opt/homebrew/opt/node@22/bin/node",
+      "--import",
+      "tsx",
+      "/Users/jamesphoenix/render-tmp/smart-cub-refresh-20261016/teaching-repairs/runners/cloze-5d2e29d26/scripts/render-teaching-corrections.ts",
+      "--project",
+      "/Users/jamesphoenix/render-tmp/smart-cub-refresh-20261016/teaching-repairs/cloze-context-style-lab",
+      "--selection",
+      "cloze-context",
+      "--execute"
+    ]
+  },
+  "runner": "/Users/jamesphoenix/render-tmp/smart-cub-refresh-20261016/teaching-repairs/runners/cloze-5d2e29d26",
+  "runnerManifest": {
+    "path": "/Users/jamesphoenix/render-tmp/smart-cub-refresh-20261016/teaching-repairs/runners/cloze-5d2e29d26/runner-manifest.json",
+    "sha256": "d49f917bdb5a9a36c19b709925ac9d9ae510ae94a37655d31693f572687dc53d",
+    "bytes": 1683
+  },
+  "staging": {
+    "path": "/Users/jamesphoenix/render-tmp/smart-cub-refresh-20261016/teaching-repairs/cloze-context-staging-verification-5d2e29d26.json",
+    "sha256": "fcaa73b0a4e44799162fcf401d5d4116a80c64294f6fe98e24b7342a9ff390cd",
+    "bytes": 1687
+  },
+  "status": "teaching-cloze-context-dispatch-status.json",
+  "predecessorStatus": "teaching-shift-sheet-label-dispatch-status.json",
+  "predecessor": {
+    "selection": "shift-sheet-label",
+    "compositionIds": [
+      "v3-y6-letter-shift-wide",
+      "v3-y6-letter-shift-tall"
+    ],
+    "sourceFingerprint": "bd80ccdc32adcbdfed2a3f2800bae65174540bab60d55a7d328a6a68a22675db",
+    "project": "/Users/jamesphoenix/render-tmp/smart-cub-refresh-20261016/teaching-repairs/shift-sheet-label-style-lab",
+    "cwd": "/Users/jamesphoenix/render-tmp/smart-cub-refresh-20261016/revision/smart-cub/apps/prototypes/founder-videos",
+    "argv": [
+      "/opt/homebrew/opt/node@22/bin/node",
+      "--import",
+      "tsx",
+      "/Users/jamesphoenix/render-tmp/smart-cub-refresh-20261016/teaching-repairs/runners/transfer-shift-491db41d6/scripts/render-teaching-corrections.ts",
+      "--project",
+      "/Users/jamesphoenix/render-tmp/smart-cub-refresh-20261016/teaching-repairs/shift-sheet-label-style-lab",
+      "--selection",
+      "shift-sheet-label",
+      "--execute"
+    ]
+  },
+  "predecessorProof": "teaching-cloze-context-predecessor-proof.json"
+}

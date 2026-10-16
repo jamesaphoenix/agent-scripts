@@ -9,3 +9,5 @@ The Python worker and production source live in the pinned website source snapsh
 After delivery verification, remove only task-owned frame caches and temporary build bundles. Retain sources, native scenes, final exports, frame manifests, evidence and resumable work awaiting review. Remove the worktree and merged branch only after verified merge.
 
 The finite render queue uses the standard launchd process type with one render stage at a time. Background task throttling can otherwise starve Chromium on a busy Studio. It does not change unrelated workloads.
+
+The companion registered task `brand-video-delivery-20261016` waits for all six exports. It verifies native proofs and decode, transfers to the reachable MacBook, and dispatches missing paired reviews against the existing MacBook ledger. Existing review receipts are never regenerated. Private R2 archival and D1 registration precede disposable frame cleanup. State: `state/delivery-status.json`. The final state awaits owner pilot review, with any remaining findings explicit. The Studio controller does not read or transmit API secrets.

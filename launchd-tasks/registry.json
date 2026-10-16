@@ -472,6 +472,25 @@
         ]
       },
       "notes": "James authorised implementation on 16 October. Render and encode exclusively on Studio, preserve other jobs and at least 35 GiB free. No paid API calls in this worker. Await human approval of three pilots before producing the remaining 57. Budget is GBP100 across the entire project, never reset. Verify exports, archive and rsync before deleting task-owned frames; retain final exports, sources, evidence and ledgers."
+    },
+    {
+      "id": "brand-video-delivery-20261016",
+      "name": "Verify, transfer and archive JUD tutorial pilots",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.brand-video-delivery-20261016",
+      "schedule": "finite RunAtLoad controller, waits for render completion and MacBook reachability",
+      "requiresOpServiceAccount": false,
+      "opServiceAccountSource": null,
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts/.worktrees/brand-video-render",
+        "command": [
+          "bash",
+          "agent-loops/brand-video-render/install-delivery-launchd.sh"
+        ]
+      },
+      "notes": "Finite Studio-owned delivery. Verify all six exports and native frame proofs, rsync to the MacBook, then run the missing single-pass pilot reviews through the original GBP100 ledger. Never regenerate an existing review, narration or music. Archive privately in R2 and update D1. Delete disposable Studio frames only after independent transfer and archive verification. Preserve editable sources, native video caches, review history and the budget. Stop for owner review; no further 57 videos or public release."
     }
   ]
 }

@@ -85,11 +85,29 @@ class LegacyProfileOfferContextTests(unittest.TestCase):
         self.assertEqual(self.replay(CHILD, html), {})
 
     def test_identical_responsive_subject_table_can_be_replayed(self):
-        table = '<table class="profilesubjectstattable"><tr><td class="marksub">Maths</td></tr></table>'
+        table = ('<table class="profilesubjectstattable"><tr><td class="marksub">Maths</td></tr>'
+                 '<tr><td><a>See more: Online Maths Tuition</a></td></tr></table>')
         html = hunt_profile() + table
         page = self.replay(HUNT, html)[HUNT]
         self.assertEqual(page['extractionKind'], 'public_profile_fields_v2')
         self.assertIn('GCSE maths tuition in Amersham', page['text'])
+
+    def test_findtutors_advert_description_stays_with_its_own_person(self):
+        url = 'https://www.findtutors.co.uk/tutors-aylesbury/english-teacher-12345'
+        html = f'''<meta property="og:url" content="{url}">
+            <section id="sectionaddetail"><div class="info"><span class="user-name">Jane</span>
+            <span class="subject">English Lessons</span><div id="line_location">Aylesbury</div></div>
+            <div id="logo_academy_link_profile" class="non-academy"></div>
+            <input id="idad" value="12345"><input id="iduser" value="42">
+            <div id="report_error" data-u="42"></div><h1>English tutor</h1>
+            <div id="card_ad_description">Advert description I offer GCSE English in Aylesbury.</div></section>
+            <aside>Other tutors: Piano in London.</aside>'''
+        page = self.replay(url, html, canonical=False)[url]
+        fields = json.loads(page['text'])['publicProfileFields']
+        self.assertEqual(fields['personId'], '42')
+        self.assertEqual(fields['ownOfferExcerpt'], 'I offer GCSE English in Aylesbury.')
+        self.assertNotIn('London', page['text'])
+        self.assertNotIn('Piano', page['text'])
 
     def test_repeated_tutorhunt_subject_tables_do_not_gain_new_context(self):
         html = hunt_profile() + '<table class="profilesubjectstattable"><tr><td class="marksub">Music</td></tr></table>'

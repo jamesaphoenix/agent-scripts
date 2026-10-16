@@ -105,6 +105,8 @@ Childcare and Tutor Hunt profile contexts include the parser-selected own
 biography when the person container is unambiguous and the cached canonical
 URL identifies that same member. Childcare role quotes come from that member's
 header. Other members' subject tags and biographies do not supply evidence.
+FindTutors adverts retain only their own selected advert description, after
+the canonical advert ID and person ID have been replayed separately.
 Legacy pages lacking those ownership checks keep their existing bare fields.
 Only changed local, subject-matching contexts with settled original Decisions
 receipts are queued again. Existing uncertain holds, thresholds, budgets and

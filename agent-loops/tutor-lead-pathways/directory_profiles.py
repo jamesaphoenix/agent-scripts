@@ -272,7 +272,7 @@ def annotate_advert(row, title="", description=""):
     # Keep the selected own advert text as well as its derived flags. Bare
     # subject labels cannot explain whether these are lessons or qualifications.
     row.pop('ownOfferExcerpt', None)
-    if row.get('evidenceKind') == 'public_person_profile' and description.strip():
+    if row.get('evidenceKind') in {'public_person_profile', 'public_advert_person'} and description.strip():
         row['ownOfferExcerpt'] = description.strip()[:2000]
     non_tuition = r"\b(?:anxiety coaching|life coaching|therapy|psychotherapy|counselling|personal training|fitness|yoga|pilates|swimming|driving)\b"
     teaching = r"\b(?:tutor|tuition|lessons?|teaching|teacher|gcse|a[ -]level|exams?)\b|11\+"
@@ -450,8 +450,10 @@ def profile_record(text, url):
         tables = [n for n in document.walk() if n.tag == "table" and n.has_class("profilesubjectstattable")]
         own_cards = [n for n in document.walk() if n.has_class("card") and name and n.first(
             lambda c: c.tag == "h2" and c.text().casefold() == "information about " + name.text().casefold())]
-        row['ownedProfileFields'] = (1 <= len(tables) <= 2
-            and len({table.text() for table in tables}) == 1 and len(own_cards) == 1)
+        subject_rows = {tuple(n.text() for n in table.walk()
+                              if n.tag == 'td' and n.has_class('marksub') and n.text())
+                        for table in tables}
+        row['ownedProfileFields'] = 1 <= len(tables) <= 2 and len(subject_rows) == 1 and len(own_cards) == 1
         return row
     elif p.hostname == "www.uktutors.com":
         if not re.fullmatch(r"/tutor/\d+/[a-z0-9-]+", p.path):

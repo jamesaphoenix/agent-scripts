@@ -8,7 +8,7 @@ from unittest.mock import patch, MagicMock
 
 sys.path.insert(0, str(Path(__file__).parents[1] / 'agent-loops/tutor-lead-pathways'))
 from discovery import request_key
-from endpoint_probe import plan, nominations
+from endpoint_probe import plan, nominations, effective_plan, trial_exposure
 import endpoint_probe
 from discovery import atomic_json, file_hash
 
@@ -27,7 +27,21 @@ class EndpointProbeTests(unittest.TestCase):
         self.assertEqual(sum(x['maximumCents'] for x in rows),50)
         self.assertEqual({x['lane'] for x in rows},{'local_finder','bing','html_terms'})
         self.assertEqual(len({request_key(x['lane'],x['payload']) for x in rows}),10)
+        self.assertTrue(all('se_domain' not in row['payload'] for row in rows))
         with self.assertRaises(StopIteration): plan(TOWNS[:1])
+
+    def test_local_finder_repair_retains_the_existing_plan_and_trial_spend(self):
+        original=plan(TOWNS)
+        original[0]['payload']['se_domain']='google.co.uk'
+        repaired=effective_plan(original)
+        self.assertIn('se_domain',original[0]['payload'])
+        self.assertNotIn('se_domain',repaired[0]['payload'])
+        cache=MagicMock()
+        old=request_key('local_finder',original[0]['payload'])
+        new=request_key('local_finder',repaired[0]['payload'])
+        cache.get.side_effect=lambda key: ({'status':'failed','cost_cents':0} if key==old else
+            {'status':'uncertain','cost_cents':0,'reservation':3} if key==new else None)
+        self.assertEqual(trial_exposure(cache,original),3)
 
     def test_local_results_require_real_niche_and_area_hints_and_deduplicate(self):
         data=response([{'url':'https://janetutor.co.uk/','title':'Jane Maths Tutor Aylesbury'},
@@ -41,11 +55,20 @@ class EndpointProbeTests(unittest.TestCase):
         self.assertEqual(held['no_local_hint'],1)
         self.assertEqual(held['music_only_hint'],1)
 
-    def test_html_index_returns_domains_even_when_the_metadata_has_no_niche_words(self):
+    def test_html_search_terms_do_not_prove_the_returned_domain_is_a_local_tutor(self):
         data=response([{'domain':'janeslessons.co.uk','title':'Jane Smith'}])
         accepted,_,_=nominations(data,'html_terms',[t['name'] for t in TOWNS],SCOPE,set())
-        self.assertEqual(accepted,[{'name':'Jane Smith','website':'https://janeslessons.co.uk/','sourceUrl':'https://janeslessons.co.uk/'}])
+        self.assertEqual(accepted,[])
+        data['tasks'][0]['result'][0]['items'][0]['description']='English tutor Buckinghamshire'
+        self.assertEqual(nominations(data,'html_terms',[t['name'] for t in TOWNS],SCOPE,set())[0],
+                         [{'name':'Jane Smith','website':'https://janeslessons.co.uk/','sourceUrl':'https://janeslessons.co.uk/'}])
         self.assertFalse(nominations(data,'html_terms',[t['name'] for t in TOWNS],SCOPE,{'janeslessons.co.uk'})[0])
+
+    def test_raw_ip_results_are_held_as_unsupported_business_identities(self):
+        data=response([{'domain':'87.120.9.184','title':'Maths tutor Buckinghamshire'}])
+        accepted,held,_=nominations(data,'html_terms',[t['name'] for t in TOWNS],SCOPE,set())
+        self.assertEqual(accepted,[])
+        self.assertEqual(held['raw_ip_address'],1)
 
     def test_branch_and_directory_bounds_are_preserved(self):
         data=response([{'domain':f'local-tutor-{i}.co.uk','title':'Maths Tutor Bucks'} for i in range(20)])
@@ -69,6 +92,7 @@ class EndpointProbeTests(unittest.TestCase):
                 patch.object(endpoint_probe.spend_limit,'policy',return_value={}), \
                 patch.object(endpoint_probe,'known_owners',return_value=set()), \
                 patch.object(endpoint_probe,'load_scope',return_value=SCOPE), \
+                patch.object(endpoint_probe,'loaded_source_sha',return_value='a'*40), \
                 patch.object(endpoint_probe,'STOP',False), \
                 patch.object(endpoint_probe.signal,'signal'), \
                 patch.object(endpoint_probe,'provider_request',return_value={'tasks':[]}) as paid, \

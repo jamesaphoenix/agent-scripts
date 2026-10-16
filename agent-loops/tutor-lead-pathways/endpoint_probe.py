@@ -3,6 +3,7 @@ import argparse
 from collections import Counter
 import fcntl
 import json
+import ipaddress
 import os
 from pathlib import Path
 import signal
@@ -21,6 +22,7 @@ from keyword_expansion import upstream_results, canonical_url
 from lead_scope import load_scope, matching_page_subjects, MUSIC
 from qualification_feeder import directory_entry, local_directory_entry, public_seed
 from qualification_seeds import publish
+from configuration import loaded_source_sha
 import spend_limit
 
 INSTRUCTION = "If we can't find anything interesting from those. Explore other DataForSEO endpoints imho."
@@ -42,13 +44,30 @@ def plan(towns):
             payload = {'keyword': '11 plus maths English tutor ' + town['name'],
                        'location_coordinate': town['coordinate'] + ',200',
                        'language_code': 'en', 'depth': 20}
-            if lane == 'local_finder': payload['se_domain'] = 'google.co.uk'
             rows.append({'lane': lane, 'payload': payload, 'maximumCents': 3})
     for subject, place in [('tutor', 'Buckinghamshire'), ('tuition', 'Buckinghamshire'),
                            ('tutor', 'Milton Keynes'), ('11 plus', 'Bucks')]:
         rows.append({'lane': 'html_terms', 'payload': {
             'search_terms': [subject, place], 'mode': 'entry', 'limit': 30}, 'maximumCents': 8})
     return rows
+
+
+def effective_plan(rows):
+    # Local Finder rejects the organic endpoint's optional se_domain field.
+    # Keep the original sealed plan and zero-cost rejection receipts intact.
+    return [dict(row, payload={k: v for k, v in row['payload'].items()
+                              if not (row['lane'] == 'local_finder' and k == 'se_domain')}) for row in rows]
+
+
+def trial_exposure(cache, rows):
+    keys = {request_key(row['lane'], row['payload']) for row in [*rows, *effective_plan(rows)]}
+    total = 0
+    for key in keys:
+        row = cache.get(key)
+        if row:
+            total += row.get('cost_cents', 0)
+            if row['status'] in ('submitting', 'uncertain'): total += row['reservation']
+    return total
 
 
 def nominations(envelope, lane, towns, scope, seen):
@@ -63,16 +82,22 @@ def nominations(envelope, lane, towns, scope, seen):
     for url, context in results:
         url = public_seed(url)
         if not url: held['non_public_url'] += 1; continue
+        host = urlsplit(url).hostname.removeprefix('www.')
+        try:
+            ipaddress.ip_address(host)
+        except ValueError:
+            pass
+        else:
+            held['raw_ip_address'] += 1; continue
         owner = website_key(url)
         if owner in owners: held['known_owner'] += 1; continue
         text = url + ' ' + ' '.join(str(v) for v in context.values())
         if CHAINS.search(text): held['chain'] += 1; continue
-        cue, local = link_signals(url, context, towns)
+        cue, local = link_signals(url, context, [*towns, 'Buckinghamshire', 'Bucks'])
         subjects = matching_page_subjects(text, scope)
         if MUSIC.search(text) and not subjects: held['music_only_hint'] += 1; continue
-        if cue < .9 and not subjects and lane != 'html_terms': held['no_subject_or_tutor_hint'] += 1; continue
-        if local < .8 and lane != 'html_terms': held['no_local_hint'] += 1; continue
-        host = urlsplit(url).hostname.removeprefix('www.')
+        if cue < .9 and not subjects: held['no_subject_or_tutor_hint'] += 1; continue
+        if local < .8: held['no_local_hint'] += 1; continue
         if directory_entry(url) and (not admitted_url(url) or not local_directory_entry(url)):
             held['generic_directory'] += 1; continue
         if len(accepted) >= 15: held['branch_limit'] += 1; continue
@@ -103,20 +128,33 @@ def run(root):
     rows = json.loads((root / 'plan.json').read_text())
     if (cfg['instruction'] != INSTRUCTION or cfg['maximumCents'] != MAXIMUM_CENTS
             or file_hash(root / 'plan.json') != cfg['planSha256']
-            or rows != plan(job['towns']) or sum(x['maximumCents'] for x in rows) > MAXIMUM_CENTS):
+            or effective_plan(rows) != plan(job['towns']) or sum(x['maximumCents'] for x in rows) > MAXIMUM_CENTS):
         raise ValueError('Endpoint trial plan changed')
     bank = Path(job['recoveryBankRoot']); report = {'observedAt': now_iso(), 'phase': 'running', 'results': [],
-        'maximumCents': MAXIMUM_CENTS, 'outreachEligible': False, 'deadline': job['authorizedDeadline']}
+        'maximumCents': MAXIMUM_CENTS, 'outreachEligible': False, 'deadline': job['authorizedDeadline'],
+        'loadedSourceSha': loaded_source_sha()}
     with (bank / 'run.lock').open('a') as lock:
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         cache = PaidCache(bank, 5000, 0)
         try:
             if spend_limit.policy(cache.db) is None: raise ValueError('Shared reduced budget must be installed')
             seen = known_owners(job); empty = Counter(); scope = load_scope(campaign)
-            for row in rows:
+            for row in effective_plan(rows):
                 if STOP or time.time() >= deadline - 120: report['phase'] = 'deadline_or_stop'; break
                 lane = row['lane']; key = request_key(lane, row['payload'])
+                saved = cache.get(key); observation_path = root / 'observations' / (key + '.json')
+                if saved and observation_path.exists():
+                    original = json.loads(observation_path.read_text())
+                    if original.get('receiptSha256') != saved.get('receipt_hash'):
+                        raise ValueError('Probe observation no longer matches its provider receipt')
+                    kind = result_kind(saved, cache.receipt(saved) if saved.get('receipt') else None)
+                    if kind in ('uncertain', 'account_blocked'):
+                        report['phase'] = kind; break
+                    report['results'].append(dict(original, cacheHit=True))
+                    continue
                 if empty[lane] >= 2: continue
+                if not saved and trial_exposure(cache, rows) + row['maximumCents'] > MAXIMUM_CENTS:
+                    report['phase'] = 'trial_budget_reached'; break
                 if cache.usage()['remainingCents'] < row['maximumCents']: report['phase'] = 'budget_reached'; break
                 envelope = provider_request(cache, lane, row['payload'], maximum_cents=row['maximumCents'])
                 receipt = cache.get(key)
@@ -135,11 +173,14 @@ def run(root):
                     'newResearchNominations': len(candidates), 'heldReasons': held, 'batchSha256': batch,
                     'candidates': candidates, 'receiptSha256': receipt.get('receipt_hash') if receipt else None,
                     'reportedCostUsd': receipt.get('cost_usd') if receipt else None, 'observedAt': now_iso()}
-                atomic_json(root / 'observations' / (key + '.json'), observation)
+                if not observation_path.exists(): atomic_json(observation_path, observation)
                 report['results'].append(observation); report.update(observedAt=now_iso(), budget=cache.usage())
                 atomic_json(root / 'status.json', report)
                 if kind in ('uncertain', 'account_blocked'): report['phase'] = kind; break
             if report['phase'] == 'running': report['phase'] = 'complete'
+        except Exception as error:
+            report.update(phase='failed', error=type(error).__name__ + ': ' + str(error)[:240])
+            raise
         finally:
             report.update(observedAt=now_iso(), budget=cache.usage())
             atomic_json(root / 'status.json', report); cache.db.close()

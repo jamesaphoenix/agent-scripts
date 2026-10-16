@@ -1481,7 +1481,7 @@
         "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
         "command": [
           "bash",
-          ".worktrees/tutor-endpoint-probe-20261016/agent-loops/tutor-lead-pathways/install-endpoint-probe.sh",
+          ".worktrees/tutor-endpoint-probe-v2-20261016/agent-loops/tutor-lead-pathways/install-endpoint-probe.sh",
           "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts"
         ]
       },

@@ -2,6 +2,7 @@ import importlib.util
 import json
 from pathlib import Path
 import tempfile
+import subprocess
 import unittest
 
 SPEC=importlib.util.spec_from_file_location('dispatch',Path(__file__).with_name('dispatch.py'))
@@ -9,6 +10,11 @@ module=importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(module)
 
 class ReadinessTests(unittest.TestCase):
+    def test_zsh_wrapper_resolves_its_runtime_directory_without_secrets(self):
+        script=Path(__file__).with_name("run.sh")
+        result=subprocess.check_output(["/bin/zsh",str(script),"--print-script-dir"],text=True)
+        self.assertEqual(result.strip(),str(script.parent.resolve()))
+
     def test_waits_for_both_completed_receipts_and_refuses_corrupt_output(self):
         with tempfile.TemporaryDirectory() as directory:
             root=Path(directory);(root/'out').mkdir()

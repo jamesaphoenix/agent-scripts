@@ -1,0 +1,23 @@
+{
+  "id": "smart-cub-teaching-follow-up-20261016",
+  "name": "Smart Cub isolated pronoun and abbreviation correction sources",
+  "enabled": true,
+  "machine": "mac-studio",
+  "launchdLabel": "com.jud.smart-cub-teaching-follow-up-20261016",
+  "schedule": "manual one-shot kick; RunAtLoad=false, KeepAlive=false",
+  "requiresOpServiceAccount": false,
+  "install": {
+    "kind": "command",
+    "workdir": "/Users/jamesphoenix/Desktop/projects/just-understanding-data/agent-scripts",
+    "command": [
+      "bash",
+      "agent-loops/smart-cub-teaching-follow-up-20261016/install-launchd.sh"
+    ]
+  },
+  "notes": "Four follow-up source renders only: fixed pronoun statements and visual-only abbreviation label. Third isolated project, six staged hashes, voice proof and renderer/support/selection hashes pinned. Serial four-worker renders, nice10,50GiBfloor, shared host lease. No paid API or final approval.",
+  "schedulingPolicy": {
+    "processType": "Standard",
+    "lowPriorityIO": false,
+    "nice": 10
+  }
+}

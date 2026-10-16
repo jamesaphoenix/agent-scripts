@@ -39,6 +39,9 @@ class PredecessorTests(unittest.TestCase):
                 self.assertEqual(checkpoints[0]['state'], 'waiting-for-follow-up')
                 self.assertTrue(Path(proof['predecessorProof']).is_file())
                 receipts.assert_called_once()
+                # Explicit recovery from a later preflight failure revalidates the
+                # same receipts while preserving the original immutable proof.
+                self.assertEqual(module.wait_for_predecessor({}), proof)
                 launch.assert_not_called()
 
     def test_only_matching_dead_predecessor_lease_can_be_removed(self):

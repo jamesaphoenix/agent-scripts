@@ -67,7 +67,7 @@ def preflight():
         assert sha(target) == row['afterSha256'], 'Staged input changed: ' + row['path']
     assert len(data['voiceProofs']) == 5, 'Exactly five saved voice proofs required'
     implementation = data['copyImplementation']
-    assert implementation['sha256'] == '985e64dc7d0c7ab976045ff1d000ac2bcb59d8151f143a9edd48d19ee1d0b10b'
+    assert implementation['sha256'] == '70167bec537569b907a7c28f305505991b7ea286f538e734d3c3c251f16d5468', 'Approved18a2 copy implementation changed'
     assert Path(implementation['path']).resolve().is_relative_to(RUN.resolve())
     assert sha(Path(implementation['path'])) == implementation['sha256'], 'Source copy implementation changed'
     for row in data['voiceProofs']:
@@ -143,6 +143,14 @@ def wait_for_predecessor(state):
                          'predecessorParentsExited': True, 'deadLeaseCleanup': cleanup,
                          'canonicalLeasePath': str(lease), 'publicationApproval': False}
                 target = RUN / 'workflow/teaching-final-five-predecessor-proof.json'
+                if target.exists():
+                    saved = json.loads(target.read_text())
+                    assert saved['sourceSnapshot'] == PREDECESSOR_GRAPH and saved['outputs'] == outputs
+                    assert saved['predecessorParentsExited'] is True
+                    if saved.get('deadLeaseCleanup'):
+                        archived = saved['deadLeaseCleanup']
+                        assert sha(Path(archived['ownerArchive'])) == archived['sha256']
+                    return {'predecessorProof': str(target), 'predecessorProofSha256': sha(target)}
                 with target.open('x') as stream:
                     json.dump(proof, stream, indent=2)
                     stream.write('\n')

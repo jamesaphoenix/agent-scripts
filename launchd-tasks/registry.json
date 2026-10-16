@@ -510,6 +510,25 @@
         ]
       },
       "notes": "James explicitly authorised forty additional tutorials overnight, ten adapted from his articles. Studio exclusively renders and encodes; a lightweight SSH bridge uses the original MacBook GBP100 ledger for expressive stitched ElevenLabs, at most one paired Flash generation per tutorial, and private byte-verified R2/D1 delivery. No budget reset, automatic paid retry, public release or inferred owner acceptance. Report to the Desktop and preserve failures. Cleanup only owned frame caches after archive and transfer verification; retain final exports, editable assets, source recipes, reviews, evidence, caches and ledgers. Preserve unrelated jobs."
+    },
+    {
+      "id": "brand-video-repair-20261016",
+      "name": "Repair the first three overnight tutorial exports from their existing review findings",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.brand-video-repair-20261016",
+      "schedule": "Finite RunAtLoad repairs; original overnight deadline retained",
+      "requiresOpServiceAccount": false,
+      "opServiceAccountSource": null,
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts/.worktrees/brand-video-render",
+        "command": [
+          "bash",
+          "agent-loops/brand-video-repair/install-launchd.sh"
+        ]
+      },
+      "notes": "Repair selected early exports locally with cached voices and no paid generation or second Flash review. Preserve reviewed original movies and immutable provider receipts, prove code remains visible at every beat boundary, compare encoded audio, transfer and byte-verify new R2 revisions before deleting owned picture intermediates. No owner acceptance or public publishing inferred. Keep the main forty-video job and unrelated processes running."
     }
   ]
 }

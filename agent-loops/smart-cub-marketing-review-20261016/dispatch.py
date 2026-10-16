@@ -153,10 +153,8 @@ def revision_queue(revision):
                 state.update(phase='reviewing', activeId=identity, activeAspect=aspect,
                              activeReceipt=receipt, activeLog=str(log), checkedAt=now())
                 save(STATUS, state)
-                command = [str(RUN / '.venv/bin/python'), '-B', 'scripts/review-media.py', 'model',
-                           '--ids', identity, '--aspect', aspect, '--max-requests', '1',
-                           '--ledger', str(RUN / 'ledger/media-review-ledger.json'),
-                           '--evidence-root', config['reviewEvidenceRoot']]
+                from revision_config import model_command
+                command = model_command(config, RUN, APP, identity, aspect)
                 offset = log.stat().st_size if log.exists() else 0
                 with review_admission({'id': identity, 'aspect': aspect,
                                        'outputSha256': receipt['sha256']}) as admission:

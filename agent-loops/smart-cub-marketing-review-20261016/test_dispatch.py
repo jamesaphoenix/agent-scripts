@@ -22,7 +22,16 @@ class ReadinessTests(unittest.TestCase):
             (app / 'data/scripts.json').write_text(json.dumps([{'id': f'p{i}'} for i in range(130)]))
             config_path = root / 'config.json'
             config_path.write_text('{}')
-            config = {'reviewEvidenceRoot': '/revision/review-cache', 'protectedSourceHashes': {}}
+            helpers = root / 'workflow/family-helpers/scripts'
+            helpers.mkdir(parents=True)
+            for name in ['review-media.py', 'review-ledger.py', 'prepare-review.py']:
+                (helpers / name).write_text('implementation fixture')
+            config = {'reviewEvidenceRoot': '/revision/review-cache',
+                      'protectedSourceHashes': {'scripts/review-media.py': module.sha(helpers / 'review-media.py')},
+                      'reviewHelperRoot': str(helpers),
+                      'reviewHelperHashes': {p.name: module.sha(p) for p in helpers.iterdir()}}
+            (app / 'scripts').mkdir()
+            (app / 'scripts/review-media.py').write_text('implementation fixture')
             status = root / 'workflow/status.json'
             calls = []
 
@@ -57,6 +66,8 @@ class ReadinessTests(unittest.TestCase):
             self.assertEqual(set(state['completedOutputs']), {'p0:tall'})
             self.assertNotIn('activeReviewPid', state)
             self.assertEqual(len(calls), 1)
+            self.assertEqual(calls[0][2], str(helpers / 'review-media.py'))
+            self.assertEqual(calls[0][calls[0].index('--root') + 1], str(app))
             self.assertEqual(calls[0][calls[0].index('--aspect') + 1], 'tall')
             self.assertEqual(calls[0][calls[0].index('--max-requests') + 1], '1')
             self.assertEqual(calls[0][calls[0].index('--evidence-root') + 1], '/revision/review-cache')

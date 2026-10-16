@@ -10,6 +10,30 @@ def sha(path):
         return hashlib.file_digest(stream, 'sha256').hexdigest()
 
 
+def validated_helpers(data, run, app):
+    helper = Path(data.get('reviewHelperRoot', ''))
+    if not helper.is_absolute() or helper.is_symlink() or not helper.resolve().is_relative_to((run / 'workflow').resolve()):
+        raise ValueError('Family helpers must stay in the isolated task workflow')
+    expected = data.get('reviewHelperHashes', {})
+    if not {'review-media.py', 'review-ledger.py', 'prepare-review.py'}.issubset(expected):
+        raise ValueError('Family helper implementation hashes are required')
+    for name, digest in expected.items():
+        target = (helper / name).resolve()
+        if Path(name).name != name or not target.is_relative_to(helper.resolve()) or sha(target) != digest:
+            raise ValueError('Protected family helper changed: ' + name)
+    if expected['review-media.py'] != data['protectedSourceHashes']['scripts/review-media.py']:
+        raise ValueError('Model helper must preserve the exact review implementation and cache identity')
+    return helper
+
+
+def model_command(data, run, app, identity, aspect):
+    helper = validated_helpers(data, run, app)
+    return [str(run / '.venv/bin/python'), '-B', str(helper / 'review-media.py'), 'model',
+            '--root', str(app), '--ids', identity, '--aspect', aspect, '--max-requests', '1',
+            '--ledger', str(run / 'ledger/media-review-ledger.json'),
+            '--evidence-root', data['reviewEvidenceRoot']]
+
+
 def load_revision(path, run):
     path = path.resolve()
     if not path.is_relative_to(run.resolve()):
@@ -48,4 +72,5 @@ def load_revision(path, run):
         target = (app / name).resolve()
         if not target.is_relative_to(app) or sha(target) != expected:
             raise ValueError('Protected revision input changed: ' + name)
+    validated_helpers(data, run, app)
     return data, sha(path)

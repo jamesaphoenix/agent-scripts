@@ -22,10 +22,16 @@ class RevisionHandoffTests(unittest.TestCase):
             path.parent.mkdir(exist_ok=True)
             path.write_text('test source')
             protected[name] = module.sha(path)
+        helpers = root / 'workflow/family-helpers/scripts'
+        helpers.mkdir(parents=True)
+        for name in ['review-media.py', 'review-ledger.py', 'prepare-review.py']:
+            (helpers / name).write_text('test source')
         proof = root / 'contracts.json'
         proof.write_text(json.dumps({'status': 'pass', 'checks': [{'status': 'pass'} for _ in range(149)]}))
         data = {'app': str(app), 'reviewEvidenceRoot': str(app / 'out/review-complete'),
                 'renderPhases': ['marketing'],
+                'reviewHelperRoot': str(helpers),
+                'reviewHelperHashes': {p.name: module.sha(p) for p in helpers.iterdir()},
                 'frozenSourceSnapshot': 'a' * 64, 'verifiedNarrationContracts': 149,
                 'narrationContractProof': {'path': str(proof), 'sha256': module.sha(proof)},
                 'protectedSourceHashes': protected}
@@ -82,6 +88,29 @@ class RevisionHandoffTests(unittest.TestCase):
             config.write_text(json.dumps(data))
             with self.assertRaisesRegex(ValueError, 'marketing only'):
                 module.load_revision(config, root)
+
+    def test_external_family_helpers_are_pinned_and_cannot_escape_task_workflow(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            config, data, app = self.fixture(root)
+            helpers = Path(data['reviewHelperRoot'])
+            (helpers / 'review-ledger.py').write_text('changed')
+            with self.assertRaisesRegex(ValueError, 'family helper changed'):
+                module.load_revision(config, root)
+            (helpers / 'review-ledger.py').write_text('test source')
+            data['reviewHelperRoot'] = str(app / 'scripts')
+            config.write_text(json.dumps(data))
+            with self.assertRaisesRegex(ValueError, 'isolated task workflow'):
+                module.load_revision(config, root)
+
+    def test_model_command_uses_external_helper_and_explicit_root(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            config, data, app = self.fixture(root)
+            command = module.model_command(data, root, app, 'item', 'wide')
+            self.assertEqual(command[2], str(Path(data['reviewHelperRoot']) / 'review-media.py'))
+            self.assertEqual(command[command.index('--root') + 1], str(app))
+            self.assertEqual(command[command.index('--evidence-root') + 1], data['reviewEvidenceRoot'])
 
 
 if __name__ == '__main__':

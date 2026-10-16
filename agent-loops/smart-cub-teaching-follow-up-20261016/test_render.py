@@ -34,8 +34,14 @@ class FollowUpPreflightTests(unittest.TestCase):
             manifest.write_text(json.dumps(data))
             with mock.patch.multiple(module, PROJECT=project, APP=app, MANIFEST=manifest,
                                      MANIFEST_SHA=module.sha(manifest), HELPERS=helpers), \
+                 mock.patch.object(module.subprocess, 'check_output', return_value=str(root)), \
                  mock.patch.object(module.socket, 'gethostname', return_value='JamessMacStudio.fritz.box'):
                 self.assertEqual(module.preflight()['stagedFilesVerified'], 6)
+                lease = root / 'smart-cub-founder-render.lock'
+                lease.mkdir()
+                with self.assertRaisesRegex(AssertionError, 'Shared render lease'):
+                    module.preflight()
+                lease.rmdir()
                 (app / 'scripts/selection.ts').write_text('wrong selection helper')
                 with self.assertRaisesRegex(AssertionError, 'Render helper changed'):
                     module.preflight()

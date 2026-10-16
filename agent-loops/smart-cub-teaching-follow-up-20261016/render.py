@@ -59,9 +59,12 @@ def preflight():
         assert sha(target) == row['afterSha256'], 'Staged input changed: ' + row['path']
     for row in data['voiceProofs']:
         assert sha(Path(row['path'])) == row['sha256'], 'Voice proof changed'
+    temporary = Path(subprocess.check_output([NODE, '-p', 'require("node:os").tmpdir()'], text=True).strip())
+    host_lease = temporary / 'smart-cub-founder-render.lock'
+    assert not host_lease.exists(), 'Shared render lease requires ownership reconciliation: ' + str(host_lease)
     return {'manifestSha256': MANIFEST_SHA, 'rendererSha256': RENDERER_SHA,
             'stagedFilesVerified': 6, 'voiceProofsVerified': len(data['voiceProofs']),
-            'selection': 'follow-up-pair', 'helperHashes': HELPERS}
+            'selection': 'follow-up-pair', 'helperHashes': HELPERS, 'sharedLeasePath': str(host_lease)}
 
 
 def main():

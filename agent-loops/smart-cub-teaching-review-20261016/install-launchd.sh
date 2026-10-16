@@ -8,7 +8,7 @@ PLIST="$HOME/Library/LaunchAgents/$LABEL.plist"
 RUNTIME="$HOME/agent-runtime/just-understanding-data/agent-scripts/agent-loops/smart-cub-teaching-review-20261016"
 [[ -x "$RUN_DIR/.venv/bin/python" ]] || { echo 'Missing existing task virtualenv' >&2; exit 1; }
 [[ -f "$RUN_DIR/ledger/media-review-ledger.json" ]] || { echo 'Missing authoritative ledger' >&2; exit 1; }
-[[ "$(shasum -a 256 "$RUN_DIR/workflow/teaching-review-dispatch.py" | cut -d ' ' -f1)" == '14b5a09a6c3d2c718b6635a7d736932783ad1d46c4e08659ac6c1f03e26d0c89' ]] || { echo 'Teaching wrapper changed; reconcile before install' >&2; exit 1; }
+[[ "$(shasum -a 256 "$RUN_DIR/workflow/teaching-review-dispatch.py" | cut -d ' ' -f1)" == '7b419925ae0b1b2aa71fc3cfa11291220b1de2a669c745b4e016455e9c97a762' ]] || { echo 'Teaching wrapper changed; reconcile before install' >&2; exit 1; }
 mkdir -p "$HOME/Library/LaunchAgents" "$RUN_DIR/evidence"
 mkdir -p "$RUNTIME/bin"
 cp "$SCRIPT_DIR/run.sh" "$RUNTIME/"

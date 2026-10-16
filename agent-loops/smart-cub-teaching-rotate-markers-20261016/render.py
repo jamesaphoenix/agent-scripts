@@ -40,6 +40,14 @@ def receipts(project,ids,graph,selection):
   result.append({'id':identity,'output':str(m),'sha256':sha(m),'receipt':str(p),'receiptSha256':sha(p)})
  return result
 
+def record_controller(state, child):
+ state['renderControllerPid']=child.pid
+ state['renderControllerPgid']=os.getpgid(child.pid)
+ state['dispatcherPgid']=os.getpgid(0)
+
+def record_selection_complete(state, job, proof):
+ state['completedSelections'].append({'selection':job['selection'],'outputs':proof,'controllerPid':state['renderControllerPid'],'controllerPgid':state['renderControllerPgid'],'dispatcherPgid':state['dispatcherPgid']})
+
 def preflight():
  assert re.sub('[^a-z0-9]','',socket.gethostname().split('.')[0].lower())=='jamessmacstudio'
  hp=RUNNER/'render-handoff.json';assert sha(hp)=='f1d1ab374c2a3e415f1896905e4154143d8dc37498f320331abf062044739c80';handoff=json.loads(hp.read_text());assert len(handoff['jobs'])==1 and handoff['paidRequests']==0
@@ -108,14 +116,14 @@ def main():
  with STATUS.with_suffix('.lock').open('a+')as lock:
   fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
   if STATUS.exists():raise ValueError('Existing successor checkpoint requires explicit reconciliation')
-  state={'state':'waiting-for-scale','pid':os.getpid(),'startedAt':now(),'paidCalls':0,'qualityApproved':False,'jobs':1,'workers':4,'nice':10,'completedSelections':[]};save(state)
+  state={'state':'waiting-for-scale','pid':os.getpid(),'dispatcherPgid':os.getpgid(0),'startedAt':now(),'paidCalls':0,'qualityApproved':False,'jobs':1,'workers':4,'nice':10,'completedSelections':[]};save(state)
   try:
    prior=wait_predecessor(state);d=json.loads((RUN/'workflow/teaching-scale-dispatch-status.json').read_text());lease_clear(d.get('renderControllerPid'));handoff=preflight();state.update(predecessorProof=str(prior),predecessorProofSha256=sha(prior));save(state)
    for job in handoff['jobs']:
     preflight();lease_clear();state.update(state='rendering',selection=job['selection'],project=job['project'],sourceFingerprint=job['sourceFingerprint']);save(state)
-    child=subprocess.Popen(job['argv'],cwd=APP);state['renderControllerPid']=child.pid;save(state);code=child.wait()
+    child=subprocess.Popen(job['argv'],cwd=APP);record_controller(state,child);save(state);code=child.wait()
     if code:raise RuntimeError(f"Successor selection{job['selection']} exited{code}; no automatic retry")
-    proof=receipts(Path(job['project']),job['compositionIds'],job['sourceFingerprint'],job['selection']);lease_clear(child.pid);state['completedSelections'].append({'selection':job['selection'],'outputs':proof});state.pop('renderControllerPid',None);save(state)
+    proof=receipts(Path(job['project']),job['compositionIds'],job['sourceFingerprint'],job['selection']);lease_clear(child.pid);record_selection_complete(state,job,proof);save(state)
    state.update(state='complete_rendered_needs_review',exitCode=0,finishedAt=now());save(state)
   except BaseException as e:
    state.update(state='halted',errorType=type(e).__name__,error=str(e)[:500],automaticRetry=False,finishedAt=now());save(state);raise

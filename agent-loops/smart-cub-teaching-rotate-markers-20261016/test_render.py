@@ -3,6 +3,17 @@ from pathlib import Path
 from unittest import mock
 s=importlib.util.spec_from_file_location('scale',Path(__file__).with_name('render.py'));m=importlib.util.module_from_spec(s);s.loader.exec_module(m)
 class AdmissionTests(unittest.TestCase):
+ def test_completed_controller_identity_remains_available_for_successor(self):
+  state={'completedSelections':[]}
+  with mock.patch.object(m.os,'getpgid',side_effect=lambda pid:1234):
+   m.record_controller(state,type('Child',(),{'pid':5678})())
+  m.record_selection_complete(state,{'selection':'rotate-markers'},[{'id':'fixture'}])
+  self.assertEqual(state['renderControllerPid'],5678)
+  self.assertEqual(state['renderControllerPgid'],1234)
+  self.assertEqual(state['dispatcherPgid'],1234)
+  self.assertEqual(state['completedSelections'][0]['controllerPid'],5678)
+  self.assertEqual(state['completedSelections'][0]['controllerPgid'],1234)
+
  def test_fixed_two_after_exact_predecessor_pair_rejects_receipt_drift(self):
   self.assertEqual([len(x[1])for x in m.JOBS],[2]);self.assertEqual([len(x[1])for x in m.PRIOR_JOBS],[2])
   with tempfile.TemporaryDirectory()as tmp:

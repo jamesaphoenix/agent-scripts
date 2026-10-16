@@ -370,6 +370,32 @@ class KeywordExpansionTests(unittest.TestCase):
         self.assertEqual([url for url, _ in upstream_results(reply)],
                          ['https://sites.google.com/view/amersham-tutor', 'https://namedtutor.co.uk/about'])
 
+    def test_nested_read_more_link_cannot_replace_the_search_result_identity(self):
+        reply = response(title='Buckingham Learning Academy: Homepage')
+        item = reply['tasks'][0]['result'][0]['items'][0]
+        item['description'] = 'Independent English and maths tuition in Buckinghamshire.'
+        item['links'] = [{'type': 'link_element', 'title': 'Read more',
+                          'url': 'https://namedtutor.co.uk/about#:~:text=Independent'}]
+        results = dict(upstream_results(reply))
+        self.assertEqual(len(list(upstream_results(reply))), 1)
+        self.assertEqual(results['https://namedtutor.co.uk/about']['title'], item['title'])
+        self.assertEqual(results['https://namedtutor.co.uk/about']['description'], item['description'])
+
+    def test_real_identity_replaces_an_earlier_navigation_label(self):
+        reply = response(title='Local English Tutor')
+        items = reply['tasks'][0]['result'][0]['items']
+        items.insert(0, {'url': items[0]['url'], 'title': 'Read more',
+                         'description': 'Navigation copy', 'category': 'Link'})
+        self.assertEqual(dict(upstream_results(reply))['https://namedtutor.co.uk/about'],
+                         {'title': 'Local English Tutor'})
+
+    def test_distinct_sitelinks_remain_available_as_separate_seed_urls(self):
+        reply = response(title='Local English Tutor')
+        reply['tasks'][0]['result'][0]['items'][0]['links'] = [
+            {'url': 'https://namedtutor.co.uk/contact', 'title': 'Contact'}]
+        self.assertEqual([url for url, _ in upstream_results(reply)],
+                         ['https://namedtutor.co.uk/about', 'https://namedtutor.co.uk/contact'])
+
     def test_existing_navigation_jobs_are_retained_as_excluded_evidence(self):
         root, _ = self.paid()
         self.index.sync_run(root, TOWNS)

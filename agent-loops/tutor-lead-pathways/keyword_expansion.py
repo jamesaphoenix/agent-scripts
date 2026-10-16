@@ -115,6 +115,7 @@ def search_navigation(url):
 
 
 def upstream_results(response):
+    """Keep one context per URL so nested navigation cannot replace its title."""
     def visit(value):
         if isinstance(value, dict):
             for field in ('url', 'website'):
@@ -122,15 +123,24 @@ def upstream_results(response):
                 if url and not search_navigation(url):
                     context = {k: value[k][:1000] for k in ('title', 'name', 'description', 'address', 'category')
                                if isinstance(value.get(k), str)}
-                    yield url, context
+                    label = context.get('name') or context.get('title') or ''
+                    identity = bool(label and not re.fullmatch(
+                        r'read more|learn more|click here|visit(?: website| site)?|website|more',
+                        label.strip(), re.I))
+                    yield url, context, (identity, len(context))
             for item in value.values():
                 if isinstance(item, (dict, list)):
                     yield from visit(item)
         elif isinstance(value, list):
             for item in value:
                 yield from visit(item)
+    results = {}
     for task in response.get('tasks', []):
-        yield from visit(task.get('result') or [])
+        for url, context, rank in visit(task.get('result') or []):
+            if url not in results or rank > results[url][1]:
+                results[url] = context, rank
+    for url, (context, _) in results.items():
+        yield url, context
 
 
 class SearchIndex:

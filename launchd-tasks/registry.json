@@ -1329,7 +1329,7 @@
         "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
         "command": [
           "bash",
-          ".worktrees/tutor-recovery-20261016-10h/agent-loops/tutor-lead-pathways/install-incremental.sh",
+          ".worktrees/tutor-recovery-titles-20261016/agent-loops/tutor-lead-pathways/install-incremental.sh",
           "run",
           "tutor-incremental-20261016-recovery-10h",
           "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts"
@@ -1351,7 +1351,7 @@
         "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
         "command": [
           "bash",
-          ".worktrees/tutor-recovery-20261016-10h/agent-loops/tutor-lead-pathways/install-incremental.sh",
+          ".worktrees/tutor-recovery-titles-20261016/agent-loops/tutor-lead-pathways/install-incremental.sh",
           "watch",
           "tutor-incremental-20261016-recovery-10h",
           "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts"
@@ -1373,7 +1373,7 @@
         "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
         "command": [
           "bash",
-          ".worktrees/tutor-recovery-20261016-10h/agent-loops/tutor-lead-pathways/install-qualification.sh",
+          ".worktrees/tutor-recovery-titles-20261016/agent-loops/tutor-lead-pathways/install-qualification.sh",
           "run",
           "tutor-qualification-20261016-recovery-10h",
           "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts"
@@ -1395,7 +1395,7 @@
         "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
         "command": [
           "bash",
-          ".worktrees/tutor-recovery-20261016-10h/agent-loops/tutor-lead-pathways/install-qualification.sh",
+          ".worktrees/tutor-recovery-titles-20261016/agent-loops/tutor-lead-pathways/install-qualification.sh",
           "watch",
           "tutor-qualification-20261016-recovery-10h",
           "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts"

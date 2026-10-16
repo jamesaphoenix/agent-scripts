@@ -9,3 +9,5 @@ The command is the pinned Studio Python, `-B <script> run --plan <path> --plan-s
 `run.sh` normalises the canonical Studio TMPDIR and executes nice10. The official installer first runs metadata-only launcher verification, so absent/unreviewed binding fails before plist or runtime changes. Its plist is Standard with normal IO, RunAtLoad=false and KeepAlive=false. The separate registry-proposal.json is not activated.
 
 Three pure tests exercise missing approval/no exec, exact argv and byte tampering, non-Studio host and external status rejection. No media or provider operation occurs in these tests. No source registration, budget mutation, paid call or final-quality approval is authorised by this wrapper.
+
+The installer does not copy or rewrite the shared `workflow/render_tmpdir.py` policy. Its existing exact bytes remain protected by the eventual immutable blend plan.

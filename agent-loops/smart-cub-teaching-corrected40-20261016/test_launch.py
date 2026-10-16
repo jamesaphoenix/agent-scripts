@@ -18,6 +18,8 @@ class LaunchTests(unittest.TestCase):
    with mock.patch.object(m,'RUN',r),mock.patch.object(m,'CONFIG',config),mock.patch.object(m.socket,'gethostname',return_value='JamessMacStudio.fritz.box'):
     result=m.command();self.assertEqual(result,[str(m.PYTHON),'-B',str(script),'run','--plan',str(plan),'--plan-sha256',m.sha(plan),'--status',str(r/'status.json'),'--execute']);plan.write_text('{"drift":true}')
     with self.assertRaisesRegex(ValueError,'Pinned bytes'):m.command()
+ def test_installer_does_not_rewrite_shared_tmpdir_policy(self):
+  source=Path(__file__).with_name('install-launchd.sh').read_text();self.assertNotIn('render_tmpdir.py',source)
  def test_nonstudio_host_and_outside_status_refused(self):
   m=self.module()
   with mock.patch.object(m.socket,'gethostname',return_value='MacBook-Pro'):

@@ -11,7 +11,7 @@ python3 - "$plist" "$runtime" "$label" <<'PYCODE'
 import plistlib,sys
 from pathlib import Path
 p,runtime,label=sys.argv[1:]
-value={'Label':label,'ProgramArguments':['/opt/homebrew/bin/python3',runtime+'/source/production/brand-videos/delivery_worker.py','--state',runtime+'/state','--source',runtime+'/source','--blender','/Users/jamesphoenix/Desktop/claude-code-series-render/tools/Blender.app/Contents/MacOS/Blender'],'WorkingDirectory':runtime+'/source','RunAtLoad':True,'KeepAlive':False,'ProcessType':'Background','StandardOutPath':runtime+'/state/delivery.stdout.log','StandardErrorPath':runtime+'/state/delivery.stderr.log','EnvironmentVariables':{'PATH':'/opt/homebrew/opt/node@22/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin'}}
+value={'Label':label,'ProgramArguments':['/opt/homebrew/bin/python3',runtime+'/source/production/brand-videos/delivery_worker.py','--state',runtime+'/state','--source',runtime+'/source'],'WorkingDirectory':runtime+'/source','RunAtLoad':True,'KeepAlive':False,'ProcessType':'Background','StandardOutPath':runtime+'/state/delivery.stdout.log','StandardErrorPath':runtime+'/state/delivery.stderr.log','EnvironmentVariables':{'PATH':'/opt/homebrew/opt/node@22/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin'}}
 Path(p).write_bytes(plistlib.dumps(value))
 PYCODE
 launchctl print "gui/$(id -u)/$label" >/dev/null 2>&1 && { echo 'Job already installed; inspect status before reinstallation' >&2; exit 1; }

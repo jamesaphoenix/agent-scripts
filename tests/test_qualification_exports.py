@@ -82,6 +82,32 @@ class QualificationExportTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'identity'):
             extract_profile('key', dict(self.candidate, name='Jane Smith Tuition | John Brown Tuition'), [page], {page['url']: page}, SCOPE, ['Amersham'])
 
+    def test_a_teachers_full_self_introduction_requires_an_own_about_me_page(self):
+        candidate = dict(self.candidate, name='JS Education - Dyslexia Assessment and Tuition')
+        page = dict(self.page, title='Specialist Teacher - About me',
+                    text='About Me. My name is Jo Souter and I am an experienced specialist teacher. '
+                         'I offer reading and spelling tuition in Amersham.')
+        profile = extract_profile('key', candidate, [page], {page['url']: page}, SCOPE, ['Amersham'])
+        self.assertEqual(profile['name'], 'Jo Souter')
+        self.assertFalse(profile['outreachEligible'])
+        for title, text in [('Testimonials', page['text']),
+                            ('About me', page['text'].replace('specialist teacher', 'happy parent')),
+                            ('About me', 'About Me. I run JS Education. Testimonials. '
+                             'My name is Jane Parent and I am a primary teacher. Tuition in Amersham.'),
+                            ('About me', page['text'].replace('Jo Souter', 'Jo'))]:
+            with self.subTest(title=title, text=text):
+                changed = dict(page, title=title, text=text)
+                with self.assertRaisesRegex(ValueError, 'identity'):
+                    extract_profile('key', candidate, [changed], {changed['url']: changed}, SCOPE, ['Amersham'])
+
+    def test_conflicting_self_introductions_stay_held(self):
+        page = dict(self.page, title='About me',
+                    text='About Me. My name is Jane Smith and I am a maths teacher. '
+                         'About Me. My name is John Brown and I am an English tutor. Tuition in Amersham.')
+        with self.assertRaisesRegex(ValueError, 'identity'):
+            extract_profile('key', dict(self.candidate, name='Ambiguous practice'), [page],
+                            {page['url']: page}, SCOPE, ['Amersham'])
+
     def test_identity_match_requires_whole_words_and_retains_full_person_names(self):
         page = dict(self.page, title='Joann Smith Tuition', text='Joann Smith Tuition. I offer maths tuition in Amersham.')
         with self.assertRaisesRegex(ValueError, 'identity'):

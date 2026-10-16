@@ -45,7 +45,7 @@ BUCKS = {
     "hodge lea", "fishermead", "newton leys", "walnut tree", "kents hill", "great holm", "fullers slade",
     "wavendon gate", "tattenhoe", "hanslope", "lavendon", "emberton", "north crawley", "shenley lodge",
     "edlesborough", "wingrave", "seer green", "weedon", "west wycombe", "naphill", "turville", "medmenham",
-    "little horwood", "great horwood", "soulbury", "stoke hammond", "steeple claydon", "calvert", "gawcott",
+    "little horwood", "great horwood", "soulbury", "stoke hammond", "steeple claydon", "calvert", "gawcott", "cublington",
     "haversham", "grange farm", "tylers green",
 }
 CHILDCARE_DISTRICTS = {"aylesbury vale", "chiltern", "south bucks", "wycombe"}

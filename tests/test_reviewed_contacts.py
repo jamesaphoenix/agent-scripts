@@ -123,6 +123,22 @@ class ReviewedContactTests(unittest.TestCase):
             self.assertFalse(row['outreachEligible'])
             self.assertEqual(row['pageEvidence'][0]['checkpointSha256'], item['checkpointSha256'])
 
+    def test_a_cublington_advert_keeps_its_literal_parish_claim(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            path, item = self.fixture(root)
+            saved = json.loads(path.read_text())
+            text = item['unitText'].replace('Haddenham, Buckinghamshire', 'Cublington')
+            saved['results'][0]['evidence']['text'] = text
+            atomic_json(path, saved)
+            item.update(unitText=text, localityClaim='Cublington',
+                        localityQuote='I am based in Cublington.',
+                        checkpointSha256=hashlib.sha256(path.read_bytes()).hexdigest())
+            self.assertEqual(self.run_review(root, [item])['newResearchContacts'], 1)
+            row = json.loads((root / 'review/public-contacts/contacts.json').read_text())[0]
+            self.assertEqual(row['localityClaim'], 'Cublington')
+            self.assertNotIn('Buckinghamshire', row['review']['localityQuote'])
+
     def test_hashed_html_sibling_advert_replays_without_borrowing_neighbour_details(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

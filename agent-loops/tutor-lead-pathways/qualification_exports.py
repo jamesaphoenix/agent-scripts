@@ -22,6 +22,12 @@ from qualification_context import cache_path
 EMAIL = re.compile(r'[A-Za-z0-9.!#$%&\'*+/=?^_`{|}~-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}')
 PHONE = re.compile(r'(?<!\d)(?:\+44|0)[\d ().-]{8,22}\d(?!\d)')
 AMBIGUOUS_TOWNS = {'burnham', 'haddenham', 'penn', 'sands', 'bourton', 'denham'}
+NAME_WORD = r"[A-ZÀ-ÖØ-Þ][^\W\d_]+(?:[-'][^\W\d_]+)*"
+TEACHER_INTRODUCTION = re.compile(
+    r'(?i:\babout me)[\s.:]{1,12}(?i:my name is)\s+('
+    + NAME_WORD + r'(?:\s+' + NAME_WORD + r'){1,3})'
+    r'\s+(?i:and I am (?:an?|the))\s+[^.!?\n]{0,90}?'
+    r'(?i:\b(?:teacher|tutor)\b)(?![\'’])')
 
 
 def owned_name(candidate, pages, towns):
@@ -46,6 +52,14 @@ def owned_name(candidate, pages, towns):
               for part in re.split(r'\s*[|:\u2013\u2014]\s*', p.get('title') or '')}
     found = {normalize_name(value): value.strip() for value in choices
              if literal(value) and normalize_name(value) in titles}
+    if not found:
+        # An explicit first-person teaching identity on an own About me page
+        # can resolve a search label without using names from testimonials.
+        introductions = {normalize_name(match[1]): match[1] for page in pages
+                         if re.search(r'\babout me\b', page.get('title') or '', re.I)
+                         for match in TEACHER_INTRODUCTION.finditer(page['text'])}
+        if len(introductions) == 1:
+            return next(iter(introductions.values()))
     if len(found) != 1:
         raise ValueError('Owned identity needs extraction or review')
     return next(iter(found.values()))

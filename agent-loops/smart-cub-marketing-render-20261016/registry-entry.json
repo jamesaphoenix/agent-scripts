@@ -14,7 +14,7 @@
       "agent-loops/smart-cub-marketing-render-20261016/install-launchd.sh"
     ]
   },
-  "notes": "Resume exact frozen marketing receipts only after authorised graceful controller handoff. Node22 nice10,2renders x4workers, no paid calls or approval.",
+  "notes": "Resume exact frozen marketing receipts only after authorised graceful controller handoff. Node22 nice10,2renders x4workers, no paid calls or approval. Revision handoff uses isolated app and pinned narration proof; canonical teaching graph and old checkpoints retained.",
   "schedulingPolicy": {
     "processType": "Standard",
     "lowPriorityIO": false,

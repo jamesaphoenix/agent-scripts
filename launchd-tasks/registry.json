@@ -460,7 +460,7 @@
       "enabled": true,
       "machine": "mac-studio",
       "launchdLabel": "com.jud.smart-cub-marketing-review-20261016",
-      "schedule": "one-shot RunAtLoad; no KeepAlive or interval",
+      "schedule": "manual one-shot kick; RunAtLoad=false, KeepAlive=false",
       "requiresOpServiceAccount": true,
       "opServiceAccountSource": "profile-or-keychain",
       "install": {
@@ -471,7 +471,7 @@
           "agent-loops/smart-cub-marketing-review-20261016/install-launchd.sh"
         ]
       },
-      "notes": "Task-owned review of 130 marketing pairs. One reviewer process, shared USD 100 ledger, no automatic final passes; stop on uncertainty/cap/error. Preserve output/evidence/ledger.",
+      "notes": "Task-owned review of 130 marketing pairs. One reviewer process, shared USD 100 ledger, no automatic final passes; stop on uncertainty/cap/error. Preserve output/evidence/ledger. Revision handoff uses isolated app and pinned narration proof; canonical teaching graph and old checkpoints retained.",
       "schedulingPolicy": {
         "processType": "Standard",
         "lowPriorityIO": false,
@@ -494,7 +494,7 @@
           "agent-loops/smart-cub-marketing-render-20261016/install-launchd.sh"
         ]
       },
-      "notes": "Resume exact frozen marketing receipts only after authorised graceful controller handoff. Node22 nice10,2renders x4workers, no paid calls or approval.",
+      "notes": "Resume exact frozen marketing receipts only after authorised graceful controller handoff. Node22 nice10,2renders x4workers, no paid calls or approval. Revision handoff uses isolated app and pinned narration proof; canonical teaching graph and old checkpoints retained.",
       "schedulingPolicy": {
         "processType": "Standard",
         "lowPriorityIO": false,

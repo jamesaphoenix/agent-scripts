@@ -26,4 +26,4 @@ if [[ -z "${OP_SERVICE_ACCOUNT_TOKEN:-}" ]]; then
 fi
 [[ -n "${OP_SERVICE_ACCOUNT_TOKEN:-}" ]] || { echo 'Managed service-account token unavailable' >&2; exit 1; }
 export PATH="$SCRIPT_DIR/bin:$PATH"
-exec /usr/bin/nice -n 10 "$HOME/render-tmp/smart-cub-refresh-20261016/.venv/bin/python" -B "$SCRIPT_DIR/dispatch.py"
+exec /usr/bin/nice -n 10 "$HOME/render-tmp/smart-cub-refresh-20261016/.venv/bin/python" -B "$SCRIPT_DIR/dispatch.py" --revision-config "$HOME/render-tmp/smart-cub-refresh-20261016/workflow/marketing-revision-dispatch-config.json" "$@"

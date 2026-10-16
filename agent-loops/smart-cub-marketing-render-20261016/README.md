@@ -18,3 +18,10 @@ Scheduling uses Standard process policy and normal I/O priority, with explicit n
 authorised concurrency limits. Do not add Background or LowPriorityIO throttling to these
 user-requested media jobs. Task-local live corrections use supported taskpolicy -B on verified
 own process trees; do not restart a paid request or change global host settings.
+
+The new revision handoff uses the explicit marketing-revision-dispatch-config.json, refuses
+the canonical teaching app, and verifies149 passed narration contracts and protected input
+hashes. It renders all compositions in registry order:38 CTA outputs first, then260 marketing
+outputs. The existing source snapshot guard, global fallback, receipts and host lease remain
+authoritative. Its revision status has a separate filename, preserving the stopped first batch.
+Do not kick before the isolated teaching-correction renderer releases the shared host lease.

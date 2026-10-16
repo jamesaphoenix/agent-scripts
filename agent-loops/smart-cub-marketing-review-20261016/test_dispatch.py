@@ -4,12 +4,57 @@ from pathlib import Path
 import tempfile
 import subprocess
 import unittest
+from unittest import mock
 
 SPEC=importlib.util.spec_from_file_location('dispatch',Path(__file__).with_name('dispatch.py'))
 module=importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(module)
 
 class ReadinessTests(unittest.TestCase):
+    def test_revision_stop_saves_one_aspect_before_any_next_provider_admission(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            app = root / 'revision/app'
+            (app / 'data').mkdir(parents=True)
+            (root / 'workflow').mkdir()
+            (root / 'evidence').mkdir()
+            (app / 'data/scripts.json').write_text(json.dumps([{'id': f'p{i}'} for i in range(130)]))
+            config_path = root / 'config.json'
+            config_path.write_text('{}')
+            config = {'canonicalEvidenceRoot': '/canonical/review-cache', 'protectedSourceHashes': {}}
+            status = root / 'workflow/status.json'
+            calls = []
+
+            def provider(command, **kwargs):
+                calls.append(command)
+                kwargs['stdout'].write(json.dumps({'id': 'p0', 'aspect': 'tall', 'state': 'completed_advisory'}) + '\n')
+                kwargs['stdout'].flush()
+
+                class Child:
+                    pid = 123
+
+                    def wait(self):
+                        (root / 'workflow/marketing-revision-review-dispatch.STOP').write_text('operator pause')
+                        return 0
+
+                return Child()
+
+            receipt = {'sha256': 'exact output', 'receiptSha256': 'exact receipt'}
+            with mock.patch.object(module, 'RUN', root), mock.patch.object(module, 'APP', app), \
+                 mock.patch.object(module, 'STATUS', status), \
+                 mock.patch.object(module, 'ready_pair', return_value={'tall': receipt, 'wide': receipt}), \
+                 mock.patch.object(module.subprocess, 'Popen', side_effect=provider):
+                with self.assertRaisesRegex(ValueError, 'Operator stop file'):
+                    module.revision_queue((config_path, config, module.sha(config_path)))
+            state = json.loads(status.read_text())
+            self.assertEqual(state['phase'], 'halted')
+            self.assertEqual(set(state['completedOutputs']), {'p0:tall'})
+            self.assertNotIn('activeReviewPid', state)
+            self.assertEqual(len(calls), 1)
+            self.assertEqual(calls[0][calls[0].index('--aspect') + 1], 'tall')
+            self.assertEqual(calls[0][calls[0].index('--max-requests') + 1], '1')
+            self.assertEqual(calls[0][calls[0].index('--evidence-root') + 1], '/canonical/review-cache')
+
     def test_explicit_resume_archives_error_fields(self):
         state={'phase':'running','error':'old error','haltedAt':'old time','completedPairs':{}}
         module.archive_previous_error(state)

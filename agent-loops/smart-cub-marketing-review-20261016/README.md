@@ -29,3 +29,13 @@ Scheduling uses Standard process policy and normal I/O priority, with explicit n
 authorised concurrency limits. Do not add Background or LowPriorityIO throttling to these
 user-requested media jobs. Task-local live corrections use supported taskpolicy -B on verified
 own process trees; do not restart a paid request or change global host settings.
+
+The explicitly authorised revision uses workflow/marketing-revision-dispatch-config.json.
+This pins an isolated app,149 passed narration contracts, the frozen graph fingerprint and
+protected context/implementation hashes. The original canonical teaching graph is refused as
+a revision target. Review cache remains the canonical absolute out/review-complete directory.
+Revision review admits one aspect and at most one paid request per invocation, saving its
+checkpoint before considering the next aspect. A marketing-revision-review-dispatch.STOP
+file stops new admissions after the active request is durably saved. It never cancels a paid
+request or grants final approval. Revision status/logs have a separate marketing-revision
+prefix, preserving the old checkpoint. Installation is inactive until the operator's kick.

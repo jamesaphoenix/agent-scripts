@@ -63,6 +63,13 @@ def ready_pair(app, identity, frozen=FROZEN):
     return receipts
 
 
+def archive_previous_error(state):
+    previous = {key: state.pop(key) for key in ('error', 'haltedAt') if key in state}
+    if previous:
+        state.setdefault('historicalHalts', []).append({**previous, 'archivedAt': now(),
+            'reason': 'Explicitly resumed queue; previous halt is historical'})
+
+
 def main():
     if re.sub(r'[^a-z0-9]', '', socket.gethostname().split('.')[0].lower()) != 'jamessmacstudio':
         raise ValueError('This queue only runs on Mac Studio')
@@ -76,6 +83,7 @@ def main():
         if state['phase'] in ['halted', 'completed']:
             print(json.dumps({'phase': state['phase'], 'message': 'No automatic restart of completed or halted queue'}), flush=True)
             return
+        archive_previous_error(state)
         state.update({'pid': os.getpid(), 'startedAt': now(), 'machine': socket.gethostname()})
         identities = [row['id'] for row in json.loads((APP / 'data/scripts.json').read_text())]
         assert len(identities) == 130 and len(set(identities)) == 130

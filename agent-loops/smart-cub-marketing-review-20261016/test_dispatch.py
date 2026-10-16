@@ -10,6 +10,15 @@ module=importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(module)
 
 class ReadinessTests(unittest.TestCase):
+    def test_explicit_resume_archives_error_fields(self):
+        state={'phase':'running','error':'old error','haltedAt':'old time','completedPairs':{}}
+        module.archive_previous_error(state)
+        self.assertNotIn('error',state)
+        self.assertNotIn('haltedAt',state)
+        self.assertEqual(state['historicalHalts'][0]['error'],'old error')
+        module.archive_previous_error(state)
+        self.assertEqual(len(state['historicalHalts']),1)
+
     def test_zsh_wrapper_resolves_its_runtime_directory_without_secrets(self):
         script=Path(__file__).with_name("run.sh")
         result=subprocess.check_output(["/bin/zsh",str(script),"--print-script-dir"],text=True)

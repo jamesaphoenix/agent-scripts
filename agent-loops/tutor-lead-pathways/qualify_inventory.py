@@ -496,6 +496,19 @@ def cleanup(root):
         return report
 
 
+def resident(root, poll_seconds=120):
+    """Keep one in-memory API credential while new source batches arrive."""
+    job = json.loads((root / 'job.json').read_text())
+    while not STOP and time.time() < job['deadlineUnix']:
+        run(root)
+        status = json.loads((root / 'status.json').read_text())
+        if STOP or status.get('phase') in ('deadline', 'budget_reached', 'api_unavailable'):
+            return
+        until = min(time.time() + poll_seconds, job['deadlineUnix'])
+        while not STOP and time.time() < until:
+            time.sleep(min(1, until - time.time()))
+
+
 def watch(root, owner, monitor):
     job=json.loads((root/'job.json').read_text())
     status=json.loads((root/'status.json').read_text()) if (root/'status.json').exists() else {}
@@ -518,6 +531,11 @@ def watch(root, owner, monitor):
     report={'observedAt':now_iso(),'processLive':process,'contextProducerLive':producer_live,'feederReady':feeder_ready,'phase':status.get('phase'),'terminal':terminal,'status':status,'recoveries':recoveries,
             'pendingWebsiteSeedBatches':seed_batches,'seedIntakeError':seed_error}
     atomic_json(root/'monitor.json',report)
+    from launch import credential_delay
+    if not terminal and not process and credential_delay(root):
+        report['action'] = 'credential_cooldown'
+        atomic_json(root/'monitor.json', report)
+        return
     if terminal and not process:
         cleanup(root)
         import subprocess
@@ -547,9 +565,10 @@ def subprocess_status(owner):
 
 if __name__=='__main__':
     parser=argparse.ArgumentParser()
-    parser.add_argument('command',choices=['run','watch'])
+    parser.add_argument('command',choices=['run','resident','watch'])
     parser.add_argument('--run-dir',type=Path,required=True)
     parser.add_argument('--owner-label');parser.add_argument('--monitor-label')
     args=parser.parse_args()
     if args.command=='run':run(args.run_dir)
+    elif args.command=='resident':resident(args.run_dir)
     else:watch(args.run_dir,args.owner_label,args.monitor_label)

@@ -93,6 +93,14 @@ stop that endpoint. Each request nominates at most fifteen public websites;
 owned evidence and qualification remain required. Source observations report
 returned URLs, duplicates, held reasons, cost and qualification intake hashes.
 
+Qualification uses a resident process so its OpenAI credential stays in memory
+instead of being read from 1Password after every search. It checks for new work
+every two minutes and retains the original deadline, provider stops and budgets.
+Rate-limited credential reads create a thirty-minute cooldown shared with the
+worker's launcher and monitor. No secret is written to the cooldown evidence.
+The endpoint trial can retry credential startup at that interval, but completed
+requests and its total fifty-cent ceiling are retained across retries.
+
 ## Actual agent reviews
 
 The native health probes are separate from James's request for the assistant to

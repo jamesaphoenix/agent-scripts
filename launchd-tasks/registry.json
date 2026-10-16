@@ -1329,7 +1329,7 @@
         "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
         "command": [
           "bash",
-          ".worktrees/tutor-spend-limit-20261016/agent-loops/tutor-lead-pathways/install-incremental.sh",
+          ".worktrees/tutor-credentials-20261016/agent-loops/tutor-lead-pathways/install-incremental.sh",
           "run",
           "tutor-incremental-20261016-recovery-10h",
           "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts"
@@ -1351,7 +1351,7 @@
         "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
         "command": [
           "bash",
-          ".worktrees/tutor-spend-limit-20261016/agent-loops/tutor-lead-pathways/install-incremental.sh",
+          ".worktrees/tutor-credentials-20261016/agent-loops/tutor-lead-pathways/install-incremental.sh",
           "watch",
           "tutor-incremental-20261016-recovery-10h",
           "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts"
@@ -1373,7 +1373,7 @@
         "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
         "command": [
           "bash",
-          ".worktrees/tutor-spend-limit-20261016/agent-loops/tutor-lead-pathways/install-qualification.sh",
+          ".worktrees/tutor-credentials-20261016/agent-loops/tutor-lead-pathways/install-qualification.sh",
           "run",
           "tutor-qualification-20261016-recovery-10h",
           "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts"
@@ -1395,7 +1395,7 @@
         "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
         "command": [
           "bash",
-          ".worktrees/tutor-spend-limit-20261016/agent-loops/tutor-lead-pathways/install-qualification.sh",
+          ".worktrees/tutor-credentials-20261016/agent-loops/tutor-lead-pathways/install-qualification.sh",
           "watch",
           "tutor-qualification-20261016-recovery-10h",
           "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts"
@@ -1473,7 +1473,7 @@
       "enabled": true,
       "machine": "mac-studio",
       "launchdLabel": "com.jud.tutor-endpoint-probe-20261016",
-      "schedule": "one bounded trial within the original 16 October 18:50:02 UTC deadline",
+      "schedule": "bounded trial with thirty-minute credential cooldown until the original 16 October 18:50:02 UTC deadline",
       "requiresOpServiceAccount": true,
       "opServiceAccountSource": "profile-or-keychain",
       "install": {
@@ -1481,7 +1481,7 @@
         "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
         "command": [
           "bash",
-          ".worktrees/tutor-endpoint-probe-v2-20261016/agent-loops/tutor-lead-pathways/install-endpoint-probe.sh",
+          ".worktrees/tutor-credentials-20261016/agent-loops/tutor-lead-pathways/install-endpoint-probe.sh",
           "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts"
         ]
       },

@@ -186,6 +186,9 @@ def process_live(label):
 
 def wake_qualification(job):
     root = Path(job['qualificationRoot'])
+    from launch import credential_delay
+    if credential_delay(root):
+        return
     status = json.loads((root / 'status.json').read_text())
     if status.get('phase') in ('deadline', 'budget_reached', 'api_unavailable'):
         return
@@ -366,6 +369,8 @@ def watch(root):
     live = process_live(owner)
     prior = json.loads((root / 'monitor.json').read_text()) if (root / 'monitor.json').exists() else {}
     recovered = False
+    from launch import credential_delay
+    cooling = credential_delay(root) > 0
     if not live and time.time() < deadline and state.get('phase') == 'api_unavailable':
         bank = Path(job.get('recoveryBankRoot', root))
         with (bank / 'run.lock').open('a') as lock:
@@ -379,7 +384,7 @@ def watch(root):
     terminal = time.time() >= deadline or state['phase'] in ('api_unavailable', 'account_blocked', 'budget_reached', 'search_plan_exhausted', 'deadline')
     report = {'observedAt': now_iso(), 'processLive': live, 'terminal': terminal, 'runtime': state,
               'recoveries': prior.get('recoveries', 0), 'deadline': job['authorizedDeadline'], 'settledErrorStopRecovered': recovered}
-    if not terminal and not live and report['recoveries'] < 3:
+    if not terminal and not live and not cooling and report['recoveries'] < 3:
         subprocess.run(['launchctl', 'kickstart', f'gui/{os.getuid()}/{owner}'], capture_output=True, timeout=10)
         report['recoveries'] += 1
     if not terminal:
@@ -389,6 +394,8 @@ def watch(root):
         qualification = json.loads((qroot / 'status.json').read_text())
         report['qualification'] = {k: qualification.get(k) for k in ('phase', 'observedAt', 'counts', 'decisions')}
     report['health'] = 'terminal' if terminal else 'degraded' if not live else 'stalled' if time.time() - datetime.datetime.fromisoformat(state['observedAt']).timestamp() > 1800 else 'healthy'
+    if cooling and not live:
+        report.update(health='credential_waiting', action='credential_cooldown')
     atomic_json(root / 'monitor.json', report)
     atomic_json(root / 'monitor' / (now_iso().replace(':', '-') + '.json'), report)
     if terminal and not live and time.time() >= deadline:
@@ -414,7 +421,7 @@ if __name__ == '__main__':
         _, deadline = load_job(args.run_dir)
         if time.time() < deadline:
             from launch import runner_environment
-            environment = runner_environment(os.environ)
+            environment = runner_environment(os.environ, args.run_dir)
             os.execve(sys.executable, [sys.executable, __file__, 'run', '--run-dir', str(args.run_dir)], environment)
     elif args.command == 'run':
         run(args.run_dir)

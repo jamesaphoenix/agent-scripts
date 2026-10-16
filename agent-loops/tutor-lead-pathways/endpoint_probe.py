@@ -204,6 +204,11 @@ if __name__ == '__main__':
         cfg = json.loads((args.run_dir / 'job.json').read_text())
         _, deadline = load_job(Path(cfg['campaignRoot']))
         if time.time() >= deadline - 120: raise SystemExit(0)
+        status_path = args.run_dir / 'status.json'
+        if status_path.exists():
+            previous = json.loads(status_path.read_text())
+            if previous.get('loadedSourceSha') == loaded_source_sha() and previous['phase'] == 'complete':
+                raise SystemExit(0)
         from launch import runner_environment
-        os.execve(sys.executable, [sys.executable, __file__, '--run-dir', str(args.run_dir)], runner_environment(os.environ))
+        os.execve(sys.executable, [sys.executable, __file__, '--run-dir', str(args.run_dir)], runner_environment(os.environ, args.run_dir))
     run(args.run_dir)

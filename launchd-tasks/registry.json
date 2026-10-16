@@ -686,6 +686,29 @@
         "lowPriorityIO": false,
         "nice": 10
       }
+    },
+    {
+      "id": "smart-cub-teaching-sequence-20261016",
+      "name": "Smart Cub isolated sequence source successor",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.smart-cub-teaching-sequence-20261016",
+      "schedule": "manual one-shot kick; RunAtLoad=false, KeepAlive=false",
+      "requiresOpServiceAccount": false,
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/Desktop/projects/just-understanding-data/agent-scripts",
+        "command": [
+          "bash",
+          "agent-loops/smart-cub-teaching-sequence-20261016/install-launchd.sh"
+        ]
+      },
+      "notes": "Separate fixed2 sequence outputs only after fixed3 normal completion, all3 exact atomic receipts, no owned process-group children and canonical/legacy lease clearance. Full899cc2 source inventory and8runner helper hashes pinned, serial1x4 nice10,50GiBfloor,zeroAPI, no quality approval.",
+      "schedulingPolicy": {
+        "processType": "Standard",
+        "lowPriorityIO": false,
+        "nice": 10
+      }
     }
   ]
 }

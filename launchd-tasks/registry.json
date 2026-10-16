@@ -490,6 +490,21 @@
         ]
       },
       "notes": "Resume exact frozen marketing receipts only after authorised graceful controller handoff. Node22 nice10,2renders x4workers, no paid calls or approval."
+    },
+    {
+      "id": "smart-cub-teaching-blends-20261016",
+      "name": "Smart Cub one-shot teaching blends",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.smart-cub-teaching-blends-20261016",
+      "schedule": "manual one-shot kick; RunAtLoad=false, KeepAlive=false",
+      "requiresOpServiceAccount": false,
+      "install": {
+        "kind": "plist",
+        "plistPath": "agent-loops/smart-cub-teaching-blends-20261016/com.jud.smart-cub-teaching-blends-20261016.plist",
+        "kickstart": false
+      },
+      "notes": "Authorised 288 teaching derivatives; one serial hardware encode at nice 10, 50 GiB floor. Exact inputs/CTA receipts, no paid calls or automatic final quality passes."
     }
   ]
 }

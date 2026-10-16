@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>EnvironmentVariables</key>
+	<dict>
+		<key>PATH</key>
+		<string>/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+	</dict>
+	<key>KeepAlive</key>
+	<false/>
+	<key>Label</key>
+	<string>com.jud.smart-cub-teaching-blends-20261016</string>
+	<key>LowPriorityIO</key>
+	<true/>
+	<key>ProcessType</key>
+	<string>Background</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/opt/homebrew/bin/python3</string>
+		<string>/Users/jamesphoenix/render-tmp/smart-cub-refresh-20261016/workflow/teaching-blend-dispatch.py</string>
+		<string>--app</string>
+		<string>/Users/jamesphoenix/render-tmp/smart-cub-refresh-20261016/smart-cub/apps/prototypes/founder-videos</string>
+		<string>--run-root</string>
+		<string>/Users/jamesphoenix/render-tmp/smart-cub-refresh-20261016</string>
+		<string>--execute</string>
+	</array>
+	<key>RunAtLoad</key>
+	<false/>
+	<key>StandardErrorPath</key>
+	<string>/Users/jamesphoenix/render-tmp/smart-cub-refresh-20261016/evidence/teaching-blend-dispatch-stderr.log</string>
+	<key>StandardOutPath</key>
+	<string>/Users/jamesphoenix/render-tmp/smart-cub-refresh-20261016/evidence/teaching-blend-dispatch-stdout.log</string>
+	<key>ThrottleInterval</key>
+	<integer>60</integer>
+	<key>WorkingDirectory</key>
+	<string>/Users/jamesphoenix/render-tmp/smart-cub-refresh-20261016</string>
+</dict>
+</plist>

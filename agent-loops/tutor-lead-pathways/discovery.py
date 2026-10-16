@@ -47,6 +47,7 @@ NON_ACADEMIC_CATEGORIES = {
 }
 SCHOOL_CATEGORIES = {
     "school", "independent school", "private school", "preparatory school",
+    "primary school", "secondary school", "elementary school",
     "boarding school", "grammar school", "high school", "sixth form college",
     "college", "university", "preschool", "montessori preschool", "nursery school",
     "special education school",

@@ -8,7 +8,7 @@ from unittest.mock import patch, MagicMock
 
 sys.path.insert(0, str(Path(__file__).parents[1] / 'agent-loops/tutor-lead-pathways'))
 from discovery import request_key
-from endpoint_probe import plan, nominations, effective_plan, trial_exposure
+from endpoint_probe import plan, business_plan, nominations, effective_plan, trial_exposure
 import endpoint_probe
 from discovery import atomic_json, file_hash
 
@@ -69,6 +69,20 @@ class EndpointProbeTests(unittest.TestCase):
         accepted,held,_=nominations(data,'html_terms',[t['name'] for t in TOWNS],SCOPE,set())
         self.assertEqual(accepted,[])
         self.assertEqual(held['raw_ip_address'],1)
+
+    def test_business_supplement_uses_different_categories_with_bounded_reservations(self):
+        rows=business_plan(TOWNS)
+        self.assertEqual(len(rows),3)
+        self.assertEqual(sum(x['maximumCents'] for x in rows),21)
+        self.assertTrue(all('tutoring_service' not in x['payload']['categories'] for x in rows))
+
+    def test_real_academic_listing_category_can_nominate_but_school_and_music_cannot(self):
+        data=response([{'url':'https://janeslearning.co.uk/','title':'Jane Learning','category':'Education center','address':'Aylesbury'},
+            {'url':'https://primary-school.co.uk/','title':'Primary school Aylesbury','category':'Primary school'},
+            {'url':'https://music-school.co.uk/','title':'School Aylesbury','category':'Music school'}])
+        accepted,held,_=nominations(data,'business',[t['name'] for t in TOWNS],SCOPE,set())
+        self.assertEqual([x['name'] for x in accepted],['Jane Learning'])
+        self.assertEqual(len(accepted),1)
 
     def test_branch_and_directory_bounds_are_preserved(self):
         data=response([{'domain':f'local-tutor-{i}.co.uk','title':'Maths Tutor Bucks'} for i in range(20)])

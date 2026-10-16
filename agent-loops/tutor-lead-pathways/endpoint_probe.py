@@ -13,7 +13,8 @@ import sys
 import time
 from urllib.parse import urlsplit
 
-from discovery import (CHAINS, ENDPOINTS, PaidCache, atomic_json, file_hash, now_iso,
+from discovery import (ACADEMIC_CATEGORY, NON_ACADEMIC_CATEGORIES, SCHOOL_CATEGORIES,
+                       CHAINS, ENDPOINTS, PaidCache, atomic_json, file_hash, now_iso,
                        provider_request, request_key, website_key)
 from directory_profiles import admitted_url
 from focused_frontier import link_signals
@@ -59,6 +60,14 @@ def effective_plan(rows):
                               if not (row['lane'] == 'local_finder' and k == 'se_domain')}) for row in rows]
 
 
+def business_plan(towns):
+    return [{'lane': 'business', 'payload': {
+        'categories': ['education_center', 'learning_center', 'educational_consultant'],
+        'location_coordinate': next(t['coordinate'] for t in towns if t['name'] == name) + ',12',
+        'limit': 100, 'offset': 0}, 'maximumCents': 7}
+        for name in ('High Wycombe', 'Aylesbury', 'Milton Keynes')]
+
+
 def trial_exposure(cache, rows):
     keys = {request_key(row['lane'], row['payload']) for row in [*rows, *effective_plan(rows)]}
     total = 0
@@ -93,10 +102,15 @@ def nominations(envelope, lane, towns, scope, seen):
         if owner in owners: held['known_owner'] += 1; continue
         text = url + ' ' + ' '.join(str(v) for v in context.values())
         if CHAINS.search(text): held['chain'] += 1; continue
+        category = context.get('category', '').casefold()
+        if category in NON_ACADEMIC_CATEGORIES or category in SCHOOL_CATEGORIES:
+            held['non_tutor_category'] += 1; continue
         cue, local = link_signals(url, context, [*towns, 'Buckinghamshire', 'Bucks'])
         subjects = matching_page_subjects(text, scope)
         if MUSIC.search(text) and not subjects: held['music_only_hint'] += 1; continue
-        if cue < .9 and not subjects: held['no_subject_or_tutor_hint'] += 1; continue
+        academic_listing = lane in ('business', 'local_finder') and ACADEMIC_CATEGORY.search(category)
+        if cue < .9 and not subjects and not academic_listing:
+            held['no_subject_or_tutor_hint'] += 1; continue
         if local < .8: held['no_local_hint'] += 1; continue
         if directory_entry(url) and (not admitted_url(url) or not local_directory_entry(url)):
             held['generic_directory'] += 1; continue
@@ -130,6 +144,14 @@ def run(root):
             or file_hash(root / 'plan.json') != cfg['planSha256']
             or effective_plan(rows) != plan(job['towns']) or sum(x['maximumCents'] for x in rows) > MAXIMUM_CENTS):
         raise ValueError('Endpoint trial plan changed')
+    supplement = root / 'business-supplement.json'
+    if supplement.exists():
+        value = json.loads(supplement.read_text())
+        if (value.get('instruction') != INSTRUCTION or value.get('maximumTotalTrialCents') != MAXIMUM_CENTS
+                or value.get('originalPlanSha256') != cfg['planSha256']
+                or value.get('rows') != business_plan(job['towns'])):
+            raise ValueError('Business category supplement changed')
+        rows += value['rows']
     bank = Path(job['recoveryBankRoot']); report = {'observedAt': now_iso(), 'phase': 'running', 'results': [],
         'maximumCents': MAXIMUM_CENTS, 'outreachEligible': False, 'deadline': job['authorizedDeadline'],
         'loadedSourceSha': loaded_source_sha()}

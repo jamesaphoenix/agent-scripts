@@ -22,6 +22,8 @@ from configuration import loaded_source_sha
 from lead_scope import load_scope, query_priority, services_text
 
 HOSTS = {"www.findtutors.co.uk", "tutorperch.com", "www.childcare.co.uk", "tutordex.net", "tutorextra.co.uk", "www.uktutors.com", "www.tutorhunt.com", "www.tuitionlist.co.uk", "www.teachtutti.co.uk", "www.apprentus.co.uk", "thetutorsassociation.wildapricot.org"}
+from universitytutor import HOSTS as UNIVERSITY_HOSTS
+HOSTS |= UNIVERSITY_HOSTS
 AGENT = "TutorResearch/1.0"
 BUCKS = {
     "amersham", "amersham on the hill", "aylesbury", "beaconsfield", "bierton", "buckingham",
@@ -92,7 +94,11 @@ def admitted_url(value):
         p = urllib.parse.urlsplit(value)
         if p.scheme != "https" or p.hostname not in HOSTS or p.port not in (None, 443) or p.username or p.password:
             return None
-        if p.hostname == 'www.apprentus.co.uk':
+        if p.hostname in UNIVERSITY_HOSTS:
+            from universitytutor import public_path, PROFILE
+            profile = bool(PROFILE.fullmatch(p.path))
+            allowed = public_path(value)
+        elif p.hostname == 'www.apprentus.co.uk':
             from apprentus import LISTING_PATH, PROFILE_PATH, local_source_path
             profile = bool(PROFILE_PATH.fullmatch(p.path))
             if p.query and urllib.parse.parse_qsl(p.query) != [('from_landing_page', 'true')]:
@@ -386,7 +392,10 @@ def profile_record(text, url):
         return None
     p = urllib.parse.urlsplit(url)
     document = Document(text).root
-    if p.hostname == 'www.findtutors.co.uk' and re.fullmatch(r'/tutor/[a-z0-9-]+\.htm', p.path):
+    if p.hostname in UNIVERSITY_HOSTS:
+        from universitytutor import parse_profile
+        return parse_profile(document, url)
+    elif p.hostname == 'www.findtutors.co.uk' and re.fullmatch(r'/tutor/[a-z0-9-]+\.htm', p.path):
         from findtutors_profile import parse_profile
         return parse_profile(document, url)
     elif p.hostname == 'www.apprentus.co.uk':
@@ -723,6 +732,9 @@ def listing_profile_urls(cards, host, scope=None):
 
 def local_directory_link(value, source):
     parsed, origin = urllib.parse.urlsplit(value), urllib.parse.urlsplit(source)
+    if origin.hostname in UNIVERSITY_HOSTS:
+        from universitytutor import local_link
+        return local_link(value, source)
     if parsed.hostname != origin.hostname:
         return False
     if parsed.hostname == 'www.apprentus.co.uk':
@@ -1021,7 +1033,7 @@ def run(root, seeds, hours, page_limit, target):
                         links = linked_pages(text, url)
                         links = [link for link in links if local_directory_link(link, url)]
                         if scope:
-                            links = [link for link in links if '/profile/' in link or '/users/' in link
+                            links = [link for link in links if '/profile/' in link or '/users/' in link or '/tutors/' in link
                                 or '/tutor/' in link or query_priority(urllib.parse.urlsplit(link).path.replace('/', ' ').replace('-', ' '), scope) < 2]
                         if host == "www.findtutors.co.uk":
                             links = [link for link in links if "/tutor/" not in link and not re.search(r"-\d+/?$", urllib.parse.urlsplit(link).path)]
@@ -1029,6 +1041,9 @@ def run(root, seeds, hours, page_limit, target):
                         if host == 'www.apprentus.co.uk':
                             from apprentus import bounded_frontier
                             frontier = bounded_frontier(local_urls, links)
+                        if host in UNIVERSITY_HOSTS:
+                            from universitytutor import bounded_frontier
+                            frontier = bounded_frontier(links)
                         state["queue"].extend(link for link in frontier if link not in state["seen"] and link not in state["queue"])
                         state["queue"] = state["queue"][:20000]
                 else:

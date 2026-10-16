@@ -108,6 +108,7 @@ def profile_context_index(roots, candidates):
         host = urlsplit(url).hostname.removeprefix('www.')
         expected = (path.split('/')[-2] if host == 'thetutorsassociation.wildapricot.org' and '/Sys/PublicProfile/' in path
                     else path.rstrip('/').rsplit('/', 1)[-1] if host in {'childcare.co.uk', 'tutorhunt.com'}
+                    else path.split('/')[2] if host.endswith('.universitytutor.com') and re.fullmatch(r'/tutors/[1-9]\d{0,11}', path)
                     else path.split('/')[2] if host in {'uktutors.com', 'tutordex.net'} and path.startswith('/tutor/')
                     else path.rsplit('-', 1)[-1] if host == 'tutorextra.co.uk' and path.startswith('/profile/')
                     else path.rstrip('/').rsplit('/', 1)[-1] if host == 'tutorperch.com' and path.startswith('/t/')
@@ -133,7 +134,7 @@ def profile_context_index(roots, candidates):
                 decoded = decode_page(body, receipt.get('contentType', ''))
                 profile = profile_record(decoded, url)
                 if host in {'uktutors.com', 'tutordex.net', 'tutorextra.co.uk', 'tutorperch.com',
-                            'tuitionlist.co.uk', 'teachtutti.co.uk', 'apprentus.co.uk'}:
+                            'tuitionlist.co.uk', 'teachtutti.co.uk', 'apprentus.co.uk'} or host.endswith('.universitytutor.com'):
                     document = Document(decoded).root
                     canonicals = [n.attrs.get('content') if n.tag == 'meta' else n.attrs.get('href')
                         for n in document.walk() if (n.tag == 'meta' and n.attrs.get('property') == 'og:url')

@@ -119,3 +119,13 @@ The current conversation is hosted on the MacBook. That Mac and its app-server
 must remain available for these reviews to execute. The Studio crawler continues
 independently when the MacBook sleeps. Missing or delayed agent reviews remain
 visible in the saved receipts and snapshots, without claiming they happened.
+
+University Tutor is an additional free public-profile source. Admission is limited
+to eight local town subdomains and observed public profile/listing routes. Each
+listing can add at most fifteen profiles and one consecutive pagination page,
+up to page thirty. The parser requires a matching canonical URL, a single own
+name/location header and own Experience and Subject Expertise sections. It does
+not treat navigation, qualifications or neighbouring cards as advertised subjects.
+The existing subject policy, locality checks, source receipts, duplicate holds,
+Decisions ledger, USD15 shared reduction and original deadline still apply.
+Missing public email remains an enrichment task; no addresses are guessed.

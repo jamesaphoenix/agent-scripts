@@ -1374,13 +1374,13 @@
         "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
         "command": [
           "bash",
-          ".worktrees/tutor-credential-recovery-20261016/agent-loops/tutor-lead-pathways/install-qualification.sh",
+          ".worktrees/tutor-local-profiles-20261016/agent-loops/tutor-lead-pathways/install-qualification.sh",
           "run",
           "tutor-qualification-20261016-recovery-10h",
           "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts"
         ]
       },
-      "notes": "User explicitly requested fixing the script, another ten hours and checks every thirty minutes. No additional money authorised: use the original USD50 paid.sqlite, retaining USD0.56 conservative exposure and USD49.44 remaining at handoff, plus the existing USD10 Decisions cache. No new paid bank, SDK turns, Anthropic key or outreach. Empty results are neutral; engine/query errors pause their tactic; Maps and plain organic have reserved slots. Account/billing errors and uncertain submissions remain binding stops. Preserve immutable old windows, all receipts, source caches, scope and branch caps. Final native cleanup removes only task scratch and retains unmerged review work.",
+      "notes": "User explicitly requested fixing the script, another ten hours and checks every thirty minutes. No additional money authorised: use the original USD50 paid.sqlite, retaining USD0.56 conservative exposure and USD49.44 remaining at handoff, plus the existing USD10 Decisions cache. No new paid bank, SDK turns, Anthropic key or outreach. Empty results are neutral; engine/query errors pause their tactic; Maps and plain organic have reserved slots. Account/billing errors and uncertain submissions remain binding stops. Preserve immutable old windows, all receipts, source caches, scope and branch caps. Final native cleanup removes only task scratch and retains unmerged review work. Local University Tutor adapter: eight approved Bucks/Milton Keynes subdomains, public profiles, own subject/location fields, fifteen profiles per listing and one next page. The current USD15 combined spending reduction overrides all older remaining-budget figures. Credentials and the original deadline remain mandatory.",
       "credentialCooldownPath": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts/state/tutor-qualification-20261016-recovery-10h/credential-wait.json"
     },
     {
@@ -1397,13 +1397,13 @@
         "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
         "command": [
           "bash",
-          ".worktrees/tutor-credential-recovery-20261016/agent-loops/tutor-lead-pathways/install-qualification.sh",
+          ".worktrees/tutor-local-profiles-20261016/agent-loops/tutor-lead-pathways/install-qualification.sh",
           "watch",
           "tutor-qualification-20261016-recovery-10h",
           "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts"
         ]
       },
-      "notes": "User explicitly requested fixing the script, another ten hours and checks every thirty minutes. No additional money authorised: use the original USD50 paid.sqlite, retaining USD0.56 conservative exposure and USD49.44 remaining at handoff, plus the existing USD10 Decisions cache. No new paid bank, SDK turns, Anthropic key or outreach. Empty results are neutral; engine/query errors pause their tactic; Maps and plain organic have reserved slots. Account/billing errors and uncertain submissions remain binding stops. Preserve immutable old windows, all receipts, source caches, scope and branch caps. Final native cleanup removes only task scratch and retains unmerged review work."
+      "notes": "User explicitly requested fixing the script, another ten hours and checks every thirty minutes. No additional money authorised: use the original USD50 paid.sqlite, retaining USD0.56 conservative exposure and USD49.44 remaining at handoff, plus the existing USD10 Decisions cache. No new paid bank, SDK turns, Anthropic key or outreach. Empty results are neutral; engine/query errors pause their tactic; Maps and plain organic have reserved slots. Account/billing errors and uncertain submissions remain binding stops. Preserve immutable old windows, all receipts, source caches, scope and branch caps. Final native cleanup removes only task scratch and retains unmerged review work. Local University Tutor adapter: eight approved Bucks/Milton Keynes subdomains, public profiles, own subject/location fields, fifteen profiles per listing and one next page. The current USD15 combined spending reduction overrides all older remaining-budget figures. Credentials and the original deadline remain mandatory."
     },
     {
       "id": "bucks-private-tutors-20261016-recovery-10h",
@@ -1419,13 +1419,13 @@
         "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
         "command": [
           "bash",
-          ".worktrees/tutor-recovery-20261016-10h/agent-loops/tutor-lead-pathways/install-directory-profiles.sh",
+          ".worktrees/tutor-local-profiles-20261016/agent-loops/tutor-lead-pathways/install-directory-profiles.sh",
           "run",
           "bucks-private-tutors-20261016-recovery-10h",
           "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts"
         ]
       },
-      "notes": "User explicitly requested fixing the script, another ten hours and checks every thirty minutes. No additional money authorised: use the original USD50 paid.sqlite, retaining USD0.56 conservative exposure and USD49.44 remaining at handoff, plus the existing USD10 Decisions cache. No new paid bank, SDK turns, Anthropic key or outreach. Empty results are neutral; engine/query errors pause their tactic; Maps and plain organic have reserved slots. Account/billing errors and uncertain submissions remain binding stops. Preserve immutable old windows, all receipts, source caches, scope and branch caps. Final native cleanup removes only task scratch and retains unmerged review work."
+      "notes": "User explicitly requested fixing the script, another ten hours and checks every thirty minutes. No additional money authorised: use the original USD50 paid.sqlite, retaining USD0.56 conservative exposure and USD49.44 remaining at handoff, plus the existing USD10 Decisions cache. No new paid bank, SDK turns, Anthropic key or outreach. Empty results are neutral; engine/query errors pause their tactic; Maps and plain organic have reserved slots. Account/billing errors and uncertain submissions remain binding stops. Preserve immutable old windows, all receipts, source caches, scope and branch caps. Final native cleanup removes only task scratch and retains unmerged review work. Local University Tutor adapter: eight approved Bucks/Milton Keynes subdomains, public profiles, own subject/location fields, fifteen profiles per listing and one next page. The current USD15 combined spending reduction overrides all older remaining-budget figures. Credentials and the original deadline remain mandatory."
     },
     {
       "id": "bucks-private-tutors-20261016-recovery-10h-watch",
@@ -1441,13 +1441,13 @@
         "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
         "command": [
           "bash",
-          ".worktrees/tutor-recovery-20261016-10h/agent-loops/tutor-lead-pathways/install-directory-profiles.sh",
+          ".worktrees/tutor-local-profiles-20261016/agent-loops/tutor-lead-pathways/install-directory-profiles.sh",
           "watch",
           "bucks-private-tutors-20261016-recovery-10h",
           "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts"
         ]
       },
-      "notes": "User explicitly requested fixing the script, another ten hours and checks every thirty minutes. No additional money authorised: use the original USD50 paid.sqlite, retaining USD0.56 conservative exposure and USD49.44 remaining at handoff, plus the existing USD10 Decisions cache. No new paid bank, SDK turns, Anthropic key or outreach. Empty results are neutral; engine/query errors pause their tactic; Maps and plain organic have reserved slots. Account/billing errors and uncertain submissions remain binding stops. Preserve immutable old windows, all receipts, source caches, scope and branch caps. Final native cleanup removes only task scratch and retains unmerged review work."
+      "notes": "User explicitly requested fixing the script, another ten hours and checks every thirty minutes. No additional money authorised: use the original USD50 paid.sqlite, retaining USD0.56 conservative exposure and USD49.44 remaining at handoff, plus the existing USD10 Decisions cache. No new paid bank, SDK turns, Anthropic key or outreach. Empty results are neutral; engine/query errors pause their tactic; Maps and plain organic have reserved slots. Account/billing errors and uncertain submissions remain binding stops. Preserve immutable old windows, all receipts, source caches, scope and branch caps. Final native cleanup removes only task scratch and retains unmerged review work. Local University Tutor adapter: eight approved Bucks/Milton Keynes subdomains, public profiles, own subject/location fields, fifteen profiles per listing and one next page. The current USD15 combined spending reduction overrides all older remaining-budget figures. Credentials and the original deadline remain mandatory."
     },
     {
       "id": "tutor-agent-reviews-20261016",

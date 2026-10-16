@@ -1,0 +1,14 @@
+{
+  "contract": "smart-cub-corrected40-launch/v1",
+  "script": {
+    "path": "/Users/jamesphoenix/render-tmp/smart-cub-refresh-20261016/workflow/corrected-forty-66d9e35d0/scripts/blend-corrected-batch.py",
+    "bytes": 19459,
+    "sha256": "a612882c305c6582e95d20358e238a3f3c60daab91365093eeafa05499c2044f"
+  },
+  "plan": {
+    "path": "/Users/jamesphoenix/render-tmp/smart-cub-refresh-20261016/workflow/corrected-forty-66d9e35d0/blend-plan.json",
+    "bytes": 243556,
+    "sha256": "0876b845aabe9c561d20b177916f44d9276367dac4315f846ae34b7fed394d73"
+  },
+  "status": "/Users/jamesphoenix/render-tmp/smart-cub-refresh-20261016/workflow/corrected-forty-66d9e35d0/blend-status.json"
+}

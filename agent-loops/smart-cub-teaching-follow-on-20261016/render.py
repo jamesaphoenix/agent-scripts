@@ -23,6 +23,14 @@ def alive(pid):
 def snapshots_verify(rows):
  for row in rows:
   project=Path(row['project']);snapshot=row['snapshot']
+  actual=set()
+  for folder in ['src','data','public']:
+   assert (project/folder).is_dir(),'Source folder missing'
+   for target in (project/folder).rglob('*'):
+    assert not target.is_symlink(),'Source symlink unsupported'
+    if target.is_file():actual.add(str(target.relative_to(project)))
+  actual.update(['package.json','package-lock.json','tsconfig.json'])
+  assert actual=={f['path']for f in snapshot['files']},'Source file inventory changed'
   for f in snapshot['files']:
    p=project/f['path'];assert p.resolve().is_relative_to(project.resolve());assert p.stat().st_size==f['bytes'] and sha(p)==f['sha256'],'Source drift: '+str(p)
 def receipts(project,ids,graph,selection):

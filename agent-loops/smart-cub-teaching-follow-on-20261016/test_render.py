@@ -15,7 +15,15 @@ class AdmissionTests(unittest.TestCase):
    with self.assertRaises(AssertionError):m.receipts(p,m.PRIOR_IDS,m.GRAPH,'final-five')
  def test_full_staged_snapshot_rejects_changed_input(self):
   with tempfile.TemporaryDirectory()as tmp:
-   p=Path(tmp);f=p/'source.ts';f.write_text('source');rows=[{'project':str(p),'snapshot':{'files':[{'path':f.name,'bytes':f.stat().st_size,'sha256':m.sha(f)}]}}];m.snapshots_verify(rows);f.write_text('drift')
+   p=Path(tmp)
+   for name in ['src','data','public']:(p/name).mkdir()
+   f=p/'src/source.ts';f.write_text('source')
+   for name in ['package.json','package-lock.json','tsconfig.json']:(p/name).write_text('fixture')
+   files=[f,p/'package.json',p/'package-lock.json',p/'tsconfig.json']
+   rows=[{'project':str(p),'snapshot':{'files':[{'path':str(z.relative_to(p)),'bytes':z.stat().st_size,'sha256':m.sha(z)}for z in files]}}];m.snapshots_verify(rows)
+   extra=p/'src/new.ts';extra.write_text('unapproved addition')
+   with self.assertRaisesRegex(AssertionError,'file inventory changed'):m.snapshots_verify(rows)
+   extra.unlink();f.write_text('drift')
    with self.assertRaises(AssertionError):m.snapshots_verify(rows)
  def test_failed_predecessor_never_admits_successor(self):
   with tempfile.TemporaryDirectory()as tmp:

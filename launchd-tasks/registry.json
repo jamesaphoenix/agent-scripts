@@ -548,6 +548,25 @@
         ]
       },
       "notes": "Picture-only portrait framing repairs for effect-11 and effect-12. Keep cached narration and original single-pass Flash receipts, preserve reviewed movies, compare encoded audio, and independently inspect new native labels before owner-review status. Zero new paid generations. Keep main forty-video render job and other host workloads running. Remove owned picture intermediates only after exact transfer and private R2 read-back verification."
+    },
+    {
+      "id": "brand-video-native-prereview-20261017",
+      "name": "Repair the race portrait before its first paired Flash review",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.brand-video-native-prereview-20261017",
+      "schedule": "Finite RunAtLoad; wait for current framing repairs and original initial transfer to finish",
+      "requiresOpServiceAccount": false,
+      "opServiceAccountSource": null,
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts/.worktrees/brand-video-render",
+        "command": [
+          "bash",
+          "agent-loops/brand-video-native-prereview/install-launchd.sh"
+        ]
+      },
+      "notes": "Wait for the main effect-14 review deferral and the preceding native-framing repair job. Preserve unreviewed source movies and encoded audio, rerender only the portrait, transfer updated exact-hash files, then stop for local frame inspection. This worker sends zero paid generations and does not archive an unchecked repair. Clear the explicit pre-review hold only after decoded frames prove the label is visible, then run its one first paired review through the original MacBook ledger and verify private R2/D1 delivery before owned scratch cleanup. No public release or owner acceptance."
     }
   ]
 }

@@ -453,6 +453,25 @@
         "managedBy": "Synology DSM: agent-loops/synology-retention/install-dsm.py"
       },
       "notes": "Retired Studio SSH job. NAS-local cleanup.sh now owns bounded release/image retention. Do not reinstall this LaunchAgent. See agent-loops/synology-retention/README.md."
+    },
+    {
+      "id": "brand-video-render-20261016",
+      "name": "Render JUD Effect 4 AI engineering and Claude pilots",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.brand-video-render-20261016",
+      "schedule": "finite serial pilot queue, RunAtLoad, stops for pilot review",
+      "requiresOpServiceAccount": false,
+      "opServiceAccountSource": null,
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts/.worktrees/brand-video-render",
+        "command": [
+          "bash",
+          "agent-loops/brand-video-render/install-launchd.sh"
+        ]
+      },
+      "notes": "James authorised implementation on 16 October. Render and encode exclusively on Studio, preserve other jobs and at least 35 GiB free. No paid API calls in this worker. Await human approval of three pilots before producing the remaining 57. Budget is GBP100 across the entire project, never reset. Verify exports, archive and rsync before deleting task-owned frames; retain final exports, sources, evidence and ledgers."
     }
   ]
 }

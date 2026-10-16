@@ -709,6 +709,29 @@
         "lowPriorityIO": false,
         "nice": 10
       }
+    },
+    {
+      "id": "smart-cub-teaching-fraction-percentage-20261016",
+      "name": "Smart Cub isolated fraction-percentage source successor",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.smart-cub-teaching-fraction-percentage-20261016",
+      "schedule": "manual one-shot kick; RunAtLoad=false, KeepAlive=false",
+      "requiresOpServiceAccount": false,
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/Desktop/projects/just-understanding-data/agent-scripts",
+        "command": [
+          "bash",
+          "agent-loops/smart-cub-teaching-fraction-percentage-20261016/install-launchd.sh"
+        ]
+      },
+      "notes": "Separate fixed2 fraction-percentage outputs after sequence normal completion, both exact atomic receipts, no owned children and canonical/legacy lease clearance. Full003386 source inventory,9runner helpers and voiceproof pinned, serial1x4 nice10,50GiBfloor,zeroadditionalAPI,no quality approval.",
+      "schedulingPolicy": {
+        "processType": "Standard",
+        "lowPriorityIO": false,
+        "nice": 10
+      }
     }
   ]
 }

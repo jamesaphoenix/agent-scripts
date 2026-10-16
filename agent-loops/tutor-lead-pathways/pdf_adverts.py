@@ -5,14 +5,24 @@ import json
 from pathlib import Path
 import re
 import subprocess
+import tempfile
 
 from discovery import atomic_json, file_hash
 
 MAX_PDF_BYTES = 20 * 1024 * 1024
+TEXT_EXTRACTOR = 'poppler_pdftotext_72dpi_v1'
+OCR_EXTRACTOR = 'poppler_tesseract_288dpi_psm4_v1'
 
 
 def normal(value):
     return ' '.join(value.split())
+
+
+def normal_ocr(value):
+    # OCR can insert spaces inside a printed email. Never join separate lines.
+    value = re.sub(r'([A-Za-z0-9._%+-]+)[ \t]*@[ \t]*([A-Za-z0-9.-]+\.[A-Za-z]{2,})',
+                   r'\1@\2', value)
+    return normal(value)
 
 
 def command(arguments):
@@ -24,6 +34,9 @@ def command(arguments):
 
 def pdf_advert_unit(page, item):
     number, bounds = item.get('pdfPage'), item.get('bounds')
+    extractor = item.get('textExtractor', TEXT_EXTRACTOR)
+    if extractor not in (TEXT_EXTRACTOR, OCR_EXTRACTOR):
+        raise ValueError('Unsupported PDF text extractor')
     if (type(number) is not int or not 1 <= number <= 500
             or not isinstance(bounds, list) or len(bounds) != 4
             or any(type(n) is not int or not 0 <= n <= 2000 for n in bounds)
@@ -41,10 +54,26 @@ def pdf_advert_unit(page, item):
         raise ValueError('PDF advert rectangle exceeds its page')
     arguments = ['-f', str(number), '-l', str(number), '-r', '72',
                  '-x', str(bounds[0]), '-y', str(bounds[1]), '-W', str(bounds[2]), '-H', str(bounds[3])]
-    text = normal(command(['pdftotext', *arguments, '-layout', '-nopgbrk', str(page), '-']))
+    proof = {'pdfPage': number, 'bounds': bounds, 'extractor': extractor}
+    if extractor == OCR_EXTRACTOR:
+        if bounds[2] * bounds[3] * 16 > 2000000:
+            raise ValueError('Expected a bounded OCR advert rectangle')
+        with tempfile.TemporaryDirectory(prefix='tutor-pdf-ocr-') as tmp:
+            raster = Path(tmp) / 'advert.png'
+            command(['pdftoppm', '-f', str(number), '-l', str(number), '-r', '288',
+                     '-x', str(bounds[0] * 4), '-y', str(bounds[1] * 4),
+                     '-W', str(bounds[2] * 4), '-H', str(bounds[3] * 4),
+                     '-singlefile', '-png', str(page), str(raster.with_suffix(''))])
+            if raster.stat().st_size > 8000000:
+                raise ValueError('OCR advert raster exceeded its byte bound')
+            raw = command(['tesseract', str(raster), 'stdout', '--dpi', '288', '--psm', '4', '-l', 'eng'])
+            text = normal_ocr(raw)
+            proof.update(ocrRasterSha256=file_hash(raster), rawOcrTextSha256=hashlib.sha256(raw.encode()).hexdigest())
+    else:
+        text = normal(command(['pdftotext', *arguments, '-layout', '-nopgbrk', str(page), '-']))
     if not text or len(text) > 12000:
         raise ValueError('Expected nonempty bounded PDF advert text')
-    return text, {'pdfPage': number, 'bounds': bounds, 'extractor': 'poppler_pdftotext_72dpi_v1'}
+    return text, proof
 
 
 def source_files(root, item):
@@ -82,13 +111,15 @@ def reviewed_unit(root, item):
     return evidence, proof
 
 
-def inspect_advert(root, page, receipt, number, bounds, output):
+def inspect_advert(root, page, receipt, number, bounds, output, text_extractor=TEXT_EXTRACTOR):
     """Render a source rectangle and save a review template without granting qualification."""
     root = root.resolve(strict=True)
     item = {'sourceType': 'pdf_advert', 'sourceKind': 'public_advert',
             'page': str(page.resolve(strict=True).relative_to(root)),
             'receipt': str(receipt.resolve(strict=True).relative_to(root)),
             'receiptSha256': file_hash(receipt), 'pdfPage': number, 'bounds': bounds}
+    if text_extractor != TEXT_EXTRACTOR:
+        item['textExtractor'] = text_extractor
     page, _, saved = source_files(root, item)
     text, _ = pdf_advert_unit(page, item)
     image = output.with_suffix('.png')
@@ -116,5 +147,6 @@ if __name__ == '__main__':
     parser.add_argument('--page', type=int, required=True)
     parser.add_argument('--bounds', type=int, nargs=4, required=True, metavar=('X', 'Y', 'WIDTH', 'HEIGHT'))
     parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument('--text-extractor', choices=(TEXT_EXTRACTOR, OCR_EXTRACTOR), default=TEXT_EXTRACTOR)
     args = parser.parse_args()
-    print(json.dumps(inspect_advert(args.run_dir, args.pdf, args.receipt, args.page, args.bounds, args.output)))
+    print(json.dumps(inspect_advert(args.run_dir, args.pdf, args.receipt, args.page, args.bounds, args.output, args.text_extractor)))

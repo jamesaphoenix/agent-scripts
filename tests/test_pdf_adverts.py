@@ -10,10 +10,10 @@ import unittest
 sys.path.insert(0, str(Path(__file__).parents[1] / 'agent-loops/tutor-lead-pathways'))
 from discovery import atomic_json
 from reviewed_contacts import replay
-from pdf_adverts import MAX_PDF_BYTES, inspect_advert, pdf_advert_unit
+from pdf_adverts import MAX_PDF_BYTES, OCR_EXTRACTOR, inspect_advert, pdf_advert_unit, normal_ocr
 
 
-def fixture_pdf(path):
+def fixture_pdf(path, hidden_layer=False):
     # Two separate adverts on one real PDF page, with distinct contact routes.
     stream = b'''BT /F1 12 Tf 30 260 Td (Jane Smith) Tj
 0 -20 Td (I am based in Milton Keynes.) Tj
@@ -23,6 +23,9 @@ def fixture_pdf(path):
 BT /F1 12 Tf 330 260 Td (Alex Jones) Tj
 0 -20 Td (London maths tuition) Tj
 0 -20 Td (alex@example.net) Tj ET'''
+    if hidden_layer:
+        stream = (b'BT /F1 12 Tf 30 260 Td (Old Cleaner old@cleaner.example) Tj ET\n'
+                  b'1 1 1 rg 15 125 280 160 re f\n0 0 0 rg\n' + stream)
     objects = [b'<< /Type /Catalog /Pages 2 0 R >>',
                b'<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
                b'<< /Type /Page /Parent 2 0 R /MediaBox [0 0 620 300] '
@@ -77,6 +80,44 @@ class PdfAdvertTests(unittest.TestCase):
             self.assertEqual(row['pageEvidence'][0]['pdfPage'], 1)
             self.assertEqual(row['pageEvidence'][0]['bounds'], item['bounds'])
             self.assertEqual(row['pageEvidence'][0]['visualReview'], item['visualReview'])
+
+    @unittest.skipUnless(shutil.which('tesseract'), 'Optional Tesseract required')
+    def test_pixel_ocr_ignores_a_hidden_old_advert_without_changing_the_source(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            page, receipt, item = self.fixture(root)
+            fixture_pdf(page, hidden_layer=True)
+            source_hash = hashlib.sha256(page.read_bytes()).hexdigest()
+            saved = json.loads(receipt.read_text()); saved['sha256'] = source_hash
+            atomic_json(receipt, saved)
+            self.assertIn('old@cleaner.example', pdf_advert_unit(page, item)[0])
+            updated = inspect_advert(root, page, receipt, 1, item['bounds'],
+                                     page.parent / 'jane-visible-unit', OCR_EXTRACTOR)
+            for key in ('name', 'nameQuote', 'localityClaim', 'localityQuote', 'services',
+                        'email', 'phone', 'reviewer', 'reviewedAt'):
+                updated[key] = item[key]
+            updated['localityQuote'] = 'based in Milton Keynes.'
+            self.assertIn('Jane Smith', updated['unitText'])
+            self.assertNotIn('old@cleaner.example', updated['unitText'])
+            self.assertNotIn('Alex Jones', updated['unitText'])
+            self.assertEqual(self.replay(root, [updated])['newResearchContacts'], 1)
+            row = json.loads((root / 'review/public-contacts/new.json').read_text())[0]
+            self.assertEqual(row['pageEvidence'][0]['extractor'], OCR_EXTRACTOR)
+            self.assertEqual(len(row['pageEvidence'][0]['rawOcrTextSha256']), 64)
+            self.assertEqual(hashlib.sha256(page.read_bytes()).hexdigest(), source_hash)
+
+    def test_ocr_address_spacing_does_not_join_separate_lines(self):
+        self.assertEqual(normal_ocr('jane @ example.net'), 'jane@example.net')
+        self.assertEqual(normal_ocr('jane\n@example.net'), 'jane @example.net')
+
+    def test_ocr_is_explicit_and_cannot_render_an_unbounded_rectangle(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            page, _, item = self.fixture(root)
+            with self.assertRaisesRegex(ValueError, 'Unsupported'):
+                pdf_advert_unit(page, dict(item, textExtractor='guess'))
+            with self.assertRaisesRegex(ValueError, 'bounded OCR'):
+                pdf_advert_unit(page, dict(item, textExtractor=OCR_EXTRACTOR, bounds=[0, 0, 620, 300]))
 
     def test_review_cannot_borrow_the_next_advert_or_clip_its_source_text(self):
         with tempfile.TemporaryDirectory() as tmp:

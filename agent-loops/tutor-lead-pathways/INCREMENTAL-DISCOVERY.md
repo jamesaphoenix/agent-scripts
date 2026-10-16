@@ -166,3 +166,10 @@ receipt. The PDF review helper accepts documents up to 20 MiB, including the
 rectangle, matching rendered image and source hashes, complete extracted text,
 literal contact details and duplicate review. A reduced or rewritten PDF cannot
 stand in for the downloaded response.
+
+For image-only adverts or a hidden obsolete text layer, explicitly select
+`poppler_tesseract_288dpi_psm4_v1`. It reads the original crop's visible pixels
+locally, with a two-million-pixel limit and bounded subprocess timeouts. Replay
+retains the raster and raw OCR text hashes, normalises only inline email spacing,
+and still requires the original PDF, receipt and visual review. OCR does not
+grant qualification or permission to contact anyone.

@@ -69,6 +69,21 @@ nonempty parents. The new profile and qualification stages retain reusable
 context and their shared Decisions bank, with all three native monitors set to
 1,800 seconds. Final cleanup retains paid evidence and source awaiting PR review.
 
+## Reduced remaining budget
+
+James's 16 October instruction limits all further provider spending to USD15
+combined across DataForSEO and Decisions. `spend_limit.py` attaches the same
+SHA256-sealed instruction to both existing SQLite banks. Original bank settings,
+decision contracts, receipts and uncertain reservations remain unchanged.
+
+Each provider acquires one shared file lock before reserving a request in its
+own ledger. Admission counts both providers' charges and unsettled reservations
+above the saved spending baseline. Existing holds also reduce the available
+amount. Original provider caps still apply. Missing or changed policy evidence,
+disagreeing bank attachments and insufficient headroom prevent new submissions.
+Restarting workers cannot recreate the allowance. Cached request identities stay
+readable after the spending ceiling is reached.
+
 ## Actual agent reviews
 
 The native health probes are separate from James's request for the assistant to

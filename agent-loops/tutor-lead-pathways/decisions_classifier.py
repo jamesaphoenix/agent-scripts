@@ -9,6 +9,7 @@ import sqlite3
 import urllib.error
 import urllib.request
 from discovery import tls_context
+import spend_limit
 
 MODEL = 'gpt-6-luna'
 PROMPT_VERSION = 'bucks-tutors-v1'
@@ -192,6 +193,10 @@ class DecisionsCache:
         return decision_request(evidence, self.questions, self.prompt_version)
 
     def reserve(self, key, payload, amount):
+        with spend_limit.admission(self.db) as available:
+            return self._reserve(key, payload, amount, available)
+
+    def _reserve(self, key, payload, amount, available):
         self.db.execute('BEGIN IMMEDIATE')
         try:
             old = self.db.execute('SELECT * FROM decision_requests WHERE key=?', (key,)).fetchone()
@@ -200,7 +205,7 @@ class DecisionsCache:
                 return old
             used = self.db.execute('''SELECT coalesce(sum(CASE WHEN state='succeeded'
                 THEN spent_nano ELSE reservation_nano END),0) FROM decision_requests''').fetchone()[0]
-            if used + amount > self.cap_nano:
+            if used + amount > self.cap_nano or available is not None and amount > available:
                 raise BudgetExhausted('Classification budget reached')
             self.db.execute('INSERT INTO decision_requests(key,state,reservation_nano,payload_sha256) VALUES(?,?,?,?)',
                             (key, 'submitting', amount, hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()))
@@ -241,5 +246,10 @@ class DecisionsCache:
         rows = self.db.execute('SELECT state,count(*),sum(spent_nano),sum(reservation_nano) FROM decision_requests GROUP BY state').fetchall()
         spent = sum(r[2] for r in rows if r[0] == 'succeeded')
         held = sum(r[3] for r in rows if r[0] != 'succeeded')
-        return {'states': {r[0]: r[1] for r in rows}, 'spentUsd': spent / 1e9,
-                'heldUsd': held / 1e9, 'remainingUsd': (self.cap_nano - spent - held) / 1e9}
+        result = {'states': {r[0]: r[1] for r in rows}, 'spentUsd': spent / 1e9,
+                  'heldUsd': held / 1e9, 'remainingUsd': (self.cap_nano - spent - held) / 1e9}
+        limit = spend_limit.summary(self.db)
+        if limit:
+            result['spendLimit'] = limit
+            result['remainingUsd'] = min(result['remainingUsd'], limit['remainingUsd'])
+        return result

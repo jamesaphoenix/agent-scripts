@@ -15,6 +15,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from teachtutti import PROFILE_PATH as TEACHTUTTI_PROFILE_PATH
+import spend_limit
 
 UTC = datetime.timezone.utc
 ENDPOINTS = {
@@ -145,7 +146,7 @@ class PaidCache:
         spent = sum(r["cost_cents"] for r in rows)
         reserved = sum(r["reservation"] for r in rows if r["status"] == "submitting")
         uncertain = sum(r["reservation"] for r in rows if r["status"] == "uncertain")
-        return {"reportedCostUsd": float(sum(Decimal(r["cost_usd"]) for r in rows)),
+        result = {"reportedCostUsd": float(sum(Decimal(r["cost_usd"]) for r in rows)),
                 "spentCents": spent, "reservedCents": reserved, "uncertainCents": uncertain,
                 "exposureCents": spent + reserved + uncertain,
                 "remainingCents": self.budget_cents - spent - reserved - uncertain,
@@ -155,6 +156,11 @@ class PaidCache:
                 "failed": sum(r["status"] == "failed" for r in rows),
                 "importedReceipts": self.db.execute("SELECT count(*) FROM requests WHERE imported=1 AND receipt IS NOT NULL").fetchone()[0],
                 "importedUnsettledRequests": self.db.execute("SELECT count(*) FROM requests WHERE imported=1 AND status='uncertain'").fetchone()[0]}
+        limit = spend_limit.summary(self.db)
+        if limit:
+            result['spendLimit'] = limit
+            result['remainingCents'] = min(result['remainingCents'], int(Decimal(str(limit['remainingUsd'])) * 100))
+        return result
 
     def get(self, key):
         row = self.db.execute("SELECT * FROM requests WHERE key=?", (key,)).fetchone()
@@ -163,6 +169,12 @@ class PaidCache:
     def reserve(self, key, lane, payload, maximum_cents):
         if not 1 <= maximum_cents <= 200:
             raise ValueError("Invalid per-request reserve")
+        with spend_limit.admission(self.db) as available:
+            if available is not None and maximum_cents * spend_limit.NANO_PER_CENT > available:
+                return False
+            return self._reserve(key, lane, payload, maximum_cents)
+
+    def _reserve(self, key, lane, payload, maximum_cents):
         try:
             self.db.execute("BEGIN IMMEDIATE")
             if self.get(key) or self.usage()["remainingCents"] < maximum_cents:

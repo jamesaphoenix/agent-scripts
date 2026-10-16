@@ -26,6 +26,7 @@ from directory_profiles import admitted_url, exclusion_reason, profile_locality_
 from qualification_exports import publish as publish_structured_profiles
 from qualification_seeds import import_batches as import_website_seeds, pending_batches
 from qualification_feeder import refill as refill_qualification, summary as feed_summary
+from owned_context_refresh import refresh as refresh_owned_contexts
 
 VERSION = 'bucks-owned-candidate-v2'
 STOP = False
@@ -221,6 +222,7 @@ def snapshot(root, job, db, cache, phase, reason=None):
         'additionalClassificationCapUsd': job['authorization']['additionalCapCents'] / 100,
         'outreachEligible': 0, 'newAuditedContacts': 0, 'reason': reason,
         'refreshedProfileContexts': job.get('refreshedProfileContexts', 0),
+        'refreshedOwnedContexts': job.get('refreshedOwnedContexts', 0),
         'qualification': 'Model-assessed research candidates. Owned identities, contact routes and duplicate matching remain required before audited contact export.'}
     if db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='website_seed_batches'").fetchone():
         status['websiteSeeds'] = {'importedCandidates': db.execute(
@@ -298,6 +300,7 @@ def run(root):
             index.update(profile_context_index([Path(p) for p in job.get('profileRoots', [])], candidates))
             if job.get('expandOwnedContext'):
                 job['refreshedProfileContexts'] = refresh_verified_profile_contexts(db, cache, index, scope)
+                job['refreshedOwnedContexts'] = refresh_owned_contexts(db, cache, index, scope, job)
             if job.get('expandOwnedContext'):
                 try:
                     refill_qualification(root, job, db, scope, index)

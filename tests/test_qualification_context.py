@@ -55,6 +55,18 @@ class QualificationContextTests(unittest.TestCase):
             {'url': url + 'tutoring', 'anchor': 'Tutoring'}]}}
         self.assertEqual(select_urls({'website': url}, index), [url, url + 'about', url + 'tutoring'])
 
+    def test_articles_and_archives_cannot_take_the_own_offer_slot(self):
+        url = 'https://jane.example/'
+        for path in ('advice/why-maths-is-hard', 'tag/online-tutoring',
+                     'category/maths', 'tutoring/reviews', 'guides/11-plus-tuition'):
+            with self.subTest(path=path):
+                index = {url: {'url': url, 'links': [
+                    {'url': url + 'about', 'anchor': 'About'},
+                    {'url': url + 'contact', 'anchor': 'Contact'},
+                    {'url': url + path, 'anchor': 'Maths tuition advice'}]}}
+                self.assertEqual(select_urls({'website': url}, index),
+                                 [url, url + 'about', url + 'contact'])
+
     def test_fallback_cannot_reuse_changed_text_or_another_owners_page(self):
         url = 'https://jane.example/'
         page = {'url': url, 'title': 'Jane', 'text': 'Current offer', 'replaySource': {'sha256': 'a' * 64}}

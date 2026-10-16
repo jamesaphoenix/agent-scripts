@@ -149,3 +149,13 @@ receive a new content-derived Decisions identity; unchanged inputs remain cached
 and uncertain requests are never replayed. Earlier receipts and source versions
 remain available. Subject, locality, independence and duplicate thresholds stay
 unchanged.
+
+Settled own-site candidates can also have an omitted offer page. When a
+receipt-backed page links to a newly selected tutoring or subject page, the
+qualification owner can fetch that page within its existing eight-page site
+allowance and reassess the expanded context. This requires a settled original
+decision identifying an independent tutor with advertised local coverage.
+Blocked or held requests, unchanged final pages, directory members and other
+tenants do not gain retries. Articles, advice, reviews and tag/category archives
+cannot take the reserved offer slot. The state records `refreshedOwnedContexts`
+separately from profile refreshes; original receipts and spending limits remain.

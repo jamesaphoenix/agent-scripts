@@ -9,6 +9,7 @@ import re
 import socket
 import sys
 import subprocess
+import time
 
 RUN = Path.home() / 'render-tmp/smart-cub-refresh-20261016'
 APP = RUN / 'smart-cub/apps/prototypes/founder-videos'
@@ -42,6 +43,23 @@ def sha_config(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def wait_for_marketing_phase(state):
+    hold = RUN / 'workflow/marketing-revision-render.HOLD'
+    deadline = time.monotonic() + 7200
+    while hold.exists():
+        state.update(phase='waiting-for-marketing-phase-release', checkedAt=now(),
+                     holdFile=str(hold))
+        state.pop('renderControllerPid', None)
+        state.pop('activeSelection', None)
+        save(state)
+        if time.monotonic() >= deadline:
+            raise TimeoutError('Marketing phase hold exceeded two hours; explicit reconciliation required')
+        time.sleep(2)
+    state.pop('holdFile', None)
+    state.update(phase='rendering', checkedAt=now())
+    save(state)
+
+
 def main():
     revision = configure_revision()
     if '--check' in sys.argv:
@@ -72,6 +90,8 @@ def main():
             selections = ['ctas', 'marketing'] if revision else ['marketing']
             state['completedSelections'] = []
             for selection in selections:
+                if revision and selection == 'marketing':
+                    wait_for_marketing_phase(state)
                 if revision and sha_config(revision[0]) != revision[2]:
                     raise ValueError('Revision config changed between render phases')
                 child=subprocess.Popen([NODE,'--import','tsx','scripts/render-batch.ts','--ids',selection,

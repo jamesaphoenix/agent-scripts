@@ -106,7 +106,7 @@ def revision_queue(revision):
             'version': 2, 'phase': 'running', 'createdAt': now(), 'completedOutputs': {},
             'revisionConfigSha256': config_sha, 'frozenSourceSnapshot': FROZEN,
             'maximumMarketingReviewProcesses': 1, 'maximumPaidRequestsPerInvocation': 1,
-            'canonicalEvidenceRoot': config['canonicalEvidenceRoot'], 'publicationApproval': False}
+            'reviewEvidenceRoot': config['reviewEvidenceRoot'], 'publicationApproval': False}
         if state['revisionConfigSha256'] != config_sha:
             raise ValueError('Revision config differs from the durable checkpoint')
         if state['phase'] in ['halted', 'completed']:
@@ -156,7 +156,7 @@ def revision_queue(revision):
                 command = [str(RUN / '.venv/bin/python'), '-B', 'scripts/review-media.py', 'model',
                            '--ids', identity, '--aspect', aspect, '--max-requests', '1',
                            '--ledger', str(RUN / 'ledger/media-review-ledger.json'),
-                           '--evidence-root', config['canonicalEvidenceRoot']]
+                           '--evidence-root', config['reviewEvidenceRoot']]
                 offset = log.stat().st_size if log.exists() else 0
                 with review_admission({'id': identity, 'aspect': aspect,
                                        'outputSha256': receipt['sha256']}) as admission:
@@ -262,7 +262,7 @@ def main():
                     '--ids', identity, '--aspect', 'both', '--max-requests', '2',
                     '--ledger', str(RUN / 'ledger/media-review-ledger.json')]
                 if revision:
-                    command += ['--evidence-root', revision[1]['canonicalEvidenceRoot']]
+                    command += ['--evidence-root', revision[1]['reviewEvidenceRoot']]
                 offset = log.stat().st_size if log.exists() else 0
                 with log.open('a') as stream:
                     child = subprocess.Popen(command, cwd=APP, stdout=stream, stderr=subprocess.STDOUT,

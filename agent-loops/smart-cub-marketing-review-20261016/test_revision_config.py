@@ -24,7 +24,7 @@ class RevisionHandoffTests(unittest.TestCase):
             protected[name] = module.sha(path)
         proof = root / 'contracts.json'
         proof.write_text(json.dumps({'status': 'pass', 'checks': [{'status': 'pass'} for _ in range(149)]}))
-        data = {'app': str(app), 'canonicalEvidenceRoot': str(root / 'smart-cub/apps/prototypes/founder-videos/out/review-complete'),
+        data = {'app': str(app), 'reviewEvidenceRoot': str(app / 'out/review-complete'),
                 'frozenSourceSnapshot': 'a' * 64, 'verifiedNarrationContracts': 149,
                 'narrationContractProof': {'path': str(proof), 'sha256': module.sha(proof)},
                 'protectedSourceHashes': protected}
@@ -64,13 +64,13 @@ class RevisionHandoffTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'Narration-contract proof changed'):
                 module.load_revision(config, root)
 
-    def test_review_cache_cannot_silently_fork(self):
+    def test_review_cache_cannot_use_the_canonical_teaching_root(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             config, data, app = self.fixture(root)
-            data['canonicalEvidenceRoot'] = str(app / 'out/review-complete')
+            data['reviewEvidenceRoot'] = str(root / 'smart-cub/apps/prototypes/founder-videos/out/review-complete')
             config.write_text(json.dumps(data))
-            with self.assertRaisesRegex(ValueError, 'canonical absolute review cache'):
+            with self.assertRaisesRegex(ValueError, 'own output directory'):
                 module.load_revision(config, root)
 
 

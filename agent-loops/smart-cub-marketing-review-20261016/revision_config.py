@@ -21,8 +21,9 @@ def load_revision(path, run):
         raise ValueError('Revision must use an isolated task app, not the canonical teaching graph')
     if not app.is_dir() or (app / 'out').is_symlink():
         raise ValueError('Revision app must exist with its own output directory')
-    if data['canonicalEvidenceRoot'] != str(canonical / 'out/review-complete'):
-        raise ValueError('Revision must preserve the canonical absolute review cache')
+    evidence = Path(data.get('reviewEvidenceRoot', ''))
+    if not evidence.is_absolute() or evidence.is_symlink() or evidence.resolve() != app / 'out/review-complete':
+        raise ValueError('Marketing revision review evidence must stay in its own output directory')
     if not re.fullmatch('[0-9a-f]{64}', data['frozenSourceSnapshot']):
         raise ValueError('Explicit frozen graph fingerprint required')
     if data['verifiedNarrationContracts'] != 149:

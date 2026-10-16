@@ -22,7 +22,7 @@ class ReadinessTests(unittest.TestCase):
             (app / 'data/scripts.json').write_text(json.dumps([{'id': f'p{i}'} for i in range(130)]))
             config_path = root / 'config.json'
             config_path.write_text('{}')
-            config = {'canonicalEvidenceRoot': '/canonical/review-cache', 'protectedSourceHashes': {}}
+            config = {'reviewEvidenceRoot': '/revision/review-cache', 'protectedSourceHashes': {}}
             status = root / 'workflow/status.json'
             calls = []
 
@@ -59,7 +59,7 @@ class ReadinessTests(unittest.TestCase):
             self.assertEqual(len(calls), 1)
             self.assertEqual(calls[0][calls[0].index('--aspect') + 1], 'tall')
             self.assertEqual(calls[0][calls[0].index('--max-requests') + 1], '1')
-            self.assertEqual(calls[0][calls[0].index('--evidence-root') + 1], '/canonical/review-cache')
+            self.assertEqual(calls[0][calls[0].index('--evidence-root') + 1], '/revision/review-cache')
 
     def test_explicit_resume_archives_error_fields(self):
         state={'phase':'running','error':'old error','haltedAt':'old time','completedPairs':{}}

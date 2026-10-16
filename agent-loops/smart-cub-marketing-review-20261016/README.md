@@ -33,7 +33,10 @@ own process trees; do not restart a paid request or change global host settings.
 The explicitly authorised revision uses workflow/marketing-revision-dispatch-config.json.
 This pins an isolated app,149 passed narration contracts, the frozen graph fingerprint and
 protected context/implementation hashes. The original canonical teaching graph is refused as
-a revision target. Review cache remains the canonical absolute out/review-complete directory.
+a revision target. Marketing review cache uses the isolated revision out/review-complete directory.
+Historical marketing evidence is copied byte-identically, with an explicitly hashed path map.
+Only historical evidence can resolve through that map; current media and render receipts keep
+their actual source roots. Canonical CTA and teaching files retain their original provenance.
 Revision review admits one aspect and at most one paid request per invocation, saving its
 checkpoint before considering the next aspect. A marketing-revision-review-dispatch.STOP
 file stops new admissions after the active request is durably saved. It never cancels a paid

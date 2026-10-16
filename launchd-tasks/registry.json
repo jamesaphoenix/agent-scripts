@@ -529,6 +529,25 @@
         ]
       },
       "notes": "Repair selected early exports locally with cached voices and no paid generation or second Flash review. Preserve reviewed original movies and immutable provider receipts, prove code remains visible at every beat boundary, compare encoded audio, transfer and byte-verify new R2 revisions before deleting owned picture intermediates. No owner acceptance or public publishing inferred. Keep the main forty-video job and unrelated processes running."
+    },
+    {
+      "id": "brand-video-native-framing-20261017",
+      "name": "Repair native portrait label framing from local full-resolution checks",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.brand-video-native-framing-20261017",
+      "schedule": "Finite RunAtLoad repairs; original overnight deadline retained",
+      "requiresOpServiceAccount": false,
+      "opServiceAccountSource": null,
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts/.worktrees/brand-video-render",
+        "command": [
+          "bash",
+          "agent-loops/brand-video-native-framing/install-launchd.sh"
+        ]
+      },
+      "notes": "Picture-only portrait framing repairs for effect-11 and effect-12. Keep cached narration and original single-pass Flash receipts, preserve reviewed movies, compare encoded audio, and independently inspect new native labels before owner-review status. Zero new paid generations. Keep main forty-video render job and other host workloads running. Remove owned picture intermediates only after exact transfer and private R2 read-back verification."
     }
   ]
 }

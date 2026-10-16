@@ -9,8 +9,10 @@ RUNTIME="$HOME/agent-runtime/just-understanding-data/agent-scripts/agent-loops/s
 [[ -x "$RUN_DIR/.venv/bin/python" ]] || { echo 'Missing existing task virtualenv' >&2; exit 1; }
 [[ -f "$RUN_DIR/ledger/media-review-ledger.json" ]] || { echo 'Missing authoritative ledger' >&2; exit 1; }
 mkdir -p "$HOME/Library/LaunchAgents" "$RUN_DIR/evidence"
-mkdir -p "$RUNTIME"
+mkdir -p "$RUNTIME/bin"
 cp "$SCRIPT_DIR/run.sh" "$SCRIPT_DIR/dispatch.py" "$RUNTIME/"
+cp "$SCRIPT_DIR/op-shim.py" "$RUNTIME/bin/op"
+chmod 700 "$RUNTIME/bin/op"
 cp "$SCRIPT_DIR/../../lib/op-service-account-env.sh" "$RUNTIME/op-service-account-env.sh"
 python3 - "$PLIST" "$RUNTIME/run.sh" "$RUN_DIR" "$LABEL" <<'PY'
 import plistlib,sys

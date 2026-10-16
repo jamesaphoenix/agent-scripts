@@ -44,7 +44,7 @@ def preflight():
  assert re.sub('[^a-z0-9]','',socket.gethostname().split('.')[0].lower())=='jamessmacstudio'
  hp=RUNNER/'render-handoff.json';assert sha(hp)=='4094411058d337b4793592551f3659636f72dd2cd43644ef8b585c1d6446e6c4';handoff=json.loads(hp.read_text());assert len(handoff['jobs'])==1 and handoff['paidRequests']==0
  vp=Path(handoff['stagingVerification']['path']);assert sha(vp)==handoff['stagingVerification']['sha256']=='33315f12a7919eabfcb59b98b541733cefce004f1db10c22070d5a88bd50d039';v=json.loads(vp.read_text());assert (v['typecheck']['exitCode'] if 'typecheck' in v else v['typecheckExit'])==0
- mp=Path(v['runnerManifest']['path']);assert sha(mp)==v['runnerManifest']['sha256']=='01f24cc3eb282b2cb16383a60c96cce679f4548d2bfb01861aa77b6aaa7186ce';manifest=json.loads(mp.read_text());assert len(manifest['files'])==7
+ mp=Path(v['runnerManifest']['path']);assert sha(mp)==v['runnerManifest']['sha256']=='01f24cc3eb282b2cb16383a60c96cce679f4548d2bfb01861aa77b6aaa7186ce';manifest=json.loads(mp.read_text());assert len(manifest['files'])==8
  for f in manifest['files']:assert sha(RUNNER/f['path'])==f['sha256'],'Runner helper drift'
  assert json.loads((RUNNER/'package.json').read_text())=={'type':'module'}
  assert (RUNNER/'node_modules').is_symlink() and (RUNNER/'node_modules').resolve()==(APP/'node_modules').resolve()

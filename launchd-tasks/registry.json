@@ -795,7 +795,7 @@
           "agent-loops/smart-cub-teaching-scale-20261016/install-launchd.sh"
         ]
       },
-      "notes": "Separate fixed2 scale source outputs only after argument normal pair completion, both exact atomic receipts, no owned descendants and canonical/legacy leases clear. Full source inventory, 7 helpers, handoff/staging pins, serial1x4 nice10,50GiBfloor,zeroAPI,noqualityapproval.",
+      "notes": "Separate fixed2 scale source outputs only after argument normal pair completion, both exact atomic receipts, no owned descendants and canonical/legacy leases clear. Full source inventory, 8 helpers, handoff/staging pins, serial1x4 nice10,50GiBfloor,zeroAPI,noqualityapproval.",
       "schedulingPolicy": {
         "processType": "Standard",
         "lowPriorityIO": false,

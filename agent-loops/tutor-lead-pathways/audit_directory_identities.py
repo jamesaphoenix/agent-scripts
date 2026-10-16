@@ -31,7 +31,26 @@ def professional_name(url):
     if parsed.hostname != "www.findtutors.co.uk" or not re.fullmatch(r"/tutor/[a-z0-9-]+\.htm", parsed.path):
         return None
     name = normalize_name(re.sub(r"[-\d]+$", "", parsed.path.rsplit("/", 1)[-1][:-4]).replace("-", " "))
-    return name if len(name.split()) > 1 else None
+    return complete_own_name(name)
+
+
+def complete_identity_hint(value):
+    if not isinstance(value, str):
+        return None
+    name = normalize_name(value)
+    parts = name.split()
+    return name if 2 <= len(parts) <= 6 and all(len(part) >= 2 and part.isalpha() for part in parts) else None
+
+
+def complete_own_name(value):
+    name = complete_identity_hint(value)
+    if not name:
+        return None
+    if re.search(r"\b(?:tutors?|tutoring|tuition|teachers?|teaching|lessons?|academy|school|"
+                 r"learning|education|educational|mentors?|maths|mathematics|english|science|"
+                 r"centre|center|coaching|services|limited|ltd)\b", name):
+        return None
+    return name
 
 
 def audit_rows(root, rows):
@@ -46,6 +65,8 @@ def audit_rows(root, rows):
         if not evidence or set(row["sourceUrls"]) != {e["url"] for e in evidence}:
             raise ValueError("Missing source evidence: " + key)
         hints = set()
+        if row['platform'] == 'thetutorsassociation.wildapricot.org':
+            hints.add(normalize_name(row['name']))
         replayed = []
         eleven_plus = any(ELEVEN_PLUS.search(service) for service in row["services"])
         for item in evidence:
@@ -77,6 +98,13 @@ def audit_rows(root, rows):
         own = merge_profiles(replayed)[0]
         if own.get("locationConflict") or exclusion_reason(own) or profile_locality_status(own) != "advertised_bucks_locality" or own["name"] != row["name"] or set(own["services"]) != set(row["services"]):
             raise ValueError("Qualified profile does not match replayed page evidence: " + key)
+        # These parsers select the tutor's own name field, rather than a page
+        # title, breadcrumb, review or neighbouring advert. Missing profile links
+        # must not turn distinct complete own names into first-name collisions.
+        if not hints and own["platform"] in ("findtutors.co.uk", "childcare.co.uk", "www.apprentus.co.uk"):
+            hint = complete_own_name(own["name"])
+            if hint:
+                hints.add(hint)
         result.append(dict(row, key=key, professionalNameHint=next(iter(hints), None), elevenPlusServiceClaim=eleven_plus))
     return result
 
@@ -165,10 +193,14 @@ def reconcile(rows, decisions):
     return accepted, held, groups
 
 
-def run(root, output, decisions_path):
+def run(root, output, decisions_path, exclude_source_urls=None):
     path = root / "bucks-private-tutors.json"
     raw = path.read_bytes()
-    rows = audit_rows(root, json.loads(raw))
+    candidates = json.loads(raw)
+    excluded = {url.rstrip('/') for url in (exclude_source_urls or ())}
+    selected = [row for row in candidates if not row.get('sourceUrls') or
+                not all(url.rstrip('/') in excluded for url in row['sourceUrls'])]
+    rows = audit_rows(root, selected)
     decisions = json.loads(decisions_path.read_text()) if decisions_path else {"merges": []}
     scope_held = [dict(r, reason="ambiguous_county_place_requires_review") for r in rows if ambiguous_county(r["localityClaim"])]
     accepted, held, groups = reconcile([r for r in rows if not ambiguous_county(r["localityClaim"])], decisions)
@@ -178,7 +210,8 @@ def run(root, output, decisions_path):
     save(output / "possible-duplicate-groups.json", groups)
     save(output / "audit.json", {"at": now(), "inputSha256": hashlib.sha256(raw).hexdigest(),
         "decisionsSha256": hashlib.sha256(decisions_path.read_bytes()).hexdigest() if decisions_path else None,
-        "sourceProfiles": len(rows), "reviewedMergeReduction": len(rows) - len(accepted) - len(held) - len(scope_held),
+        "sourceProfiles": len(rows), "fullSourceProfileRows": len(candidates), "excludedKnownProfileRows": len(candidates) - len(selected),
+        "reviewedMergeReduction": len(rows) - len(accepted) - len(held) - len(scope_held),
         "acceptedIdentities": len(accepted), "heldPossibleDuplicates": len(held), "possibleDuplicateGroups": len(groups),
         "heldAmbiguousLocations": len(scope_held),
         "withExplicitElevenPlusServiceClaim": sum(r["elevenPlusServiceClaim"] for r in accepted),

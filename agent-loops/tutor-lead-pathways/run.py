@@ -15,7 +15,10 @@ import sqlite3
 import subprocess
 import time
 
-from configuration import launchd_settings
+from configuration import launchd_settings, campaign_window, focused_roots, loaded_source_sha
+from source_health import held_profile_sources, positive_sites
+from source_groups import tactic_group
+from lead_scope import load_scope, matching_subjects, query_priority, SUBJECTS
 
 from discovery import (UTC, PaidCache, atomic_json, collect_records, file_hash, hold_reason,
                        merge_businesses, now_iso, parse_time, provider_request,
@@ -41,14 +44,21 @@ def initialize_job(root):
             if job.get(key) != value:
                 raise ValueError("Original job manifest changed: " + key)
     else:
-        started = datetime.datetime.now(UTC)
-        job = dict(manifest, startedAt=started.isoformat(), deadline=(started + datetime.timedelta(hours=6)).isoformat(),
-                   discoveryDeadline=(started + datetime.timedelta(hours=5, minutes=45)).isoformat())
+        started, deadline, cutoff = campaign_window(manifest)
+        job = dict(manifest, startedAt=started.isoformat(), deadline=deadline.isoformat(), discoveryDeadline=cutoff.isoformat())
         atomic_json(root / "job.json", job)
-    if parse_time(job["deadline"]) - parse_time(job["startedAt"]) != datetime.timedelta(hours=6):
-        raise ValueError("Original six-hour window changed")
-    if parse_time(job["discoveryDeadline"]) - parse_time(job["startedAt"]) != datetime.timedelta(hours=5, minutes=45):
+    if manifest.get('authorizationSha256') and file_hash(root / 'authorization.json') != manifest['authorizationSha256']:
+        raise ValueError('Original campaign authorization changed')
+    if manifest.get('crawlerSha256') and file_hash(Path(manifest['crawlerBinary'])) != manifest['crawlerSha256']:
+        raise ValueError('Reviewed crawler binary changed')
+    if parse_time(job["deadline"]) - parse_time(job["startedAt"]) != datetime.timedelta(hours=job.get('hours', 6)):
+        raise ValueError("Original research window changed")
+    if parse_time(job["deadline"]) - parse_time(job["discoveryDeadline"]) != datetime.timedelta(minutes=15):
         raise ValueError("Original paid research cutoff changed")
+    if job.get('hours') == 12:
+        campaign_window(manifest)
+        if job['startedAt'] != manifest['authorizedStartedAt'] or job['deadline'] != manifest['authorizedDeadline']:
+            raise ValueError('Restart changed the request-anchored window')
     validate_plan(root, job)
     crawl_limits(job)
     launchd_settings(job)
@@ -129,22 +139,37 @@ def next_business_supplement(cache, state):
 
 
 def next_query(lane, plan, cache, state):
+    state['deferredQueries'] = [item for item in state.get('deferredQueries', []) if item['lane'] != lane]
     if lane == "business":
         supplementary = next_business_supplement(cache, state)
         if supplementary:
             return supplementary
     completed = set(state["completedQueries"])
-    def group(item):
-        if item.get('tactic') == 'public_profiles':
-            match = re.search(r'\bsite:([^ ]+)', item['payload'].get('keyword', ''))
-            return match.group(1) if match else item['tactic']
-        return item.get('tactic', lane)
     # Explore sources and tactics before buying another town from one source.
     # This changes selection order only; every payload and paid key stays fixed.
-    counts = collections.Counter(group(item) for item in plan if item['lane'] == lane and item['key'] in completed)
-    choices = [item for item in plan if item['lane'] == lane]
+    counts = collections.Counter(tactic_group(item) for item in plan if item['lane'] == lane and item['key'] in completed)
+    scope = state.get('subjectScope')
+    choices = [item for item in plan if item['lane'] == lane and
+        (not scope or query_priority(item['payload'].get('keyword', ''), scope) < 2)]
     if any('tactic' in item for item in choices):
-        choices.sort(key=lambda item: counts[group(item)])
+        feedback = state.get('tacticFeedback', {}) if state.get('adaptiveTactics') else {}
+        def measured_priority(item):
+            name = tactic_group(item)
+            observed = feedback.get(name, {})
+            attempts = observed.get('requests', 0)
+            # Explore every group before following observed yield. A query URL
+            # is a provisional reward until the identity audit can attribute it.
+            if attempts < 3:
+                return (0, counts[name], 0)
+            contacts = observed.get('auditedNewIdentitiesAttributed', 0)
+            reward = (contacts * 10 + observed.get('auditedSourceIdentities', 0) * 5
+                      + observed.get('classifiedLocalTutorCandidates', 0)
+                      + observed.get('newResultUrls', 0) * .02)
+            cost = max(1, observed.get('chargedCents', 0))
+            return (1, -reward / cost, counts[name])
+        choices.sort(key=measured_priority if feedback else lambda item: counts[tactic_group(item)])
+    if scope:
+        choices.sort(key=lambda item: query_priority(item['payload'].get('keyword', ''), scope))
     for item in choices:
         if item["lane"] != lane or item["key"] in completed:
             continue
@@ -153,10 +178,15 @@ def next_query(lane, plan, cache, state):
             state["completedQueries"].append(item["key"])
             state.setdefault("reusedQueries", []).append({"key": item["key"], "status": saved["status"]})
             continue
-        if 'site:firsttutors.com' in item['payload'].get('keyword', ''):
+        sites = positive_sites(item['payload'].get('keyword', ''))
+        if sites == {'firsttutors.com'}:
             state['completedQueries'].append(item['key'])
             state.setdefault('skippedQueries', []).append({'key': item['key'],
                 'reason': 'Own source site served its closure notice on 12 October 2026'})
+            continue
+        if sites and sites <= set(state.get('blockedProfileSites', {})) | {'firsttutors.com'}:
+            state['deferredQueries'].append({'lane': lane, 'key': item['key'], 'sites': sorted(sites),
+                'reason': 'Every requested profile source is closed or held after native access denial'})
             continue
         if finished_query(item, cache):
             state["completedQueries"].append(item["key"])
@@ -164,6 +194,56 @@ def next_query(lane, plan, cache, state):
             continue
         return item
     return None
+
+
+def sdk_query_supplements(root, job, cache):
+    """Model suggestions become bounded data, with approved geography attached."""
+    queries = []
+    seen = set()
+    for path in sorted((root / 'sdk/results').glob('slot-*.json')):
+        for keyword in json.loads(path.read_text()).get('nextQueries', [])[:12]:
+            if (not isinstance(keyword, str) or not 3 <= len(keyword) <= 700 or
+                    re.search(r'[\x00-\x1f]|https?://', keyword) or
+                    not re.search(r'\btutor\w*\b|\btuition\b|\b11[ +%-]|\beleven plus\b', keyword, re.I)):
+                continue
+            town = next((town for town in job['towns'] if re.search(r'\b' + re.escape(town['name']) + r'\b', keyword, re.I)), None)
+            if not town:
+                continue
+            payload = {'keyword': keyword.replace('11+', '11%2B'), 'location_coordinate': town['coordinate'] + ',200',
+                       'language_code': 'en', 'se_domain': 'google.co.uk', 'depth': 30}
+            lane = 'directories' if 'site:' in keyword else 'organic'
+            key = request_key(lane, payload)
+            if key not in seen:
+                seen.add(key)
+                queries.append({'lane': lane, 'town': town['name'], 'tactic': 'sdk_expansion',
+                                'key': key, 'payload': payload, 'sdkResultSha256': file_hash(path)})
+    return queries
+
+
+def refresh_recursive_queries(job, cache, state, plan, paid_deadline):
+    if not job.get('adaptiveTactics') or not job.get('keywordIndexPath'):
+        return
+    current = time.time()
+    if current < state.get('nextKeywordRefreshAt', 0):
+        return
+    state['nextKeywordRefreshAt'] = current + 60
+    try:
+        from keyword_supplements import recursive_query_supplements
+        current_keys = {row['key'] for row in cache.db.execute('SELECT key FROM requests WHERE imported=0')}
+        result = recursive_query_supplements(job, excluded_keys={q['key'] for q in plan}, current_keys=current_keys)
+        state['recursiveQueries'] = result.pop('queries')
+        state['recursiveSearch'] = dict(result, observedAt=now_iso())
+        completed = set(state['completedQueries'])
+        if current < paid_deadline:
+            for item in state['recursiveQueries']:
+                if (item['key'] not in completed and not cache.get(item['key'])
+                    and state['nextDue'][item['lane']] >= paid_deadline):
+                    state['nextDue'][item['lane']] = current
+    except (OSError, ValueError, TypeError, KeyError, AttributeError, sqlite3.Error) as error:
+        # The frozen plan continues even when this optional shared index is unavailable.
+        state['recursiveQueries'] = []
+        state['recursiveSearch'] = {'observedAt': now_iso(), 'phase': 'held'}
+        save_error(state, 'recursive_keywords', error)
 
 
 def provider_is_failure(response, row):
@@ -175,15 +255,20 @@ def provider_is_failure(response, row):
 
 
 def directory_fallback(item, response):
-    if item["lane"] != "directories" or not response or response.get("status_code") != 20000:
+    if item["lane"] not in ("directories", "organic") or not response or response.get("status_code") != 20000:
         return None
     tasks = response.get("tasks") or []
     if len(tasks) != 1 or tasks[0].get("status_code") != 40101:
         return None
     keyword = item["payload"].get("keyword", "")
-    # A different single-source query may avoid an engine error on grouped site
-    # operators. Its separate semantic hash and receipt preserve cost attribution.
-    simplified = re.sub(r"\((site:[^\s()]+)(?:\s+OR\s+site:[^\s()]+)+\)", r"\1", keyword)
+    # A simpler query may avoid engine failures on grouped source, subject or
+    # document operators. It is a different paid identity, never a replay of an
+    # uncertain request. The caller admits it against the deadline and budget.
+    def first_alternative(match):
+        terms = re.split(r'\s+OR\s+', match.group(1))
+        operators = all(re.match(r'(?:site:|inurl:|filetype:|")', term) for term in terms)
+        return terms[0] if len(terms) > 1 and operators else match.group(0)
+    simplified = re.sub(r'\(([^()]+)\)', first_alternative, keyword)
     return dict(item["payload"], keyword=simplified) if simplified != keyword else None
 
 
@@ -210,6 +295,12 @@ def runner_snapshot(root, job, cache, state):
              "completedPlanEntries": len(state["completedQueries"]), "sdk": sdk,
              "exports": summary, "crawlBatches": state["crawlNumber"], "recentErrors": state["errors"][-8:]}
     value["lastCrawlerSuccessAt"] = state.get("lastCrawlerSuccessAt")
+    value['preparedSourceSha'] = job.get('sourceSha')
+    # Deployment reports describe future checkouts too. Capture the owner's
+    # version once at startup; mutable reporting files must not stop discovery
+    # or relabel code that is already loaded in a running process.
+    value['effectiveSourceSha'] = state.get('effectiveSourceSha')
+    value['recursiveSearch'] = state.get('recursiveSearch')
     value["consecutivePathFailures"] = dict(state["pathFailures"])
     atomic_json(root / "status.json", value)
     return value
@@ -260,6 +351,7 @@ def seed_previous_urls(job):
 
 
 def prioritise_seed_records(records, job):
+    scope = job.get('discoveryScope')
     local, outside = set(), set()
     for folder in job.get("historicalEvidenceRoots", []):
         for filename, target in [("bucks-listings-research.csv", local), ("outside-recorded-area.csv", outside)]:
@@ -269,8 +361,11 @@ def prioritise_seed_records(records, job):
                     target.update(key for row in csv.DictReader(stream) if (key := website_key(row.get("website"))))
     def priority(record):
         key = website_key(record.get("website"))
-        return 0 if key in local else 2 if key in outside else 1
+        geography = 0 if key in local else 2 if key in outside else 1
+        subject = (0 if seed_subject_claim(record, scope) else query_priority(record.get('name', ''), scope)) if scope else 0
+        return subject, geography
     # A recorded address prioritises research; it never grants qualification.
+    records = [row for row in records if not scope or query_priority(row.get('name', ''), scope) < 2]
     return sorted(records, key=priority)
 
 
@@ -297,6 +392,14 @@ def launch_crawl(job, folder, arguments):
     return process, folder
 
 
+def seed_subject_claim(record, scope):
+    claims = [claim for source in record.get('provenance', [])
+              if source.get('lane') in ('manual_source_review', 'codex_oauth')
+              for claim in (source.get('servicesClaim') or []) if isinstance(claim, str)]
+    policy = scope or {'subjects': list(SUBJECTS), 'includeElevenPlus': True, 'includePrimaryTutors': True}
+    return bool(matching_subjects({'services': list(dict.fromkeys(claims))}, policy))
+
+
 def start_crawl(root, job, cache, state, previous_urls):
     limits = crawl_limits(job)
     checkpoints = [(path, json.loads(path.read_text())) for path in sorted((root / "crawls").glob("*/crawl.json"))]
@@ -320,7 +423,11 @@ def start_crawl(root, job, cache, state, previous_urls):
             url = (result.get("evidence") or {}).get("url") or result.get("node", {}).get("url")
             if url:
                 visited_sites.add(website_key(url))
-    records = prioritise_seed_records(merge_businesses(collect_records(cache, root)), job)
+    exported = root / 'exports/businesses.json'
+    # The owner already publishes this snapshot on its export cadence. Reading
+    # it avoids another full historic receipt scan before every crawler batch.
+    records = json.loads(exported.read_text()) if exported.exists() else merge_businesses(collect_records(cache, root))
+    records = prioritise_seed_records(records, job)
     done = set(state["crawlRoots"]) | set(state.get("crawlRejected", []))
     seeds = []
     source_count = 0
@@ -336,7 +443,7 @@ def start_crawl(root, job, cache, state, previous_urls):
             source_count += 1
         elif record.get("websiteKind") != "professional_profile" and not re.search(
                 r"(?i)tutor|tuition|11\s*\+|11[\s-]*plus|eleven[\s-]*plus|education|dyslexia",
-                " ".join([record.get("name") or "", record.get("category") or "", url])):
+                " ".join([record.get("name") or "", record.get("category") or "", url])) and not seed_subject_claim(record, job.get('discoveryScope')):
             continue
         seeds.append(url)
         if len(seeds) >= 500:
@@ -396,11 +503,20 @@ def run(root):
         cache.recover_interrupted()
         state = load_runtime(root, job)
         if state["phase"] == "complete":
-            print("Original six-hour run is already complete")
+            print("Original research run is already complete")
             return
         state["pid"] = os.getpid()
         state["phase"] = "running"
+        state['effectiveSourceSha'] = loaded_source_sha()
+        state['adaptiveTactics'] = job.get('adaptiveTactics', False)
+        state['subjectScope'] = load_scope(root)
+        state['discoveryScopeSha256'] = file_hash(root / 'discovery-scope.json') if state['subjectScope'] else None
+        job = dict(job, discoveryScope=state['subjectScope'])
+        state['blockedProfileSites'] = held_profile_sources(focused_roots(job))['sites']
         plan = json.loads((root / "plan.json").read_text())
+        # A resumed owner validates the live index before using any saved supplements.
+        state.pop('nextKeywordRefreshAt', None)
+        state['recursiveQueries'] = []
         intervals = request_intervals(job)
         original_deadline = parse_time(job["deadline"]).timestamp()
         paid_deadline = parse_time(job["discoveryDeadline"]).timestamp()
@@ -444,12 +560,18 @@ def run(root):
                     crawl_child = start_crawl(root, job, cache, state, previous_urls)
                 except (OSError, ValueError, subprocess.SubprocessError) as error:
                     save_error(state, "crawler", error)
+            refresh_recursive_queries(job, cache, state, plan, paid_deadline)
             due = [lane for lane in INTERVALS if current >= state["nextDue"][lane]]
+            if cache.usage()['remainingCents'] < 100:
+                for lane in due:
+                    state['nextDue'][lane] = paid_deadline
+                due = []
             if due:
                 lane = min(due, key=lambda name: state["nextDue"][name])
                 selection_failed = False
                 try:
-                    item = next_query(lane, plan, cache, state)
+                    supplementary = sdk_query_supplements(root, job, cache) if job.get('adaptiveTactics') else []
+                    item = next_query(lane, plan + supplementary + state.get('recursiveQueries', []), cache, state)
                 except (OSError, ValueError, sqlite3.Error) as error:
                     save_error(state, lane, error)
                     state["nextDue"][lane] = time.time() + 900
@@ -481,15 +603,21 @@ def run(root):
                         save_error(state, lane, error)
                         state["nextDue"][lane] = time.time() + 900
                 elif not selection_failed:
-                    state["nextDue"][lane] = paid_deadline
+                    deferred = any(item['lane'] == lane for item in state.get('deferredQueries', []))
+                    state["nextDue"][lane] = current + 900 if deferred else paid_deadline
             state["updatedAt"] = now_iso()
             atomic_json(root / "runtime.json", state)
             if time.time() >= state.get("nextExportsAt", 0):
+                health = held_profile_sources(focused_roots(job))
+                state['blockedProfileSites'] = health['sites']
+                state['sourceHealthErrors'] = health['errors']
                 write_exports(root, cache)
                 if job.get("strategy") == "expansion":
                     try:
                         from expansion_metrics import write_metrics
-                        write_metrics(root, cache, plan)
+                        measured = write_metrics(root, cache, plan + sdk_query_supplements(root, job, cache)
+                                                 + state.get('recursiveQueries', []))
+                        state['tacticFeedback'] = measured['tactics']
                         if job.get("profileRunDir"):
                             from profile_seeds import write_seed_batch
                             write_seed_batch(root, Path(job["profileRunDir"]), cache)
@@ -538,7 +666,7 @@ def run(root):
 
 def final_report(root, job, cache, state, summary, cleaning):
     sdk = json.loads((root / "sdk/status.json").read_text()) if (root / "sdk/status.json").exists() else {}
-    lines = ["# Six-hour Buckinghamshire tutor discovery", "", "Original start: " + job["startedAt"],
+    lines = [f"# {job.get('hours', 6)}-hour Buckinghamshire tutor discovery", "", "Original start: " + job["startedAt"],
              "Original deadline: " + job["deadline"], "", "## Results", "",
              f"- {summary['businessIdentities']} deduplicated business/research identities; {summary['research']} research and {summary['held']} held.",
              "- These are research records, not an asserted count of qualified independent 11+ tutors.",

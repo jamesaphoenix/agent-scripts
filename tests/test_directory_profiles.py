@@ -5,14 +5,147 @@ from pathlib import Path
 import tempfile
 import unittest
 from unittest.mock import patch
+import sys
 
 PATH = Path(__file__).parents[1] / "agent-loops/tutor-lead-pathways/directory_profiles.py"
+sys.path.insert(0, str(PATH.parent))
 spec = importlib.util.spec_from_file_location("directory_profiles", PATH)
 directory = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(directory)
 
 
 class ProfileTests(unittest.TestCase):
+    def test_uktutors_regional_listings_are_local_seeds_without_qualifying_people(self):
+        base = 'https://www.uktutors.com/tutor-regions/'
+        for route in ('private-tutors-and-tuition-in-aylesbury/',
+                      'private-maths-tutors-and-tuition-in-gerrards-cross/',
+                      'private-entrance-exams-tutors-and-tuition-in-high-wycombe/',
+                      'private-tutors-and-tuition-in-bourne-end/'):
+            url = base + route
+            self.assertEqual(directory.admitted_url(url), url)
+            self.assertTrue(directory.local_directory_link(url, base + 'private-tutors-and-tuition-in-aylesbury/'))
+            self.assertIsNone(directory.profile_record('<h1>Maths tutors in Buckinghamshire</h1>', url))
+        for route in ('private-tutors-and-tuition-in-london/', 'private-tutors-and-tuition-in-oxford/',
+                      'private-tutors-and-tuition-in-aylesbury/login', 'private-maths-tutors-and-tuition-in-/'):
+            self.assertIsNone(directory.admitted_url(base + route))
+            self.assertFalse(directory.local_directory_link(base + route, base + 'private-tutors-and-tuition-in-aylesbury/'))
+
+    def test_childcare_local_listing_routes_keep_subject_and_distance_bounds(self):
+        base = 'https://www.childcare.co.uk/search/Private-Tutors/'
+        for route in ('High+Wycombe/11-Plus', 'Wycombe/10-miles/11-Plus', 'Wycombe/English-Tutor',
+                      'Milton+Keynes/10-miles/Maths-Tutor', 'Bourne+End/11-Plus',
+                      'Aylesbury/Primary-up-to-11-years/2'):
+            self.assertEqual(directory.admitted_url(base + route), base + route)
+            self.assertTrue(directory.local_directory_link(base + route, base + 'Buckinghamshire'))
+        self.assertEqual(directory.admitted_url(base + 'High%2BWycombe/11-Plus'), base + 'High+Wycombe/11-Plus')
+        for route in ('London/11-Plus', 'Oxford/11-Plus', 'Milton+Keynes/100-miles/Maths-Tutor',
+                      'High+Wycombe/Music-Tutor', 'High+Wycombe/11-Plus/0', 'High+Wycombe/11-Plus/login'):
+            self.assertIsNone(directory.admitted_url(base + route))
+            self.assertFalse(directory.local_directory_link(base + route, base + 'Buckinghamshire'))
+
+    def test_provider_seed_bridge_recovers_supported_roots_from_saved_receipts(self):
+        from discovery import PaidCache, request_key
+        from profile_seeds import write_seed_batch
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            cache = PaidCache(root / 'paid', 100, 0)
+            self.addCleanup(cache.db.close)
+            payload = {'keyword': 'maths tutor Gerrards Cross'}
+            key = request_key('organic', payload)
+            cache.reserve(key, 'organic', payload, 100)
+            accepted = ['https://www.uktutors.com/tutor-regions/private-maths-tutors-and-tuition-in-gerrards-cross/',
+                        'https://www.childcare.co.uk/search/Private-Tutors/High+Wycombe/11-Plus']
+            outside = ['https://www.uktutors.com/tutor-regions/private-tutors-and-tuition-in-london/']
+            cache.settle(key, {'cost': .002, 'status_code': 20000, 'tasks': [{'id': key, 'cost': .002, 'status_code': 20000,
+                'result': [{'items': [{'url': url} for url in accepted + outside]}]}]})
+            before = cache.usage()
+            value = write_seed_batch(root / 'paid', root / 'profiles', cache)
+            batch = json.loads((root / 'profiles/seed-batches' / (value['batches'][0] + '.json')).read_text())
+            self.assertEqual(set(batch['urls']), set(accepted))
+            self.assertEqual(cache.usage(), before)
+
+    def test_cli_accepts_the_prepared_extra_window_but_keeps_unprepared_runs_bounded(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            args = ['--run-dir', str(root), '--hours', '12', '--pages', '25337', '--target', '5000']
+            with patch.object(directory, 'run') as run, self.assertRaises(SystemExit):
+                directory.main(args)
+            run.assert_not_called()
+            authorization = {'requestedAt': '2026-10-13T23:43:51+00:00',
+                'deadline': '2026-10-14T11:43:51+00:00', 'parentManifestSha256': 'a' * 64}
+            path = root / 'authorization.json'
+            path.write_text(json.dumps(authorization))
+            job = {'startedAt': authorization['requestedAt'], 'deadlineUnix': 1791978231.0,
+                'pageLimit': 25337, 'initialAttemptCount': 13337, 'newAttemptLimit': 12000,
+                'additionalWindowAuthorization': str(path),
+                'additionalWindowAuthorizationSha256': hashlib.sha256(path.read_bytes()).hexdigest()}
+            directory.save(root / 'job.json', job)
+            with patch.object(directory, 'run') as run:
+                directory.main(args)
+            run.assert_called_once_with(root, [], 12, 25337, 5000)
+            path.write_text('{}')
+            with patch.object(directory, 'run') as run, self.assertRaises(SystemExit):
+                directory.main(args)
+            run.assert_not_called()
+
+    def test_tta_country_in_county_field_defers_to_own_city_without_accepting_county_conflicts(self):
+        def row(city, county):
+            return {'platform': 'thetutorsassociation.wildapricot.org',
+                'evidenceKind': 'public_person_profile', 'profileCity': city,
+                'profileCounty': county, 'localityClaim': ', '.join([city, county])}
+        for county in ['England', 'UK', 'United Kingdom', 'Great Britain']:
+            self.assertEqual(directory.profile_locality_status(row('Milton Keynes', county)),
+                             'advertised_bucks_locality')
+            self.assertEqual(directory.profile_locality_status(row('Manchester', county)),
+                             'outside_or_unresolved')
+        for city, county in [('Milton Keynes', 'West Northamptonshire'), ('Milton Keynes', 'Northamptonshire'),
+                             ('Milton Keynes', 'London'), ('London, Milton Keynes', 'England'),
+                             ('Wing', 'England'), ('Bourne End', 'England')]:
+            self.assertNotEqual(directory.profile_locality_status(row(city, county)),
+                                'advertised_bucks_locality')
+
+    def test_childcare_published_subject_facets_stay_bounded_to_bucks_tutors(self):
+        base = 'https://www.childcare.co.uk/search/Private-Tutors/Buckinghamshire'
+        for suffix in ['', '/2', '/11-Plus', '/11-Plus/2', '/Maths-Tutor', '/English-Tutor', '/Primary-up-to-11-years']:
+            url = base + suffix
+            self.assertEqual(directory.admitted_url(url), url)
+            self.assertTrue(directory.local_directory_link(url, base))
+        for url in [base + '/Music-Tutor', base + '/11-Plus/reviews', base + '/11-Plus/0',
+                    base.replace('Buckinghamshire', 'London') + '/11-Plus',
+                    base.replace('Private-Tutors', 'Babysitters') + '/11-Plus']:
+            self.assertIsNone(directory.admitted_url(url))
+            self.assertFalse(directory.local_directory_link(url, base))
+
+    def test_tuitionlist_profile_uses_its_named_location_and_own_subject_section(self):
+        url = 'https://www.tuitionlist.co.uk/tutor/jane-smith-maths-amersham-1234abcd'
+        html = '''<nav>11 Plus Tutors in Aylesbury</nav><div><h1>Jane Smith</h1></div>
+            <div><h2>Subjects and levels</h2><div><span>Maths</span><span>GCSE</span></div></div>
+            <div><h2>Lesson location</h2><p>Jane Smith is listed in Amersham, Buckinghamshire.</p></div>
+            <div><h2>About</h2><p>I tutor GCSE maths.</p></div><footer>11 Plus English</footer>'''
+        row = directory.profile_record(html, url)
+        self.assertEqual(row['name'], 'Jane Smith')
+        self.assertEqual(row['personId'], '1234abcd')
+        self.assertEqual(row['localityClaim'], 'Amersham, Buckinghamshire')
+        self.assertEqual(row['services'], ['Maths', 'GCSE'])
+        self.assertIsNone(directory.exclusion_reason(row))
+        self.assertFalse(row['outreachEligible'])
+        self.assertIsNone(directory.profile_record(html.replace('Jane Smith is listed in', 'Other Tutor is listed in'), url))
+        self.assertIsNone(directory.profile_record(html.replace('Subjects and levels', 'Related tutor searches'), url))
+        self.assertEqual(directory.admitted_url(url + '#enquire'), url)
+        self.assertIsNone(directory.admitted_url('https://www.tuitionlist.co.uk/login'))
+
+    def test_tuitionlist_index_is_a_seed_source_and_cannot_borrow_a_neighbours_location(self):
+        def card(name, town, suffix, subject):
+            return f'''<div><div><div><h2>{name}</h2><p><span>{town}</span><span>Online</span></p></div>
+                <div><span>{subject}</span></div><p>I offer tuition.</p></div>
+                <a href="/tutor/{name.lower()}-maths-{suffix}">View profile</a></div>'''
+        html = card('Jane', 'Amersham, Buckinghamshire', '1234abcd', 'Maths') + card('Alex', 'London, London', '5678abcd', 'English')
+        rows = directory.listing_records(html, 'https://www.tuitionlist.co.uk/find-a-tutor')
+        self.assertEqual(len(rows), 2)
+        self.assertEqual([r['localityClaim'] for r in rows], ['Amersham, Buckinghamshire', 'London, London'])
+        self.assertTrue(all(r['evidenceKind'] == 'directory_listing' for r in rows))
+        self.assertFalse(directory.local_directory_link('https://www.tuitionlist.co.uk/login', 'https://www.tuitionlist.co.uk/find-a-tutor'))
+
     def test_declared_legacy_html_charset_preserves_professional_names(self):
         body = b'<meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1"><h1>Ren\xe9e\x92s tuition</h1>'
         self.assertIn("Renée’s tuition", directory.decode_page(body))
@@ -91,6 +224,19 @@ class ProfileTests(unittest.TestCase):
             self.assertEqual(directory.locality_status(town), "advertised_bucks_locality")
         for town in ["Westcroft", "Crownhill", "Brill", "Walters Ash", "Old Haversham"]:
             self.assertEqual(directory.locality_status(town), "outside_or_unresolved")
+
+    def test_own_locality_formats_preserve_explicit_region_and_saint_abbreviation(self):
+        for value in ["Denham Buckinghamshire", "Denham Bucks", "Wolverton (Milton Keynes)",
+                      "Wolverton Milton Keynes, Abbey Hill, Bradwell", "Chalfont St. Giles",
+                      "Chalfont St. Peter, Buckinghamshire", "  Denham   Buckinghamshire  "]:
+            with self.subTest(value=value):
+                self.assertEqual(directory.locality_status(value), "advertised_bucks_locality")
+        # A nearby town elsewhere in a list never establishes the primary locality.
+        for value in ["London, Wolverton (Milton Keynes)", "Uxbridge, Denham Buckinghamshire",
+                      "Wolverton Northamptonshire", "Denham Suffolk", "Oxford Buckinghamshire",
+                      "London Milton Keynes", "Bourne End", "Lane End", "Halton", "Wing", "Calverton"]:
+            with self.subTest(value=value):
+                self.assertEqual(directory.locality_status(value), "outside_or_unresolved")
 
     def test_academic_subject_categories_include_art_and_school_tuition(self):
         for subject in ["Contemporary Art", "After-school tuition", "Secondary school", "Theology", "Anatomy", "Polish"]:
@@ -182,6 +328,108 @@ class ProfileTests(unittest.TestCase):
         self.assertEqual(counts, {host: 3 for host in hosts})
         self.assertEqual(len(state["queue"]), 51)
 
+    def test_ready_directory_does_not_wait_for_another_hosts_persisted_cooldown(self):
+        import urllib.robotparser
+        slow = 'https://thetutorsassociation.wildapricot.org/Sys/PublicProfile/123/6119301'
+        ready = 'https://www.findtutors.co.uk/tutors-aylesbury/maths-456'
+        robot = urllib.robotparser.RobotFileParser()
+        robot.parse(['User-agent: *', 'Request-rate: 1/60'])
+        with tempfile.TemporaryDirectory() as tmp, patch('directory_profiles.time.time', return_value=120):
+            root = Path(tmp)
+            directory.save(root / 'request-times.json', {'thetutorsassociation.wildapricot.org': 100})
+            cache = directory.PageCache(root)
+            cache.configure_robots('thetutorsassociation.wildapricot.org', robot)
+            state = {'queue': [slow, ready], 'lastHost': 'www.tutorhunt.com'}
+            self.assertEqual(directory.next_page(state, cache), ready)
+            self.assertEqual(state['queue'], [slow])
+            self.assertEqual(cache.request_delay(slow), 40)
+            self.assertFalse(cache.can_start_before(slow, 150))
+            self.assertEqual(json.loads((root / 'request-times.json').read_text()),
+                             {'thetutorsassociation.wildapricot.org': 100})
+
+    def test_when_all_hosts_wait_the_earliest_one_is_selected_without_losing_pages(self):
+        from types import SimpleNamespace
+        slow = 'https://thetutorsassociation.wildapricot.org/Sys/PublicProfile/123/6119301'
+        sooner = 'https://www.findtutors.co.uk/tutors-aylesbury/maths-456'
+        cache = SimpleNamespace(fetch_delay=lambda url: 40 if url == slow else 2)
+        state = {'queue': [slow, sooner], 'lastHost': 'www.tutorhunt.com'}
+        self.assertEqual(directory.next_page(state, cache), sooner)
+        self.assertEqual(state['queue'], [slow])
+        self.assertEqual(state['lastHost'], 'www.findtutors.co.uk')
+
+    def test_cached_profile_can_be_selected_during_its_hosts_cooldown(self):
+        import urllib.robotparser
+        slow = 'https://thetutorsassociation.wildapricot.org/Sys/PublicProfile/123/6119301'
+        ready = 'https://www.findtutors.co.uk/tutors-aylesbury/maths-456'
+        robot = urllib.robotparser.RobotFileParser()
+        robot.parse(['User-agent: *', 'Request-rate: 1/60'])
+        with tempfile.TemporaryDirectory() as tmp, patch('directory_profiles.time.time', return_value=120):
+            root = Path(tmp)
+            directory.save(root / 'request-times.json', {'thetutorsassociation.wildapricot.org': 100})
+            cache = directory.PageCache(root)
+            cache.configure_robots('thetutorsassociation.wildapricot.org', robot)
+            directory.save(root / 'receipts' / (cache.key(slow) + '.json'), {'url': slow, 'error': 'HTTPError'})
+            self.assertEqual(cache.fetch_delay(slow), 0)
+            state = {'queue': [slow, ready], 'lastHost': 'www.tutorhunt.com'}
+            self.assertEqual(directory.next_page(state, cache), slow)
+            with patch.object(cache, 'download') as download:
+                self.assertIsNone(cache.fetch(slow))
+                download.assert_not_called()
+
+    def test_priority_seed_batch_moves_pending_people_without_resetting_history(self):
+        first = 'https://thetutorsassociation.wildapricot.org/Sys/PublicProfile/123/6119301'
+        preferred = 'https://thetutorsassociation.wildapricot.org/Sys/PublicProfile/456/6119301'
+        seen = 'https://thetutorsassociation.wildapricot.org/Sys/PublicProfile/789/6119301'
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            value = {'urls': [preferred, seen], 'priorityUrls': [preferred, seen]}
+            raw = (json.dumps(value) + '\n').encode()
+            digest = hashlib.sha256(raw).hexdigest()
+            inbox = root / 'seed-batches'
+            inbox.mkdir()
+            (inbox / (digest + '.json')).write_bytes(raw)
+            state = {'queue': [first, preferred], 'seen': [seen], 'attempts': 42, 'records': []}
+            directory.import_seed_batches(root, state)
+            self.assertEqual(state['queue'], [preferred, first])
+            self.assertEqual(state['seen'], [seen])
+            self.assertEqual(state['attempts'], 42)
+            directory.import_seed_batches(root, state)
+            self.assertEqual(state['queue'], [preferred, first])
+            self.assertEqual(state['importedSeedBatches'], [digest])
+
+    def test_invalid_priority_batch_is_held_before_mutating_the_page_queue(self):
+        url = 'https://thetutorsassociation.wildapricot.org/Sys/PublicProfile/123/6119301'
+        for priorities in ['wrong', [url, url], ['https://private.invalid/profile'], [1],
+                           ['https://thetutorsassociation.wildapricot.org/Sys/PublicProfile/456/6119301']]:
+            with self.subTest(priorities=priorities), tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp)
+                raw = json.dumps({'urls': [url], 'priorityUrls': priorities}).encode()
+                digest = hashlib.sha256(raw).hexdigest()
+                inbox = root / 'seed-batches'
+                inbox.mkdir()
+                (inbox / (digest + '.json')).write_bytes(raw)
+                state = {'queue': [], 'seen': [], 'attempts': 42}
+                with self.assertRaises(ValueError):
+                    directory.import_seed_batches(root, state)
+                self.assertEqual(state['queue'], [])
+                self.assertEqual(state['attempts'], 42)
+                self.assertEqual(state['rejectedSeedBatches'], [digest + '.json'])
+
+    def test_priority_batch_cannot_exceed_a_hundred_urls(self):
+        urls = ['https://thetutorsassociation.wildapricot.org/Sys/PublicProfile/' + str(i) + '/6119301'
+                for i in range(1, 102)]
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            raw = json.dumps({'urls': urls, 'priorityUrls': urls}).encode()
+            digest = hashlib.sha256(raw).hexdigest()
+            inbox = root / 'seed-batches'
+            inbox.mkdir()
+            (inbox / (digest + '.json')).write_bytes(raw)
+            state = {'queue': [], 'seen': []}
+            with self.assertRaises(ValueError):
+                directory.import_seed_batches(root, state)
+            self.assertEqual(state['queue'], [])
+
     def test_unvisited_town_roots_get_coverage_before_more_subject_indexes(self):
         subject = "https://www.findtutors.co.uk/chemistry-tutors-marlow/"
         page = "https://www.findtutors.co.uk/tutors-new-denham/?page=5"
@@ -229,7 +477,7 @@ class ProfileTests(unittest.TestCase):
         self.assertEqual(directory.profile_locality_status(rows[0]), "outside_or_unresolved")
         self.assertNotIn("countyClaim", rows[0])
         self.assertTrue(directory.local_directory_link(url + "/2", url))
-        self.assertFalse(directory.local_directory_link(url + "/Maths-Tutor", url))
+        self.assertTrue(directory.local_directory_link(url + "/Maths-Tutor", url))
         self.assertFalse(directory.local_directory_link("https://www.childcare.co.uk/search/Private-Tutors/London/2", url))
         for path in ["/profile/123/reviews/456", "/login?ret=/profile/123", "/search/Parents/Buckinghamshire", "/message/123"]:
             self.assertIsNone(directory.admitted_url("https://www.childcare.co.uk" + path))

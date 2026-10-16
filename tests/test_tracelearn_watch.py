@@ -132,7 +132,9 @@ class WatchTests(unittest.TestCase):
                      SimpleNamespace(stdout=row, returncode=0), SimpleNamespace(stdout="", returncode=0),
                      SimpleNamespace(stdout="", returncode=0)]
         with mock.patch.object(WATCH, "read_snapshot", return_value=(self.job, self.snapshot)), \
-                mock.patch.object(WATCH, "command", side_effect=responses) as command, mock.patch.object(WATCH.os, "kill") as kill:
+                mock.patch.object(WATCH, "command", side_effect=responses) as command, mock.patch.object(WATCH.os, "kill") as kill, \
+                mock.patch.object(WATCH.datetime, "datetime", wraps=datetime.datetime) as clock:
+            clock.now.return_value = self.now
             self.assertEqual(WATCH.recover(Path("/private/run"), "/tmp/our-crawler", self.previous, "restart"), "restart_requested")
             kill.assert_called_once_with(101, WATCH.signal.SIGTERM)
             self.assertEqual(command.call_args_list[-1].args[0][0:2], ["/bin/launchctl", "kickstart"])

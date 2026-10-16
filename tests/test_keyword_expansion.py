@@ -102,7 +102,9 @@ class KeywordExpansionTests(unittest.TestCase):
         before = paid.usage()
         self.addCleanup(paid.db.close)
         self.index.sync_run(root)
+        changes = self.index.db.total_changes
         self.index.sync_run(root)
+        self.assertEqual(self.index.db.total_changes, changes)
         self.assertEqual(paid.usage(), before)
         self.assertEqual(self.index.summary()['observations'], 1)
         self.assertEqual(self.index.summary()['urls'], 1)
@@ -110,6 +112,16 @@ class KeywordExpansionTests(unittest.TestCase):
         self.assertEqual(jobs[0]['url'], 'https://namedtutor.co.uk/about')
         self.assertEqual(jobs[0]['sources'][0]['requestKey'], item['key'])
         self.assertTrue(jobs[0]['sources'][0]['receiptSha256'])
+
+    def test_query_refresh_can_still_raise_priority_and_fill_a_missing_town(self):
+        item = query()
+        self.index.add_queries([dict(item, town='')])
+        self.index.add_queries([dict(item, priority=9)])
+        row = self.index.db.execute('SELECT priority,town,root_key FROM search_queries').fetchone()
+        self.assertEqual(tuple(row), (9, 'Amersham', search_identity(item['lane'], item['payload'])))
+        changes = self.index.db.total_changes
+        self.index.add_queries([dict(item, priority=1)])
+        self.assertEqual(self.index.db.total_changes, changes)
 
     def test_corrupt_receipt_still_blocks_replay_but_cannot_seed_classifiers(self):
         root, item = self.paid()
@@ -357,6 +369,32 @@ class KeywordExpansionTests(unittest.TestCase):
                       {'website': 'https://namedtutor.co.uk/about'}])
         self.assertEqual([url for url, _ in upstream_results(reply)],
                          ['https://sites.google.com/view/amersham-tutor', 'https://namedtutor.co.uk/about'])
+
+    def test_nested_read_more_link_cannot_replace_the_search_result_identity(self):
+        reply = response(title='Buckingham Learning Academy: Homepage')
+        item = reply['tasks'][0]['result'][0]['items'][0]
+        item['description'] = 'Independent English and maths tuition in Buckinghamshire.'
+        item['links'] = [{'type': 'link_element', 'title': 'Read more',
+                          'url': 'https://namedtutor.co.uk/about#:~:text=Independent'}]
+        results = dict(upstream_results(reply))
+        self.assertEqual(len(list(upstream_results(reply))), 1)
+        self.assertEqual(results['https://namedtutor.co.uk/about']['title'], item['title'])
+        self.assertEqual(results['https://namedtutor.co.uk/about']['description'], item['description'])
+
+    def test_real_identity_replaces_an_earlier_navigation_label(self):
+        reply = response(title='Local English Tutor')
+        items = reply['tasks'][0]['result'][0]['items']
+        items.insert(0, {'url': items[0]['url'], 'title': 'Read more',
+                         'description': 'Navigation copy', 'category': 'Link'})
+        self.assertEqual(dict(upstream_results(reply))['https://namedtutor.co.uk/about'],
+                         {'title': 'Local English Tutor'})
+
+    def test_distinct_sitelinks_remain_available_as_separate_seed_urls(self):
+        reply = response(title='Local English Tutor')
+        reply['tasks'][0]['result'][0]['items'][0]['links'] = [
+            {'url': 'https://namedtutor.co.uk/contact', 'title': 'Contact'}]
+        self.assertEqual([url for url, _ in upstream_results(reply)],
+                         ['https://namedtutor.co.uk/about', 'https://namedtutor.co.uk/contact'])
 
     def test_existing_navigation_jobs_are_retained_as_excluded_evidence(self):
         root, _ = self.paid()

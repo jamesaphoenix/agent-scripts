@@ -2,7 +2,7 @@
 set -euo pipefail
 [[ "$(id -un)" == "jamesphoenix" ]] || { echo "Install this task on the Mac Studio only." >&2; exit 1; }
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ROOT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
+ROOT_DIR="${3:-$(cd "$SCRIPT_DIR/../.." && pwd)}"
 PYTHON_BIN="$(command -v python3)"
 [[ "$PYTHON_BIN" == /* && -x "$PYTHON_BIN" ]] || { echo "An installed Python 3 interpreter is required." >&2; exit 1; }
 RUN_NAME="${2:-tutor-lead-pathways-20261011}"
@@ -29,12 +29,12 @@ path,scripts,state,label,mode=sys.argv[1:]
 sys.path.insert(0,scripts)
 from configuration import launchd_settings
 with open(state+"/manifest.json") as stream: labels,interval=launchd_settings(json.load(stream))
-args=["/bin/zsh",scripts+"/run.zsh","--run-dir",state] if mode=="run" else [sys.executable,scripts+"/run.py","watch","--run-dir",state]
-value={"Label":label,"ProgramArguments":args,"RunAtLoad":True,"ProcessType":"Background",
+args=["/bin/zsh","-f",scripts+"/run.zsh","--run-dir",state] if mode=="run" else [sys.executable,scripts+"/run.py","watch","--run-dir",state]
+value={"Label":label,"ProgramArguments":args,"RunAtLoad":True,"ProcessType":"Standard",
        "WorkingDirectory":str(pathlib.Path(scripts).parent.parent),
        "StandardOutPath":state+("/stdout.log" if mode=="run" else "/monitor-stdout.log"),
        "StandardErrorPath":state+("/stderr.log" if mode=="run" else "/monitor-stderr.log")}
-if mode=="run":value.update(KeepAlive={"SuccessfulExit":False},ThrottleInterval=120)
+if mode=="run":value.update(KeepAlive={"SuccessfulExit":False},ThrottleInterval=120,ExitTimeOut=160)
 else:value["StartInterval"]=interval
 with open(path,"wb") as stream:plistlib.dump(value,stream)
 PY

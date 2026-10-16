@@ -7,16 +7,23 @@ import fcntl
 import hashlib
 from html.parser import HTMLParser
 import json
+import math
 import os
 from pathlib import Path
 import re
+import ssl
 import time
 import urllib.error
 import urllib.parse
 import urllib.request
 import urllib.robotparser
+from discovery import tls_context
+from configuration import loaded_source_sha
+from lead_scope import load_scope, query_priority, services_text
 
-HOSTS = {"www.findtutors.co.uk", "tutorperch.com", "www.childcare.co.uk", "tutordex.net", "tutorextra.co.uk", "www.uktutors.com", "www.tutorhunt.com"}
+HOSTS = {"www.findtutors.co.uk", "tutorperch.com", "www.childcare.co.uk", "tutordex.net", "tutorextra.co.uk", "www.uktutors.com", "www.tutorhunt.com", "www.tuitionlist.co.uk", "www.teachtutti.co.uk", "www.apprentus.co.uk", "thetutorsassociation.wildapricot.org"}
+from universitytutor import HOSTS as UNIVERSITY_HOSTS
+HOSTS |= UNIVERSITY_HOSTS
 AGENT = "TutorResearch/1.0"
 BUCKS = {
     "amersham", "amersham on the hill", "aylesbury", "beaconsfield", "bierton", "buckingham",
@@ -38,10 +45,17 @@ BUCKS = {
     "hodge lea", "fishermead", "newton leys", "walnut tree", "kents hill", "great holm", "fullers slade",
     "wavendon gate", "tattenhoe", "hanslope", "lavendon", "emberton", "north crawley", "shenley lodge",
     "edlesborough", "wingrave", "seer green", "weedon", "west wycombe", "naphill", "turville", "medmenham",
-    "little horwood", "great horwood", "soulbury", "stoke hammond", "steeple claydon", "calvert", "gawcott",
-    "haversham", "grange farm",
+    "little horwood", "great horwood", "soulbury", "stoke hammond", "steeple claydon", "calvert", "gawcott", "cublington",
+    "haversham", "grange farm", "tylers green",
 }
 CHILDCARE_DISTRICTS = {"aylesbury vale", "chiltern", "south bucks", "wycombe"}
+CHILDCARE_DIRECTORY_PATH = re.compile(r'/search/Private-Tutors/Buckinghamshire(?:/(?:11-Plus|Maths-Tutor|English-Tutor|Primary-up-to-11-years))?(?:/[1-9]\d{0,2})?')
+CHILDCARE_TOWN_DIRECTORY_PATH = re.compile(r'/search/Private-Tutors/([^/]+)(?:/10-miles)?'
+    r'(?:/(?:11-Plus|Maths-Tutor|English-Tutor|Primary-up-to-11-years))?(?:/[1-9]\d{0,2})?')
+UKTUTORS_REGION_PATH = re.compile(r'/tutor-regions/private-(?:[a-z0-9-]+-)?tutors-and-tuition-in-([a-z0-9-]+)/')
+# These towns are in the prepared campaign's approved search geography. Their
+# ambiguous bare names remain unresolved in person qualification.
+LISTING_TOWN_HINTS = {'bourne end', 'lane end'}
 NON_TUITION = re.compile(r"\b(?:yoga|football|fitness|personal training|swimming|pilates|driving)\b", re.I)
 INSTITUTION = re.compile(r"\b(?:academy|university|college|grammar school|tuition centre|learning centre|kumon|mathnasium|explore learning)\b", re.I)
 ACADEMIC = re.compile(r"math|english|science|biology|chemistry|physics|history|geography|language|french|spanish|german|italian|arabic|mandarin|chinese|japanese|russian|latin|greek|portuguese|hindi|urdu|economics|business|accounting|comput|programming|coding|philosophy|psychology|sociology|law|statistics|primary|11\+|11.plus|eleven.plus|gcse|a.level|sat|reading|writing|literacy|phonics|dyslexia|study skills|special needs|send|efl|esol|ielts|piano|violin|guitar|singing|music|drum|flute|\b(?:art|anatomy|theology|polish|after[ -]school tuition|secondary school)\b", re.I)
@@ -80,12 +94,36 @@ def admitted_url(value):
         p = urllib.parse.urlsplit(value)
         if p.scheme != "https" or p.hostname not in HOSTS or p.port not in (None, 443) or p.username or p.password:
             return None
-        if p.hostname == "www.tutorhunt.com":
+        if p.hostname in UNIVERSITY_HOSTS:
+            from universitytutor import public_path, PROFILE
+            profile = bool(PROFILE.fullmatch(p.path))
+            allowed = public_path(value)
+        elif p.hostname == 'www.apprentus.co.uk':
+            from apprentus import LISTING_PATH, PROFILE_PATH, local_source_path
+            profile = bool(PROFILE_PATH.fullmatch(p.path))
+            if p.query and urllib.parse.parse_qsl(p.query) != [('from_landing_page', 'true')]:
+                return None
+            allowed = (profile and local_source_path(p.path)) or p.path == '/robots.txt' or bool(LISTING_PATH.fullmatch(p.path) and local_source_path(p.path))
+        elif p.hostname == 'www.teachtutti.co.uk':
+            from teachtutti import LISTING_PATH, PROFILE_PATH
+            profile = bool(PROFILE_PATH.fullmatch(p.path))
+            allowed = profile or p.path == '/robots.txt' or bool(LISTING_PATH.fullmatch(p.path))
+        elif p.hostname == 'thetutorsassociation.wildapricot.org':
+            from tta_scraper import PROFILE_PATH
+            profile = bool(PROFILE_PATH.fullmatch(p.path))
+            allowed = profile or p.path == '/robots.txt'
+        elif p.hostname == "www.tutorhunt.com":
             profile = bool(re.fullmatch(r"/users/[a-z0-9-]{1,64}/", p.path))
             allowed = profile or p.path == "/robots.txt" or bool(re.fullmatch(r"/(?:subjects/[a-z0-9-]+/)?locations/[a-z0-9-]+/", p.path))
         elif p.hostname == "www.uktutors.com":
             profile = bool(re.fullmatch(r"/tutor/\d+/[a-z0-9-]+", p.path))
-            allowed = profile or p.path in ("/robots.txt", "/county/buckinghamshire-tutors/") or bool(re.fullmatch(r"/town/[a-z0-9-]+-tutors/", p.path))
+            region = UKTUTORS_REGION_PATH.fullmatch(p.path)
+            allowed = (profile or p.path in ("/robots.txt", "/county/buckinghamshire-tutors/")
+                       or bool(re.fullmatch(r"/town/[a-z0-9-]+-tutors/", p.path))
+                       or bool(region and local_listing_town(region[1])))
+        elif p.hostname == "www.tuitionlist.co.uk":
+            profile = bool(re.fullmatch(r"/tutor/[a-z0-9-]+-[a-f0-9]{8}", p.path))
+            allowed = profile or p.path in ("/robots.txt", "/find-a-tutor")
         elif p.hostname == "tutordex.net":
             profile = bool(re.fullmatch(r"/tutor/\d+/[a-z0-9-]+", p.path))
             allowed = profile or p.path == "/robots.txt" or bool(re.fullmatch(r"/uk/academic/town/[a-z0-9-]+(?:/[a-z0-9-]+){0,2}", p.path))
@@ -94,7 +132,10 @@ def admitted_url(value):
             allowed = profile or p.path == "/robots.txt" or bool(re.fullmatch(r"/search/[a-z0-9-]+-lessons-in/[a-z0-9-]+", p.path))
         elif p.hostname == "www.childcare.co.uk":
             profile = bool(re.fullmatch(r"/profile/\d+", p.path))
-            allowed = profile or p.path == "/robots.txt" or bool(re.fullmatch(r"/search/Private-Tutors/Buckinghamshire(?:/\d+)?", p.path))
+            town = CHILDCARE_TOWN_DIRECTORY_PATH.fullmatch(p.path)
+            allowed = (profile or p.path == "/robots.txt" or bool(CHILDCARE_DIRECTORY_PATH.fullmatch(p.path))
+                       or bool(town and local_listing_town(town[1])))
+            p = p._replace(path=re.sub('%2b', '+', p.path, flags=re.I))
         elif p.hostname == "tutorperch.com":
             profile = bool(re.fullmatch(r"/t/[a-z0-9]+(?:-[a-z0-9]+)+/?", p.path))
             allowed = profile or p.path in ("/find/results", "/robots.txt")
@@ -157,16 +198,46 @@ def class_text(node, name):
     return found.text() if found else ""
 
 
+def parent_node(document, node):
+    return next((n for n in document.walk() if any(child is node for child in n.children)), None)
+
+
+def named_section(document, heading):
+    matches = [n for n in document.walk() if n.tag == 'h2' and n.text() == heading]
+    return parent_node(document, matches[0]) if len(matches) == 1 else None
+
+
 def locality_status(value):
-    primary = value.split(",", 1)[0].strip().lower()
+    primary = ' '.join(value.split(",", 1)[0].casefold().split())
+    primary = re.sub(r'\bst\.(?=\s)', 'st', primary)
     if primary in BUCKS or primary in ("buckinghamshire", "bucks", "milton keynes (buckinghamshire)"):
+        return "advertised_bucks_locality"
+    # Some own headers omit the comma or qualify a town with Milton Keynes.
+    # Recognise the same known local town, never a later nearby place in a list.
+    qualified = re.fullmatch(r'(.+?)\s+(?:\((buckinghamshire|bucks|milton keynes)\)|'
+                             r'(buckinghamshire|bucks|milton keynes))', primary)
+    if qualified and qualified[1] in BUCKS:
         return "advertised_bucks_locality"
     if re.fullmatch(r"(?:[a-z -]+) \(buckinghamshire\)", primary):
         return "advertised_bucks_locality"
     return "unresolved" if not primary or primary in ("online", "online lessons") else "outside_or_unresolved"
 
 
+def local_listing_town(value):
+    town = ' '.join(urllib.parse.unquote(value).replace('+', ' ').replace('-', ' ').casefold().split())
+    return (locality_status(town) == 'advertised_bucks_locality'
+            or town in CHILDCARE_DISTRICTS or town in LISTING_TOWN_HINTS)
+
+
 def profile_locality_status(row):
+    if row.get('platform') == 'thetutorsassociation.wildapricot.org' and row.get('evidenceKind') == 'public_person_profile':
+        from tta_scraper import OUTSIDE_BUCKS_TOWNS
+        if row.get('profileCity', '').split(',', 1)[0].strip().casefold() in OUTSIDE_BUCKS_TOWNS:
+            return 'outside_or_unresolved'
+        county = row.get('profileCounty', '').strip().casefold()
+        if county and county not in ('england', 'uk', 'united kingdom', 'great britain'):
+            return 'advertised_bucks_locality' if county in ('bucks', 'buckinghamshire', 'milton keynes') else 'outside_or_unresolved'
+        return locality_status(re.sub(r'\bSt\.', 'St', row.get('profileCity', ''), flags=re.I))
     # These are the former Bucks district names used in Childcare's tutor header.
     # Its county breadcrumb can contradict that header and never supplies proof.
     if row.get("platform") == "childcare.co.uk" and row.get("evidenceKind") == "public_person_profile" and row.get("localityClaim", "").strip().lower() in CHILDCARE_DISTRICTS:
@@ -186,7 +257,7 @@ def exclusion_reason(row):
     services = " ".join(row.get("services", []))
     if NON_TUITION.search(services) and not ACADEMIC.search(services):
         return "non_tuition_lessons"
-    if not ACADEMIC.search(services):
+    if not ACADEMIC.search(services) and not re.search(r'\b(?:KS[12]|key stage [12])\b', services, re.I):
         return "needs_subject_review"
     return None
 
@@ -198,6 +269,11 @@ def public_person(platform, person_id, name, location, services, url):
 
 
 def annotate_advert(row, title="", description=""):
+    # Keep the selected own advert text as well as its derived flags. Bare
+    # subject labels cannot explain whether these are lessons or qualifications.
+    row.pop('ownOfferExcerpt', None)
+    if row.get('evidenceKind') in {'public_person_profile', 'public_advert_person'} and description.strip():
+        row['ownOfferExcerpt'] = description.strip()[:2000]
     non_tuition = r"\b(?:anxiety coaching|life coaching|therapy|psychotherapy|counselling|personal training|fitness|yoga|pilates|swimming|driving)\b"
     teaching = r"\b(?:tutor|tuition|lessons?|teaching|teacher|gcse|a[ -]level|exams?)\b|11\+"
     row["nonTuitionAdvert"] = bool(re.search(non_tuition, title, re.I) and not re.search(teaching, title, re.I))
@@ -225,6 +301,33 @@ def listing_records(text, url):
     document = Document(text).root
     host = urllib.parse.urlsplit(url).hostname
     rows = []
+    if host == 'www.apprentus.co.uk':
+        from apprentus import listing_records as parse_cards
+        return parse_cards(document, url)
+    if host == 'www.teachtutti.co.uk':
+        from teachtutti import listing_records as parse_cards
+        return parse_cards(document, url)
+    if host == 'www.tuitionlist.co.uk':
+        seen = set()
+        for card in document.walk():
+            headings = [n for n in card.walk() if n.tag == 'h2']
+            if len(headings) != 1:
+                continue
+            link = card.first(lambda n: n.tag == 'a' and n.text() == 'View profile')
+            source = admitted_url(urllib.parse.urljoin(url, link.attrs.get('href', ''))) if link else None
+            header = parent_node(card, headings[0])
+            location = next((n for n in header.children if isinstance(n, Node) and n.tag == 'p'), None) if header else None
+            info = parent_node(card, header) if header else None
+            labels = [n.text() for child in info.children if isinstance(child, Node) and child is not header
+                      and child.tag == 'div' for n in child.walk() if n.tag == 'span'] if info else []
+            parts = [n.text() if isinstance(n, Node) else n for n in location.children] if location else []
+            place = ' '.join(part.strip() for part in parts if part.strip().casefold() not in ('online', 'in-person'))
+            if source and source not in seen and place.strip() and labels:
+                seen.add(source)
+                row = public_person(host, source.rsplit('-', 1)[-1], headings[0].text(),
+                    re.sub(r'\s*,\s*', ', ', place.strip()), labels, source)
+                rows.append(dict(row, evidenceKind='directory_listing', listingUrl=url))
+        return rows
     for card in document.walk():
         if host == "www.uktutors.com" and card.has_class("searchresult"):
             title = card.first(lambda n: n.has_class("top_bars"))
@@ -294,20 +397,63 @@ def profile_record(text, url):
         return None
     p = urllib.parse.urlsplit(url)
     document = Document(text).root
-    if p.hostname == "www.tutorhunt.com":
+    if p.hostname in UNIVERSITY_HOSTS:
+        from universitytutor import parse_profile
+        return parse_profile(document, url)
+    elif p.hostname == 'www.findtutors.co.uk' and re.fullmatch(r'/tutor/[a-z0-9-]+\.htm', p.path):
+        from findtutors_profile import parse_profile
+        return parse_profile(document, url)
+    elif p.hostname == 'www.apprentus.co.uk':
+        from apprentus import parse_profile
+        return parse_profile(document, url)
+    elif p.hostname == 'www.teachtutti.co.uk':
+        from teachtutti import parse_profile
+        return parse_profile(document, url)
+    elif p.hostname == 'thetutorsassociation.wildapricot.org':
+        from tta_scraper import parse_profile
+        return parse_profile(document, url)
+    elif p.hostname == 'www.tuitionlist.co.uk':
+        if not re.fullmatch(r'/tutor/[a-z0-9-]+-[a-f0-9]{8}', p.path):
+            return None
+        names = [n for n in document.walk() if n.tag == 'h1']
+        subjects = named_section(document, 'Subjects and levels')
+        location = named_section(document, 'Lesson location')
+        statement = location.first(lambda n: n.tag == 'p') if location else None
+        labels = [n.text() for n in subjects.walk() if n.tag == 'span' and n.text()] if subjects else []
+        claim = re.match(re.escape(names[0].text()) + r'\s+is listed in\s+(.+?)\s*\.', statement.text()) if len(names) == 1 and statement else None
+        if not claim or not labels:
+            return None
+        about = named_section(document, 'About')
+        description = about.first(lambda n: n.tag == 'p') if about else None
+        row = public_person(p.hostname, p.path.rsplit('-', 1)[-1], names[0].text(),
+            re.sub(r'\s*,\s*', ', ', claim.group(1).strip()), labels, url)
+        row['contactRouteNote'] = 'Public profile; no email or phone inferred. Enquiry forms are not used for research or marketing.'
+        return annotate_advert(row, description=description.text() if description else '')
+    elif p.hostname == "www.tutorhunt.com":
         if not re.fullmatch(r"/users/[a-z0-9-]{1,64}/", p.path):
             return None
-        header = document.first(lambda n: n.attrs.get("id") == "profilenameinfo")
-        name = header.first(lambda n: n.tag == "h1") if header else None
+        headers = [n for n in document.walk() if n.attrs.get("id") == "profilenameinfo"]
+        header = headers[0] if len(headers) == 1 else None
+        names = [n for n in header.walk() if n.attrs.get('id') == 'profilenametxt'] if header else []
+        if len(names) > 1:
+            return None
+        name = names[0] if names else header.first(lambda n: n.tag == "h1") if header else None
         location = header.first(lambda n: n.attrs.get("id") == "profileloc") if header else None
         table = document.first(lambda n: n.tag == "table" and n.has_class("profilesubjectstattable"))
         info = document.first(lambda n: n.has_class("card") and name and n.first(
             lambda c: c.tag == "h2" and c.text().casefold() == "information about " + name.text().casefold()))
-        subjects = [n.text() for n in table.walk() if n.tag == "td" and n.has_class("marksub")] if table else []
+        subjects = [n.text() for n in table.walk() if n.tag == "td" and n.has_class("marksub") and n.text()] if table else []
         if not name or not name.text() or not location or not location.text() or not subjects or not info:
             return None
         row = annotate_advert(public_person(p.hostname, p.path.split('/')[2], name.text(), location.text(), subjects, url), description=info.text())
         row["advertisedUnavailable"] = bool(re.search(r"\bNot available to contact\b", document.text(), re.I))
+        tables = [n for n in document.walk() if n.tag == "table" and n.has_class("profilesubjectstattable")]
+        own_cards = [n for n in document.walk() if n.has_class("card") and name and n.first(
+            lambda c: c.tag == "h2" and c.text().casefold() == "information about " + name.text().casefold())]
+        subject_rows = {tuple(n.text() for n in table.walk()
+                              if n.tag == 'td' and n.has_class('marksub') and n.text())
+                        for table in tables}
+        row['ownedProfileFields'] = 1 <= len(tables) <= 2 and len(subject_rows) == 1 and len(own_cards) == 1
         return row
     elif p.hostname == "www.uktutors.com":
         if not re.fullmatch(r"/tutor/\d+/[a-z0-9-]+", p.path):
@@ -376,13 +522,20 @@ def profile_record(text, url):
     elif p.hostname == "www.childcare.co.uk":
         if not re.fullmatch(r"/profile/\d+", p.path):
             return None
-        header = document.first(lambda n: n.has_class("profile-header--info-wrapper"))
+        owners = [n for n in document.walk() if n.attrs.get('data-service') == 'Private Tutor'
+                  and n.attrs.get('data-user-id') == p.path.split('/')[-1]]
+        if len(owners) > 1 or (not owners and any(n.attrs.get('data-service') == 'Private Tutor'
+                                               and n.attrs.get('data-user-id') for n in document.walk())):
+            return None
+        own = owners[0] if owners else document
+        headers = [n for n in own.walk() if n.has_class("profile-header--info-wrapper")]
+        header = headers[0] if len(headers) == 1 else None
         name = header.first(lambda n: n.tag == "h1") if header else None
         role = header.first(lambda n: n.tag == "h3") if header else None
         location = re.fullmatch(r"Private Tutor in (.+?)(?: \(also available[^)]*\))?", role.text()) if role else None
         if not name or not name.text() or not location:
             return None
-        services = [n.text() for n in document.walk() if n.has_class("tag") and n.has_class("positive")
+        services = [n.text() for n in own.walk() if n.has_class("tag") and n.has_class("positive")
                     and (ACADEMIC.search(n.text()) or NON_TUITION.search(n.text()))]
         county_claim = None
         for script in document.walk():
@@ -398,11 +551,12 @@ def profile_record(text, url):
                 for crumb in item["itemListElement"]:
                     if isinstance(crumb, dict) and crumb.get("name") == "Private Tutors in Buckinghamshire" and crumb.get("item") == "https://www.childcare.co.uk/search/Private-Tutors/Buckinghamshire":
                         county_claim = "Buckinghamshire"
-        about = document.first(lambda n: any(isinstance(c, Node) and c.tag == "h3" and c.text() == "About Me" for c in n.children))
+        about = own.first(lambda n: any(isinstance(c, Node) and c.tag == "h3" and c.text() == "About Me" for c in n.children))
         description = " ".join(c.text() for c in about.children if isinstance(c, Node) and c.tag == "p") if about else ""
         return annotate_advert({"name": name.text(), "personId": p.path.split("/")[-1], "platform": "childcare.co.uk", "sourceUrls": [url],
                 "localityClaim": location.group(1), "directoryCountyCategory": county_claim, "services": services,
-                "evidenceKind": "public_person_profile", "outreachEligible": False, "institution": False}, description=description)
+                "evidenceKind": "public_person_profile", "outreachEligible": False, "institution": False,
+                "ownedProfileFields": bool(owners), "ownRoleQuote": role.text() if owners else None}, description=description)
     elif p.hostname == "tutorperch.com":
         if not p.path.startswith("/t/"):
             return None
@@ -479,6 +633,38 @@ class RestrictedRedirect(urllib.request.HTTPRedirectHandler):
 class PageCache:
     def __init__(self, root, spacing=2):
         self.root, self.spacing, self.last_request = root, spacing, {}
+        self.host_spacing = {}
+        self.request_times = {}
+        path = root / 'request-times.json'
+        if path.exists():
+            with path.open('rb') as stream:
+                raw = stream.read(16385)
+            values = json.loads(raw) if len(raw) <= 16384 else None
+            if (not isinstance(values, dict) or any(host not in HOSTS or type(stamp) not in (int, float)
+                or not math.isfinite(stamp) or stamp < 0 for host, stamp in values.items())):
+                raise ValueError('Invalid cached public request times')
+            self.request_times = values
+
+    def configure_robots(self, host, parser):
+        rate = parser.request_rate(AGENT)
+        interval = rate.seconds / rate.requests if rate and rate.requests > 0 else 0
+        self.host_spacing[host] = max(self.spacing, parser.crawl_delay(AGENT) or 0, interval)
+
+    def request_delay(self, url):
+        host = urllib.parse.urlsplit(url).hostname
+        interval = self.host_spacing.get(host, self.spacing)
+        recent = interval - (time.monotonic() - self.last_request.get(host, 0))
+        saved = interval - max(0, time.time() - self.request_times[host]) if host in self.request_times else 0
+        return max(0, recent, saved)
+
+    def can_start_before(self, url, deadline):
+        # Cached observations need no HTTP request or host delay.
+        return (self.root / 'receipts' / (self.key(url) + '.json')).exists() or time.time() + self.request_delay(url) < deadline
+
+    def fetch_delay(self, url):
+        if (self.root / 'receipts' / (self.key(url) + '.json')).exists():
+            return 0
+        return self.request_delay(url)
 
     def key(self, url):
         return hashlib.sha256(url.encode()).hexdigest()
@@ -488,12 +674,14 @@ class PageCache:
 
     def download(self, url):
         host = urllib.parse.urlsplit(url).hostname
-        delay = self.spacing - (time.monotonic() - self.last_request.get(host, 0))
+        delay = self.request_delay(url)
         if delay > 0:
             time.sleep(delay)
         self.last_request[host] = time.monotonic()
+        self.request_times[host] = time.time()
+        save(self.root / 'request-times.json', self.request_times)
         request = urllib.request.Request(url, headers={"User-Agent": AGENT, "Accept": "text/html,text/plain"})
-        with urllib.request.build_opener(RestrictedRedirect()).open(request, timeout=20) as response:
+        with urllib.request.build_opener(RestrictedRedirect(), urllib.request.HTTPSHandler(context=tls_context())).open(request, timeout=20) as response:
             body = response.read(8 * 1024 * 1024 + 1)
             if len(body) > 8 * 1024 * 1024:
                 raise ValueError("Page exceeded eight MB")
@@ -525,7 +713,9 @@ class PageCache:
             save(receipt, {"url": url, "sha256": hashlib.sha256(body).hexdigest(), "status": status, "observedAt": now(), "contentType": content_type})
             return decode_page(body, content_type)
         except (OSError, ValueError) as error:
-            save(receipt, {"url": url, "error": type(error).__name__, "observedAt": now()})
+            detail = 'certificate_verification_failed' if isinstance(getattr(error, 'reason', None), ssl.SSLCertVerificationError) else None
+            save(receipt, {"url": url, "error": type(error).__name__, "reason": detail,
+                           "httpStatus": getattr(error, 'code', None), "observedAt": now()})
             return None
 
 
@@ -538,10 +728,47 @@ def linked_pages(text, url):
     return list(dict.fromkeys(links))
 
 
+def listing_profile_urls(cards, host, scope=None):
+    """Queue local listing profiles without treating their role as a subject."""
+    urls = []
+    for row in cards:
+        if scope and query_priority(services_text(row), scope) == 2:
+            continue
+        reason = exclusion_reason(row)
+        # TutorExtra's dyslexia and home-education cards can advertise only a
+        # tutor/teacher role. Fetch the person's profile to inspect its actual
+        # subjects; the listing itself remains ineligible for contact export.
+        deferred_subject = (host == 'tutorextra.co.uk'
+            and row.get('platform') == 'tutorextra.co.uk'
+            and row.get('evidenceKind') == 'directory_listing'
+            and reason == 'needs_subject_review'
+            and any(re.search(r'\b(?:Tutor|Teacher)\b', service, re.I)
+                    for service in row.get('services', [])))
+        if (host == 'www.childcare.co.uk'
+            or (locality_status(row['localityClaim']) == 'advertised_bucks_locality'
+                and (reason is None or deferred_subject))):
+            urls.append(row['sourceUrls'][0])
+    return urls
+
+
 def local_directory_link(value, source):
     parsed, origin = urllib.parse.urlsplit(value), urllib.parse.urlsplit(source)
+    if origin.hostname in UNIVERSITY_HOSTS:
+        from universitytutor import local_link
+        return local_link(value, source)
     if parsed.hostname != origin.hostname:
         return False
+    if parsed.hostname == 'www.apprentus.co.uk':
+        from apprentus import local_source_path
+        return local_source_path(parsed.path)
+    if parsed.hostname == 'www.teachtutti.co.uk':
+        from teachtutti import LISTING_PATH
+        # Listing cards queue only local profiles through listing_profile_urls.
+        # Do not follow a nationwide collection of related tutors or subjects.
+        return bool(LISTING_PATH.fullmatch(parsed.path) and parsed.path == origin.path)
+    if parsed.hostname == 'thetutorsassociation.wildapricot.org':
+        from tta_scraper import PROFILE_PATH
+        return bool(PROFILE_PATH.fullmatch(parsed.path))
     if parsed.hostname == "www.tutorhunt.com":
         if parsed.path.startswith('/users/'):
             return True
@@ -550,8 +777,13 @@ def local_directory_link(value, source):
     if parsed.hostname == "www.uktutors.com":
         if parsed.path == "/county/buckinghamshire-tutors/":
             return True
+        region = UKTUTORS_REGION_PATH.fullmatch(parsed.path)
+        if region:
+            return local_listing_town(region[1])
         match = re.fullmatch(r"/town/([a-z0-9-]+)-tutors/", parsed.path)
         return bool(match and locality_status(match.group(1).replace("-", " ")) == "advertised_bucks_locality")
+    if parsed.hostname == 'www.tuitionlist.co.uk':
+        return parsed.path == '/find-a-tutor'
     if parsed.hostname == "tutordex.net":
         match = re.fullmatch(r"/uk/academic/town/([a-z0-9-]+)(?:/[a-z0-9-]+){0,2}", parsed.path)
         return bool(match and locality_status(match.group(1).replace("-", " ")) == "advertised_bucks_locality")
@@ -559,7 +791,8 @@ def local_directory_link(value, source):
         match = re.fullmatch(r"/search/[a-z0-9-]+-lessons-in/([a-z0-9-]+)", parsed.path)
         return bool(match and locality_status(match.group(1).replace("-", " ")) == "advertised_bucks_locality")
     if parsed.hostname == "www.childcare.co.uk":
-        return bool(re.fullmatch(r"/search/Private-Tutors/Buckinghamshire(?:/\d+)?", parsed.path))
+        town = CHILDCARE_TOWN_DIRECTORY_PATH.fullmatch(parsed.path)
+        return bool(CHILDCARE_DIRECTORY_PATH.fullmatch(parsed.path) or town and local_listing_town(town[1]))
     if parsed.hostname == "tutorperch.com":
         origin_filters = dict(urllib.parse.parse_qsl(origin.query))
         filters = dict(urllib.parse.parse_qsl(parsed.query))
@@ -593,32 +826,57 @@ def import_seed_batches(root, state):
             raise ValueError("Seed batch hash changed or exceeded its bound")
         value = json.loads(raw)
         urls = value.get("urls") if isinstance(value, dict) else None
-        if not isinstance(urls, list) or len(urls) > 5000:
+        if not isinstance(urls, list) or len(urls) > 5000 or any(not isinstance(url, str) for url in urls):
             rejected.append(path.name)
             raise ValueError("Seed batch must contain bounded source URLs")
-        for candidate in urls:
-            url = admitted_url(candidate)
-            if url and url not in state["seen"] and url not in state["queue"] and len(state["queue"]) < 20000:
+        admitted = list(dict.fromkeys(url for candidate in urls if (url := admitted_url(candidate))))
+        priorities = value.get('priorityUrls', [])
+        if (not isinstance(priorities, list) or len(priorities) > 100
+                or any(not isinstance(url, str) for url in priorities)):
+            rejected.append(path.name)
+            raise ValueError('Expected at most a hundred priority source URLs')
+        priority_urls = [admitted_url(url) for url in priorities]
+        if (any(url not in admitted for url in priority_urls)
+                or len(set(priority_urls)) != len(priority_urls)):
+            rejected.append(path.name)
+            raise ValueError('Priority URLs must be unique admitted members of their seed batch')
+        for url in admitted:
+            if url not in state["seen"] and url not in state["queue"] and len(state["queue"]) < 20000:
                 state["queue"].append(url)
+        priority_set = set(priority_urls)
+        state['queue'] = [url for url in priority_urls if url in state['queue']] + [
+            url for url in state['queue'] if url not in priority_set]
         imported.append(path.stem)
 
 
-def next_page(state):
+def next_page(state, cache=None):
     queue = state["queue"]
-    hosts = sorted(set(urllib.parse.urlsplit(url).hostname for url in queue))
-    previous = state.get("lastHost")
-    host = next((value for value in hosts if value > previous), hosts[0]) if previous else urllib.parse.urlsplit(queue[0]).hostname
-    indices = [index for index, url in enumerate(queue) if urllib.parse.urlsplit(url).hostname == host]
+    by_host = {}
+    for index, url in enumerate(queue):
+        by_host.setdefault(urllib.parse.urlsplit(url).hostname, []).append(index)
     def person_page(index):
         path = urllib.parse.urlsplit(queue[index]).path
-        return path.startswith(("/profile/", "/t/", "/tutor/", "/users/")) or bool(re.search(r"-\d+/?$", path))
+        return path.startswith(("/profile/", "/t/", "/tutor/", "/users/", "/Sys/PublicProfile/", "/private-lessons/")) or bool(re.search(r"-\d+/?$", path))
     def town_root(index):
         parsed = urllib.parse.urlsplit(queue[index])
         return parsed.hostname == "www.findtutors.co.uk" and not parsed.query and bool(re.fullmatch(r"/tutors-[a-z0-9-]+/", parsed.path))
-    index = next((index for index in indices if person_page(index)),
-                 next((index for index in indices if town_root(index)), indices[0]))
+    candidates = {host: next((index for index in indices if person_page(index)),
+        next((index for index in indices if town_root(index)), indices[0]))
+        for host, indices in by_host.items()}
+    hosts = sorted(by_host)
+    if cache:
+        delays = {host: cache.fetch_delay(queue[index]) for host, index in candidates.items()}
+        ready = [host for host in hosts if delays[host] <= 0]
+        earliest = min(delays.values())
+        hosts = ready or [host for host in hosts if delays[host] == earliest]
+    previous = state.get('lastHost')
+    first = urllib.parse.urlsplit(queue[0]).hostname
+    if previous:
+        host = next((value for value in hosts if value > previous), hosts[0])
+    else:
+        host = first if first in hosts else hosts[0]
     state["lastHost"] = host
-    return queue.pop(index)
+    return queue.pop(candidates[host])
 
 
 def source_still_producing(job):
@@ -628,6 +886,87 @@ def source_still_producing(job):
     return not path.exists() or json.loads(path.read_text()).get("phase") != "complete"
 
 
+def write_profile_exports(root, state, phase='running'):
+    profiles = merge_profiles(state['records'])
+    qualified = [r for r in profiles if profile_locality_status(r) == 'advertised_bucks_locality'
+                 and not r.get('locationConflict') and not exclusion_reason(r)]
+    save(root / 'profiles.json', profiles)
+    save(root / 'bucks-private-tutors.json', qualified)
+    export_csv(root, qualified)
+    state['updatedAt'] = now()
+    save(root / 'state.json', state)
+    save(root / 'status.json', {'observedAt': now(), 'pid': os.getpid(), 'phase': phase,
+        'attempts': state['attempts'], 'queue': len(state['queue']), 'namedProfiles': len(profiles),
+        'bucksPrivateProfiles': len(qualified), 'errors': len(state['errors']), 'paidCostUsd': 0,
+        'effectiveSourceSha': state.get('effectiveSourceSha'),
+        'cacheReplays': {key: {k: v for k, v in value.items() if k != 'processedKeys'}
+                        for key, value in state.get('cacheReplays', {}).items()}})
+    return qualified
+
+
+def replay_cached_profiles(root, state, deadline, clock=time.time, platform='tutorhunt'):
+    """Recover pages missed by an older layout parser, without fetching or resetting counters."""
+    sources = {'tutorhunt': ('tutorhunt-profile-name-v2', 'https://www.tutorhunt.com/users/'),
+               'teachtutti': ('teachtutti-own-profile-v1', 'https://www.teachtutti.co.uk/tutor/'),
+               'tta': ('tta-public-fields-v1', 'https://thetutorsassociation.wildapricot.org/Sys/PublicProfile/'),
+               'apprentus': ('apprentus-own-advert-v2', 'https://www.apprentus.co.uk/private-lessons/')}
+    if platform not in sources:
+        raise ValueError('Unsupported cached profile replay source')
+    version, prefix = sources[platform]
+    progress = state.setdefault('cacheReplays', {}).setdefault(version,
+        {'processedKeys': [], 'processedPages': 0, 'recoveredRecords': 0, 'heldPages': 0})
+    done = set(progress['processedKeys'])
+    known = {url for row in state['records'] for url in row.get('sourceUrls', [])}
+    cache = PageCache(root)
+    changed = 0
+    for url in state['seen']:
+        if clock() >= deadline:
+            break
+        if not isinstance(url, str) or not url.startswith(prefix) or admitted_url(url) != url:
+            continue
+        key = cache.key(url)
+        if key in done:
+            continue
+        try:
+            if url not in known or platform == 'apprentus':
+                receipt_path = root / 'receipts' / (key + '.json')
+                receipt = json.loads(receipt_path.read_text())
+                page = cache.body_path(url)
+                if page.stat().st_size > 8 * 1024 * 1024:
+                    raise ValueError('Cached page exceeded eight MB')
+                body = page.read_bytes()
+                if (receipt.get('error') or receipt.get('status') != 200 or receipt.get('url') != url
+                    or hashlib.sha256(body).hexdigest() != receipt.get('sha256')):
+                    raise ValueError('Cached profile receipt or body mismatch')
+                row = profile_record(decode_page(body, receipt.get('contentType', '')), url)
+                if not row:
+                    raise ValueError('Cached page did not establish its own profile identity')
+                row['pageEvidence'] = [{'url': url, 'observedAt': receipt['observedAt'],
+                    'sha256': receipt['sha256'], 'receipt': str(receipt_path)}]
+                previous = [r for r in state['records'] if url in r.get('sourceUrls', [])]
+                if previous and any(r.get('sourceUrls') != [url] or r.get('platform') != row['platform']
+                                    or r.get('personId') != row['personId'] for r in previous):
+                    raise ValueError('Existing cached advert identity does not match its page')
+                state['records'] = [r for r in state['records'] if url not in r.get('sourceUrls', [])]
+                state['records'].append(row)
+                known.add(url)
+                if previous:
+                    progress['updatedRecords'] = progress.get('updatedRecords', 0) + len(previous)
+                else:
+                    progress['recoveredRecords'] += 1
+        except (OSError, ValueError, KeyError, TypeError, AttributeError):
+            progress['heldPages'] += 1
+        done.add(key)
+        progress['processedKeys'].append(key)
+        progress['processedPages'] += 1
+        changed += 1
+        if changed % 50 == 0:
+            write_profile_exports(root, state, 'replaying_cached_profiles')
+    progress['updatedAt'] = now()
+    write_profile_exports(root, state, 'replaying_cached_profiles')
+    return {k: v for k, v in progress.items() if k != 'processedKeys'}
+
+
 def run(root, seeds, hours, page_limit, target):
     root.mkdir(parents=True, exist_ok=True, mode=0o700)
     with (root / "owner.lock").open("a") as lock:
@@ -635,6 +974,9 @@ def run(root, seeds, hours, page_limit, target):
         job_path, state_path = root / "job.json", root / "state.json"
         if job_path.exists():
             job = json.loads(job_path.read_text())
+            from configuration import profile_page_ceiling
+            if not 1 <= job['pageLimit'] <= profile_page_ceiling(job):
+                raise ValueError('Prepared public-crawl page limit exceeded')
         else:
             admitted = list(dict.fromkeys(admitted_url(s) for s in seeds if admitted_url(s)))
             if not admitted:
@@ -645,6 +987,13 @@ def run(root, seeds, hours, page_limit, target):
                    "scope": "Public individual tutor profiles across subjects in Bucks and Milton Keynes; exclude institutions. Locality is advertised tuition locality, not verified residence."}
             save(job_path, job)
         state = json.loads(state_path.read_text()) if state_path.exists() else {"queue": job["seeds"], "seen": [], "records": [], "attempts": 0, "errors": [], "phase": "running"}
+        state['effectiveSourceSha'] = loaded_source_sha()
+        scope = load_scope(Path(job['seedSourceRun'])) if job.get('seedSourceRun') else None
+        state['discoveryScopeSha256'] = hashlib.sha256((Path(job['seedSourceRun']) / 'discovery-scope.json').read_bytes()).hexdigest() if scope else None
+        replay_cached_profiles(root, state, job['deadlineUnix'])
+        replay_cached_profiles(root, state, job['deadlineUnix'], platform='tta')
+        replay_cached_profiles(root, state, job['deadlineUnix'], platform='teachtutti')
+        replay_cached_profiles(root, state, job['deadlineUnix'], platform='apprentus')
         cache, robots = PageCache(root), {}
         while state["attempts"] < job["pageLimit"] and time.time() < job["deadlineUnix"]:
             try:
@@ -655,27 +1004,39 @@ def run(root, seeds, hours, page_limit, target):
                 if source_still_producing(job):
                     state["updatedAt"] = now()
                     save(state_path, state)
-                    save(root / "status.json", {"observedAt": now(), "pid": os.getpid(), "phase": "awaiting_sources",
-                        "attempts": state["attempts"], "queue": 0, "errors": len(state["errors"]),
-                        "bucksPrivateProfiles": len(json.loads((root / "bucks-private-tutors.json").read_text())), "paidCostUsd": 0})
+                    save(root / 'status.json', {'observedAt': now(), 'pid': os.getpid(), 'phase': 'awaiting_sources',
+                        'attempts': state['attempts'], 'queue': 0, 'errors': len(state['errors']),
+                        'bucksPrivateProfiles': len(json.loads((root / 'bucks-private-tutors.json').read_text())),
+                        'paidCostUsd': 0, 'effectiveSourceSha': state.get('effectiveSourceSha'),
+                        'cacheReplays': {key: {k: v for k, v in value.items() if k != 'processedKeys'}
+                                        for key, value in state.get('cacheReplays', {}).items()}})
                     time.sleep(5)
                     continue
                 break
-            url = next_page(state)
+            url = next_page(state, cache)
             if url in state["seen"]:
                 continue
             state["seen"].append(url)
             host = urllib.parse.urlsplit(url).hostname
             if host not in robots:
-                robot_text = cache.fetch("https://" + host + "/robots.txt")
+                robot_url = "https://" + host + "/robots.txt"
+                if not cache.can_start_before(robot_url, job['deadlineUnix']):
+                    state['seen'].remove(url)
+                    state['queue'].insert(0, url)
+                    break
+                robot_text = cache.fetch(robot_url)
                 parser = urllib.robotparser.RobotFileParser()
                 parser.parse(robot_text.splitlines() if robot_text else ["User-agent: *", "Disallow: /"])
                 robots[host] = parser
-                cache.spacing = max(cache.spacing, parser.crawl_delay(AGENT) or 0)
+                cache.configure_robots(host, parser)
             if not robots[host].can_fetch(AGENT, url):
                 state["errors"].append({"url": url, "reason": "robots_disallowed"})
                 save(state_path, state)
                 continue
+            if not cache.can_start_before(url, job['deadlineUnix']):
+                state['seen'].remove(url)
+                state['queue'].insert(0, url)
+                break
             state["attempts"] += 1
             try:
                 text = cache.fetch(url)
@@ -689,44 +1050,59 @@ def run(root, seeds, hours, page_limit, target):
                     else:
                         cards = listing_records(text, url)
                         # Prefer actual local profiles, then pagination and linked local directories.
-                        local_urls = [r["sourceUrls"][0] for r in cards if host == "www.childcare.co.uk" or (locality_status(r["localityClaim"]) == "advertised_bucks_locality" and not exclusion_reason(r))]
+                        local_urls = listing_profile_urls(cards, host, scope)
                         links = linked_pages(text, url)
                         links = [link for link in links if local_directory_link(link, url)]
+                        if scope:
+                            links = [link for link in links if '/profile/' in link or '/users/' in link or '/tutors/' in link
+                                or '/tutor/' in link or query_priority(urllib.parse.urlsplit(link).path.replace('/', ' ').replace('-', ' '), scope) < 2]
                         if host == "www.findtutors.co.uk":
                             links = [link for link in links if "/tutor/" not in link and not re.search(r"-\d+/?$", urllib.parse.urlsplit(link).path)]
-                        state["queue"].extend(link for link in [*local_urls, *links] if link not in state["seen"] and link not in state["queue"])
+                        frontier = [*local_urls, *links]
+                        if host == 'www.apprentus.co.uk':
+                            from apprentus import bounded_frontier
+                            frontier = bounded_frontier(local_urls, links)
+                        if host in UNIVERSITY_HOSTS:
+                            from universitytutor import bounded_frontier
+                            frontier = bounded_frontier(links)
+                        state["queue"].extend(link for link in frontier if link not in state["seen"] and link not in state["queue"])
                         state["queue"] = state["queue"][:20000]
                 else:
                     state["errors"].append({"url": url, "reason": "fetch_failed"})
             except (OSError, ValueError, KeyError, TypeError) as error:
                 state["errors"].append({"url": url, "reason": type(error).__name__})
-            profiles = merge_profiles(state["records"])
-            qualified = [r for r in profiles if profile_locality_status(r) == "advertised_bucks_locality" and not r.get("locationConflict") and not exclusion_reason(r)]
-            save(root / "profiles.json", profiles)
-            save(root / "bucks-private-tutors.json", qualified)
-            export_csv(root, qualified)
-            state["updatedAt"] = now()
-            save(state_path, state)
-            save(root / "status.json", {"observedAt": now(), "pid": os.getpid(), "phase": "running", "attempts": state["attempts"], "queue": len(state["queue"]),
-                                        "namedProfiles": len(profiles), "bucksPrivateProfiles": len(qualified), "errors": len(state["errors"]), "paidCostUsd": 0})
-            if len(qualified) >= job["target"]:
+            qualified = write_profile_exports(root, state)
+            if len(qualified) >= job["target"] and not job.get('continueUntilDeadline'):
                 break
         state["phase"] = "stage_complete"
         save(state_path, state)
         rows = json.loads((root / "bucks-private-tutors.json").read_text()) if (root / "bucks-private-tutors.json").exists() else []
         export_csv(root, rows)
         save(root / "status.json", {"observedAt": now(), "pid": os.getpid(), "phase": state["phase"], "attempts": state["attempts"], "queue": len(state["queue"]),
-                                    "bucksPrivateProfiles": len(rows), "errors": len(state["errors"]), "paidCostUsd": 0})
+                                    "bucksPrivateProfiles": len(rows), "errors": len(state["errors"]), "paidCostUsd": 0,
+                                    "effectiveSourceSha": state.get('effectiveSourceSha')})
 
 
-if __name__ == "__main__":
+def main(argv=None):
     parser = argparse.ArgumentParser()
     parser.add_argument("--run-dir", type=Path, required=True)
     parser.add_argument("--seed", action="append", default=[])
     parser.add_argument("--hours", type=float, default=3)
     parser.add_argument("--pages", type=int, default=5000)
     parser.add_argument("--target", type=int, default=1000)
-    args = parser.parse_args()
-    if not 0 < args.hours <= 6 or not 1 <= args.pages <= 10000 or not 1 <= args.target <= 5000:
-        parser.error("Choose a bounded stage: up to six hours and ten thousand pages")
+    args = parser.parse_args(argv)
+    ceiling = 20000
+    job_path = args.run_dir / 'job.json'
+    if job_path.exists():
+        from configuration import profile_page_ceiling
+        try:
+            ceiling = profile_page_ceiling(json.loads(job_path.read_text()))
+        except (OSError, ValueError, KeyError, TypeError):
+            parser.error('Prepared public-crawl authorization is invalid')
+    if not 0 < args.hours <= 12 or not 1 <= args.pages <= ceiling or not 1 <= args.target <= 5000:
+        parser.error('Choose up to twelve hours and the validated public-crawl page allowance')
     run(args.run_dir, args.seed, args.hours, args.pages, args.target)
+
+
+if __name__ == '__main__':
+    main()

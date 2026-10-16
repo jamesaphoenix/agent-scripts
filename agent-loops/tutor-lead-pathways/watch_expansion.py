@@ -14,7 +14,7 @@ from new_leads import run as delta
 from profile_seeds import write_seed_batch
 
 
-def watch(paid_root, profile_root, baseline, stage_baseline=None):
+def watch(paid_root, profile_root, baseline, stage_baseline=None, new_only=False):
     job = json.loads((paid_root / 'manifest.json').read_text())
     cache = PaidCache(paid_root, job['budgetCents'], job['priorExposureCents'])
     try:
@@ -23,12 +23,15 @@ def watch(paid_root, profile_root, baseline, stage_baseline=None):
         cache.db.close()
     stamp = datetime.datetime.now(datetime.timezone.utc).strftime('%Y%m%dT%H%M%SZ')
     output = profile_root / 'review/identity-audits' / stamp
-    audited = audit(profile_root, output, None)
-    novelty = delta(baseline, output / 'tutors.json', output / 'delta')
-    stage_novelty = delta(stage_baseline, output / 'tutors.json', output / 'this-stage-delta') if stage_baseline else None
+    known_sources = {url for row in json.loads(baseline.read_text()) for url in row.get('sourceUrls', [])} if new_only else None
+    audited = audit(profile_root, output, None, exclude_source_urls=known_sources)
+    novelty = delta(baseline, output / 'tutors.json', output / 'delta', profile_root=profile_root)
+    stage_novelty = delta(stage_baseline, output / 'tutors.json', output / 'this-stage-delta',
+                         profile_root=profile_root) if stage_baseline else None
     value = {'observedAt': now_iso(), 'sourceSeedUrls': seeds['urls'], 'audit': audited,
              'delta': novelty, 'outputDirectory': str(output), 'paidCalls': 0,
              'baselineSha256': file_hash(baseline)}
+    value['auditScope'] = 'new profiles outside the frozen baseline' if new_only else 'all collected profiles'
     if stage_novelty:
         value['thisStageDelta'] = stage_novelty
     keyword_path = Path(job.get('keywordIndexPath', paid_root.parent / 'keyword-search.sqlite'))

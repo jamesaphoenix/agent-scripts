@@ -11,6 +11,7 @@ import sys
 
 
 MODULE = Path(__file__).parents[1] / "agent-loops/tutor-lead-pathways/discovery.py"
+sys.path.insert(0, str(MODULE.parent))
 spec = importlib.util.spec_from_file_location("tutor_pathways", MODULE)
 discovery = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(discovery)
@@ -863,6 +864,23 @@ class RunnerHealthTests(unittest.TestCase):
             self.assertEqual((root / "crawls/batch-000/seeds.txt").read_text().splitlines(),
                              ["https://peasylearning.example/", "https://buckselevenplus.example/", "https://alisontaylor11plustuition.example/"])
             self.assertEqual(state["crawlNumber"], 1)
+
+    def test_crawler_uses_own_subject_claims_when_person_and_website_names_have_no_tutor_keyword(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            lead = {'name': 'Jane Example', 'website': 'https://janeexample.co.uk', 'services': ['Mathematics'],
+                    'sourceUrls': ['https://thetutorsassociation.wildapricot.org/Sys/PublicProfile/99590192/6119301']}
+            row = discovery.research_record(lead, {'lane': 'manual_source_review'})
+            scope = {'subjects': ['english', 'maths'], 'includeElevenPlus': True, 'includePrimaryTutors': True}
+            generic = discovery.business_record({'title': 'General Tutor', 'website': 'https://generaltutor.example'}, {})
+            self.assertEqual(self.runner.prioritise_seed_records([generic, row], {'discoveryScope': scope}), [row, generic])
+            state = {'crawlRoots': [], 'crawlNumber': 0}
+            job = {'freePageBudget': 4000, 'crawlerBinary': '/reviewed/tutor-crawler'}
+            with patch.object(self.runner, 'collect_records', return_value=[row]), patch.object(
+                    self.runner.subprocess, 'Popen'), patch.object(self.runner.subprocess, 'run',
+                    return_value=subprocess.CompletedProcess([], 0, json.dumps({'permitted': [lead['website']], 'rejected': []}), '')):
+                self.assertIsNotNone(self.runner.start_crawl(root, job, None, state, set()))
+            self.assertEqual((root / 'crawls/batch-000/seeds.txt').read_text().splitlines(), [lead['website']])
 
     def test_rejected_roots_do_not_launch_an_empty_crawl_or_hide_next_valid_root(self):
         with tempfile.TemporaryDirectory() as temporary:

@@ -115,6 +115,7 @@ def search_navigation(url):
 
 
 def upstream_results(response):
+    """Keep one context per URL so nested navigation cannot replace its title."""
     def visit(value):
         if isinstance(value, dict):
             for field in ('url', 'website'):
@@ -122,15 +123,24 @@ def upstream_results(response):
                 if url and not search_navigation(url):
                     context = {k: value[k][:1000] for k in ('title', 'name', 'description', 'address', 'category')
                                if isinstance(value.get(k), str)}
-                    yield url, context
+                    label = context.get('name') or context.get('title') or ''
+                    identity = bool(label and not re.fullmatch(
+                        r'read more|learn more|click here|visit(?: website| site)?|website|more',
+                        label.strip(), re.I))
+                    yield url, context, (identity, len(context))
             for item in value.values():
                 if isinstance(item, (dict, list)):
                     yield from visit(item)
         elif isinstance(value, list):
             for item in value:
                 yield from visit(item)
+    results = {}
     for task in response.get('tasks', []):
-        yield from visit(task.get('result') or [])
+        for url, context, rank in visit(task.get('result') or []):
+            if url not in results or rank > results[url][1]:
+                results[url] = context, rank
+    for url, (context, _) in results.items():
+        yield url, context
 
 
 class SearchIndex:
@@ -227,7 +237,8 @@ class SearchIndex:
         # A known descendant never becomes a fresh root when re-imported from a receipt or plan.
         self.db.execute('''INSERT INTO search_queries VALUES(?,?,?,?,?,?,?,?,?)
             ON CONFLICT(query_key) DO UPDATE SET priority=max(priority,excluded.priority),
-            town=CASE WHEN town='' THEN excluded.town ELSE town END''',
+            town=CASE WHEN town='' THEN excluded.town ELSE town END
+            WHERE priority<excluded.priority OR (town='' AND excluded.town<>'')''',
             (key, item['lane'], normal_keyword(item['payload']['keyword']), item.get('town', ''),
              json.dumps(item['payload'], sort_keys=True), priority, generation, now_iso(), root))
         self.db.execute('INSERT OR IGNORE INTO query_origins VALUES(?,?)', (key, origin))

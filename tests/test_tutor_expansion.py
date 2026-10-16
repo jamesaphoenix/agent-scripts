@@ -77,6 +77,198 @@ class ExpansionTests(unittest.TestCase):
             self.assertEqual(result['tactics']['public_profiles']['successfulRequests'], 1)
             self.assertFalse(result['urlCountsAreVerifiedTutors'])
 
+    def test_tactic_feedback_distinguishes_classified_local_tutors_from_new_unqualified_urls(self):
+        from discovery import PaidCache, request_key, atomic_json
+        from expansion_metrics import metrics
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            focus = root / 'focused'
+            atomic_json(root / 'manifest.json', {'focusedRoots': [str(focus)]})
+            url, junk = 'https://new-tutor.co.uk/', 'https://fitness.co.uk/'
+            atomic_json(focus / 'research-candidates.json', [{'url': url, 'profileKey': None,
+                'classification': {'kind': 'independent_tutor', 'kindProbability': .9, 'niche': .9, 'local': .9, 'outside': .01}}])
+            cache = PaidCache(root, 200, 0)
+            self.addCleanup(cache.db.close)
+            payload = {'keyword': 'tutor Amersham'}
+            key = request_key('organic', payload)
+            cache.reserve(key, 'organic', payload, 100)
+            cache.settle(key, {'status_code': 20000, 'cost': .002, 'tasks': [{'id': 'new', 'status_code': 20000,
+                'cost': .002, 'result': [{'items': [{'url': url}, {'url': junk}]}]}]})
+            item = metrics(root, cache, [{'key': key, 'tactic': 'own_sites'}])['tactics']['own_sites']
+            self.assertEqual(item['newResultUrls'], 2)
+            self.assertEqual(item['classifiedLocalTutorCandidates'], 1)
+            self.assertEqual(item['auditedNewIdentitiesAttributed'], 0)
+
+    def test_directory_feedback_reaches_selection_without_claiming_paid_contact_attribution(self):
+        from discovery import PaidCache, request_key, atomic_json
+        from expansion_metrics import metrics
+        from run import next_query
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            profile, review = root / 'profiles', root / 'audit'
+            atomic_json(root / 'manifest.json', {'profileRunDir': str(profile)})
+            atomic_json(profile / 'review/latest-expansion.json', {'outputDirectory': str(review)})
+            atomic_json(review / 'this-stage-delta/new.json', [{'canonicalId': 'new-person',
+                'sourceUrls': ['https://www.uktutors.com/tutor/42/jane-amersham']}])
+            cache = PaidCache(root, 200, 0)
+            self.addCleanup(cache.db.close)
+            plan, completed = [], []
+            for site in ['superprof.co.uk', 'uktutors.com']:
+                for number in range(4):
+                    payload = {'keyword': f'site:{site} tutor Amersham subject{number}'}
+                    key = request_key('directories', payload)
+                    plan.append({'lane': 'directories', 'tactic': 'public_profiles', 'key': key, 'payload': payload})
+                    if number < 3:
+                        cache.reserve(key, 'directories', payload, 100)
+                        cache.settle(key, {'status_code': 20000, 'cost': .002, 'tasks': [{
+                            'id': key, 'status_code': 20000, 'cost': .002,
+                            'result': [{'items': [{'url': f'https://{site}/index'}]}]}]})
+                        completed.append(key)
+            feedback = metrics(root, cache, plan)['tactics']
+            self.assertEqual(set(feedback), {'superprof.co.uk', 'uktutors.com'})
+            self.assertEqual(feedback['uktutors.com']['auditedSourceIdentities'], 1)
+            self.assertEqual(feedback['uktutors.com']['auditedNewIdentitiesAttributed'], 0)
+            state = {'completedQueries': completed, 'adaptiveTactics': True, 'tacticFeedback': feedback}
+            self.assertEqual(next_query('directories', plan, cache, state), plan[-1])
+            # The active campaign's subject searches already carry a source
+            # suffix. They must receive the same source-level audit signal.
+            subject_plan = [dict(x, tactic='subject_profiles:' + ('superprof.co.uk' if 'superprof' in
+                x['payload']['keyword'] else 'uktutors.com')) for x in plan]
+            feedback = metrics(root, cache, subject_plan)['tactics']
+            self.assertEqual(feedback['subject_profiles:uktutors.com']['auditedSourceIdentities'], 1)
+            state['tacticFeedback'] = feedback
+            self.assertEqual(next_query('directories', subject_plan, cache, state), subject_plan[-1])
+
+    def test_simpler_query_receipts_keep_the_parent_source_group(self):
+        from discovery import PaidCache, request_key, atomic_json
+        from expansion_metrics import metrics
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            cache = PaidCache(root, 200, 0)
+            self.addCleanup(cache.db.close)
+            payload = {'keyword': 'site:uktutors.com "Amersham" "11 plus"'}
+            key = request_key('directories', payload)
+            parent_payload = dict(payload, keyword='site:uktutors.com "Amersham" ("11 plus" OR "entrance exam")')
+            parent = request_key('directories', parent_payload)
+            atomic_json(root / 'runtime.json', {'supplementaryQueries': [{'parentKey': parent, 'key': key}]})
+            cache.reserve(key, 'directories', payload, 100)
+            cache.settle(key, {'status_code': 20000, 'cost': .002, 'tasks': [{
+                'id': key, 'status_code': 20000, 'cost': .002, 'result': []}]})
+            result = metrics(root, cache, [{'lane': 'directories', 'tactic': 'public_profiles', 'key': parent,
+                'payload': parent_payload}])
+            self.assertEqual(set(result['tactics']), {'uktutors.com'})
+
+    def test_feedback_rewards_matching_subjects_without_rewarding_music_only_profiles(self):
+        from discovery import PaidCache, request_key, atomic_json
+        from expansion_metrics import metrics
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            profile, review = root / 'profiles', root / 'audit'
+            atomic_json(root / 'manifest.json', {'profileRunDir': str(profile)})
+            atomic_json(root / 'discovery-scope.json', {'schemaVersion': 1,
+                'subjects': ['english', 'maths', 'verbal_reasoning', 'non_verbal_reasoning'],
+                'includeElevenPlus': True, 'includePrimaryTutors': True, 'excludeMusicOnly': True,
+                'authorization': {'instruction': 'School subjects; exclude music-only tutors.', 'recordedAt': '2026-10-13'}})
+            atomic_json(profile / 'review/latest-expansion.json', {'outputDirectory': str(review)})
+            maths = 'https://www.uktutors.com/tutor/42/jane-amersham'
+            music = 'https://www.uktutors.com/tutor/43/alex-amersham'
+            atomic_json(review / 'this-stage-delta/new.json', [
+                {'canonicalId': 'maths-person', 'services': ['Maths', 'Piano'], 'sourceUrls': [maths]},
+                {'canonicalId': 'music-person', 'services': ['Piano'], 'sourceUrls': [music]}])
+            cache = PaidCache(root, 200, 0)
+            self.addCleanup(cache.db.close)
+            payload = {'keyword': 'site:uktutors.com maths tutor Amersham'}
+            key = request_key('directories', payload)
+            cache.reserve(key, 'directories', payload, 100)
+            cache.settle(key, {'status_code': 20000, 'cost': .002, 'tasks': [{'id': key,
+                'status_code': 20000, 'cost': .002, 'result': [{'items': [{'url': maths}, {'url': music}]}]}]})
+            result = metrics(root, cache, [{'lane': 'directories', 'tactic': 'public_profiles',
+                'key': key, 'payload': payload}])
+            item = result['tactics']['uktutors.com']
+            self.assertEqual(item['newResultUrls'], 2)
+            self.assertEqual(item['auditedSourceIdentities'], 1)
+            self.assertEqual(item['auditedNewIdentitiesAttributed'], 1)
+            # A result from another person on the same directory must not take
+            # credit for Jane's matching tuition profile.
+            other_payload = {'keyword': 'site:uktutors.com piano tutor Amersham'}
+            other_key = request_key('directories', other_payload)
+            cache.reserve(other_key, 'directories', other_payload, 100)
+            cache.settle(other_key, {'status_code': 20000, 'cost': .002, 'tasks': [{'id': other_key,
+                'status_code': 20000, 'cost': .002, 'result': [{'items': [{'url': music}]}]}]})
+            plan = [{'lane': 'directories', 'tactic': 'maths', 'key': key, 'payload': payload},
+                    {'lane': 'directories', 'tactic': 'music', 'key': other_key, 'payload': other_payload}]
+            self.assertEqual(metrics(root, cache, plan)['tactics']['music']['auditedNewIdentitiesAttributed'], 0)
+
+    def test_supported_directory_people_keep_distinct_source_identities(self):
+        from discovery import website_key
+        for urls in [
+            ['https://www.uktutors.com/tutor/42/jane-amersham', 'https://www.uktutors.com/tutor/43/alex-amersham'],
+            ['https://tutorextra.co.uk/profile/jane/1-42', 'https://tutorextra.co.uk/profile/alex/1-43'],
+            ['https://tutordex.net/tutor/42/jane', 'https://tutordex.net/tutor/43/alex'],
+            ['https://www.tuitionlist.co.uk/tutor/jane-abcdef12', 'https://www.tuitionlist.co.uk/tutor/alex-abcdef13']]:
+            with self.subTest(urls=urls):
+                self.assertNotEqual(website_key(urls[0]), website_key(urls[1]))
+
+    def test_site_restricted_url_reward_excludes_unrequested_hosts_and_keeps_subdomains(self):
+        from expansion_metrics import result_urls
+        reply = {'tasks': [{'result': [{'items': [
+            {'url': 'https://www.uktutors.com/tutor/42/jane'},
+            {'url': 'https://profiles.uktutors.com/jane'},
+            {'url': 'https://uktutors.com.example.org/not-the-source'},
+            {'url': 'https://www.tutorhunt.com/users/jane/'},
+            {'url': 'https://school.example.org/sen-report'}]}]}]}
+        self.assertEqual(result_urls(reply, 'site:uktutors.com tutor Amersham'),
+                         {'https://www.uktutors.com/tutor/42/jane', 'https://profiles.uktutors.com/jane'})
+        self.assertEqual(len(result_urls(reply, '(site:uktutors.com OR site:tutorhunt.com) tutor Amersham')), 3)
+        self.assertEqual(len(result_urls(reply, 'tutor Amersham -site:uktutors.com')), 5)
+
+    def test_successful_off_site_results_cannot_reward_requested_source_but_keep_billing_and_evidence(self):
+        from discovery import PaidCache, request_key, atomic_json, file_hash
+        from expansion_metrics import metrics
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            profile, review = root / 'profiles', root / 'audit'
+            atomic_json(root / 'manifest.json', {'profileRunDir': str(profile)})
+            atomic_json(profile / 'review/latest-expansion.json', {'outputDirectory': str(review)})
+            atomic_json(review / 'this-stage-delta/new.json', [
+                {'canonicalId': 'jane', 'sourceUrls': ['https://www.uktutors.com/tutor/42/jane']}])
+            cache = PaidCache(root, 200, 0)
+            self.addCleanup(cache.db.close)
+            payload = {'keyword': 'site:uktutors.com "Amersham" "primary"'}
+            key = request_key('directories', payload)
+            cache.reserve(key, 'directories', payload, 100)
+            reply = {'status_code': 20000, 'cost': .002, 'tasks': [{'id': key, 'status_code': 20000,
+                'cost': .002, 'result': [{'items': [{'url': 'https://school.example.org/sen-report'}]}]}]}
+            cache.settle(key, reply)
+            receipt = Path(cache.get(key)['receipt'])
+            before = (cache.usage(), file_hash(receipt))
+            value = metrics(root, cache, [{'lane': 'directories', 'tactic': 'public_profiles',
+                'key': key, 'payload': payload}])
+            item = value['tactics']['uktutors.com']
+            self.assertEqual(item['newResultUrls'], 0)
+            self.assertEqual(item['rawNewResultUrls'], 1)
+            self.assertEqual(item['outsideRequestedSiteUrls'], 1)
+            self.assertEqual(item['siteMatchRate'], 0)
+            self.assertEqual(item['auditedSourceIdentities'], 0)
+            self.assertEqual(item['successfulRequests'], 1)
+            self.assertEqual(item['emptySuccessfulRequests'], 0)
+            self.assertEqual(item['chargedCents'], 1)
+            self.assertEqual((cache.usage(), file_hash(receipt)), before)
+            self.assertEqual(cache.receipt(cache.get(key)), reply)
+
+    def test_url_yield_excludes_search_navigation_ads_and_tracking_duplicates(self):
+        from expansion_metrics import result_urls
+        reply = {'tasks': [{'result': [{'items': [
+            {'url': 'https://www.google.co.uk/search?q=maths+tutor+Amersham'},
+            {'url': 'https://google.co.uk/aclk?ad=example'},
+            {'url': 'https://maps.app.goo.gl/example'},
+            {'url': 'https://tutor.example.org/contact?utm_source=google&gclid=123'},
+            {'website': 'https://tutor.example.org/contact?utm_source=maps&gclid=456'},
+            {'url': 'https://sites.google.com/view/independent-tutor/'},
+            {'url': 'http://127.0.0.1/private'}]}]}]}
+        self.assertEqual(result_urls(reply), {'https://tutor.example.org/contact',
+                                             'https://sites.google.com/view/independent-tutor/'})
+
     def test_delta_does_not_count_new_adverts_or_name_collisions_as_new_people(self):
         from new_leads import classify_delta
         def row(key, name, members=None):

@@ -3,62 +3,139 @@ import argparse
 import collections
 import json
 from pathlib import Path
-from discovery import PaidCache, atomic_json, now_iso, public_url
+from urllib.parse import urlsplit
+from discovery import PaidCache, atomic_json, now_iso, public_url, website_key
+from source_groups import tactic_group, positive_sites
+from configuration import focused_roots
+from lead_scope import load_scope, partition_contacts
+from keyword_expansion import upstream_results
 
 
-def result_urls(response):
-    urls = set()
-    def visit(value):
-        if isinstance(value, dict):
-            for key, item in value.items():
-                if key in ('url', 'website') and isinstance(item, str):
-                    url = public_url(item)
-                    if url:
-                        urls.add(url)
-                elif isinstance(item, (dict, list)):
-                    visit(item)
-        elif isinstance(value, list):
-            for item in value:
-                visit(item)
-    for task in response.get('tasks', []):
-        visit(task.get('result') or [])
-    return urls
+def requested_site_urls(urls, keyword):
+    sites = positive_sites(keyword or '')
+    if not sites:
+        return urls
+    return {url for url in urls if any(
+        (host := urlsplit(url).hostname.lower().removeprefix('www.')) == site
+        or host.endswith('.' + site) for site in sites)}
+
+
+def result_urls(response, keyword=None):
+    # Use the same public destinations as the upstream queue. Search controls,
+    # ad redirects and tracking variations cannot earn a novelty reward.
+    return requested_site_urls({url for url, _ in upstream_results(response)}, keyword)
 
 
 def metrics(root, cache, plan):
+    scope = load_scope(root)
     rows = cache.db.execute('SELECT * FROM requests ORDER BY created_at,key').fetchall()
     inherited = set()
     for row in rows:
         if row['imported'] and row['receipt']:
             inherited.update(result_urls(cache.receipt(row)))
     by_key = {r['key']: r for r in plan}
+    runtime_path = root / 'runtime.json'
+    if runtime_path.exists():
+        state = json.loads(runtime_path.read_text())
+        for link in state.get('supplementaryQueries', []) + state.get('businessSupplementaryQueries', []):
+            parent = by_key.get(link.get('parentKey'))
+            child = cache.get(link.get('key'))
+            if parent and child and child['lane'] == parent.get('lane') and child['key'] not in by_key:
+                by_key[child['key']] = dict(parent, key=child['key'], payload=json.loads(child['payload']))
+    audited_sources = {}
+    audited_directories = collections.defaultdict(set)
+    qualified_sources = set()
+    manifest_path = root / 'manifest.json'
+    if manifest_path.exists():
+        manifest = json.loads(manifest_path.read_text())
+        for folder in focused_roots(manifest):
+            path = Path(folder) / 'research-candidates.json'
+            if not path.exists():
+                continue
+            for candidate in json.loads(path.read_text()):
+                decision = candidate.get('classification', {})
+                kind = decision.get('kind')
+                if (kind == 'independent_tutor' or kind == 'directory' and candidate.get('profileKey')) and (
+                        decision.get('niche', 0) >= .75 and decision.get('kindProbability', 0) >= .65
+                        and decision.get('local', 0) >= .7 and decision.get('outside', 1) < .8):
+                    qualified_sources.add(candidate['url'])
+        profile_root = manifest.get('profileRunDir')
+        review = Path(profile_root) / 'review/latest-expansion.json' if profile_root else None
+        if review and review.exists():
+            audit = json.loads(review.read_text())
+            delta = Path(audit['outputDirectory']) / 'this-stage-delta/new.json'
+            if delta.exists():
+                people = json.loads(delta.read_text())
+                if scope:
+                    people, _, _ = partition_contacts(people, scope)
+                for person in people:
+                    for url in person.get('sourceUrls', []):
+                        audited_sources[website_key(url)] = person['canonicalId']
+                        valid = public_url(url)
+                        if valid:
+                            site = urlsplit(valid).hostname.lower().removeprefix('www.')
+                            audited_directories[site].add(person['canonicalId'])
+    accepted = collections.defaultdict(set)
+    qualified = collections.defaultdict(set)
+    source_sites = collections.defaultdict(set)
+    observed_sites = collections.defaultdict(set)
+    outside_urls = collections.defaultdict(set)
     totals = collections.defaultdict(lambda: {'requests': 0, 'successfulRequests': 0, 'failedRequests': 0,
-        'uncertainRequests': 0, 'emptySuccessfulRequests': 0, 'newResultUrls': 0, 'chargedCents': 0})
+        'uncertainRequests': 0, 'emptySuccessfulRequests': 0, 'newResultUrls': 0, 'rawNewResultUrls': 0,
+        'siteRestrictedSuccessfulRequests': 0, 'siteRestrictedMatchedRequests': 0, 'chargedCents': 0})
     observed = set(inherited)
+    raw_observed = set(inherited)
     for row in rows:
         if row['imported']:
             continue
-        tactic = by_key.get(row['key'], {}).get('tactic', row['lane'])
+        tactic = tactic_group(by_key.get(row['key'], {'lane': row['lane']}))
+        keyword = json.loads(row['payload']).get('keyword', '')
+        sites = positive_sites(keyword)
+        source_sites[tactic].update(sites)
         item = totals[tactic]
         item['requests'] += 1
         item['chargedCents'] += row['cost_cents']
-        urls = result_urls(cache.receipt(row)) if row['receipt'] else set()
-        item['newResultUrls'] += len(urls - observed)
-        observed.update(urls)
+        raw_urls = result_urls(cache.receipt(row)) if row['receipt'] else set()
+        urls = requested_site_urls(raw_urls, keyword)
+        outside_urls[tactic].update(raw_urls - urls)
+        observed_sites[tactic].update(site for site in sites if any(
+            (host := urlsplit(url).hostname.lower().removeprefix('www.')) == site
+            or host.endswith('.' + site) for url in urls))
+        qualified[tactic].update((urls - inherited) & qualified_sources)
+        accepted[tactic].update(audited_sources[key] for url in urls if (key := website_key(url)) in audited_sources)
+        item['newResultUrls'] += len(urls - raw_observed)
+        item['rawNewResultUrls'] += len(raw_urls - raw_observed)
+        observed.update(urls - raw_observed)
+        raw_observed.update(raw_urls)
         if row['status'] == 'succeeded':
             item['successfulRequests'] += 1
-            item['emptySuccessfulRequests'] += int(not urls)
+            item['emptySuccessfulRequests'] += int(not raw_urls)
+            if sites:
+                item['siteRestrictedSuccessfulRequests'] += 1
+                item['siteRestrictedMatchedRequests'] += int(bool(urls))
         elif row['status'] == 'failed':
             item['failedRequests'] += 1
         else:
             item['uncertainRequests'] += 1
-    for item in totals.values():
+    for tactic, item in totals.items():
         settled = item['successfulRequests'] + item['failedRequests']
         item['successRate'] = item['successfulRequests'] / settled if settled else None
         item['newUrlsPerRequest'] = item['newResultUrls'] / item['requests']
         item['usdPerNewUrl'] = item['chargedCents'] / 100 / item['newResultUrls'] if item['newResultUrls'] else None
+        item['auditedNewIdentitiesAttributed'] = len(accepted[tactic])
+        # Recursive profiles establish directory yield even when the original
+        # paid result was an index. Keep that separate from direct attribution.
+        item['sourceSites'] = sorted(source_sites[tactic])
+        item['sourceSitesObserved'] = sorted(observed_sites[tactic])
+        item['outsideRequestedSiteUrls'] = len(outside_urls[tactic])
+        site_requests = item['siteRestrictedSuccessfulRequests']
+        item['siteMatchRate'] = item['siteRestrictedMatchedRequests'] / site_requests if site_requests else None
+        item['auditedSourceIdentities'] = len(set().union(*(audited_directories[site] for site in observed_sites[tactic])))
+        item['classifiedLocalTutorCandidates'] = len(qualified[tactic])
+        item['usdPerAttributedAuditedIdentity'] = item['chargedCents'] / 100 / len(accepted[tactic]) if accepted[tactic] else None
     return {'observedAt': now_iso(), 'tactics': dict(totals), 'budget': cache.usage(),
             'inheritedResultUrls': len(inherited), 'newResultUrls': len(observed - inherited),
+            'rawNewResultUrls': len(raw_observed - inherited),
             'urlCountsAreVerifiedTutors': False}
 
 

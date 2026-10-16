@@ -169,14 +169,38 @@ def display_task(data: dict[str, Any], task: dict[str, Any]) -> None:
 
 
 def ensure_op_service_account(task: dict[str, Any]) -> None:
+    # A registered runtime with a recorded rate limit must be installable
+    # without adding another request. Its wrapper still authenticates before
+    # reading secrets or submitting provider work after the cooldown.
+    if task.get('opServiceAccountSource') == 'profile-or-keychain' and task.get('credentialCooldownPath'):
+        import datetime
+        from pathlib import Path
+        cooldown = Path(task['credentialCooldownPath'])
+        if cooldown.exists():
+            if cooldown.is_symlink():
+                raise SystemExit('Credential cooldown evidence cannot be a symlink')
+            value = json.loads(cooldown.read_text())
+            observed = datetime.datetime.fromisoformat(value['observedAt']).timestamp()
+            current = datetime.datetime.now(datetime.timezone.utc).timestamp()
+            next_attempt = value['nextAttemptUnix']
+            if (value.get('paidRequestSubmitted') is False and '1password' in value.get('reason', '').lower()
+                    and 'rate limit' in value.get('reason', '').lower()
+                    and type(next_attempt) in (float, int) and observed <= current < next_attempt <= observed + 1800):
+                if not os.environ.get('OP_SERVICE_ACCOUNT_TOKEN'):
+                    raise SystemExit('Deferred runtime authentication still requires the existing profile token')
+                print('  OP authentication deferred during the recorded runtime rate-limit cooldown')
+                return
     # Only wrappers that explicitly source the shared profile may use its exported
     # token. Existing keychain-only jobs retain their original installation gate.
     if task.get("opServiceAccountSource") == "profile-or-keychain" and os.environ.get("OP_SERVICE_ACCOUNT_TOKEN"):
-        op = shutil.which("op")
-        if not op:
+        if not shutil.which("op"):
             raise SystemExit("Missing op CLI for service-account authentication")
-        subprocess.run([op, "vault", "list", "--format", "json"],
-                       check=True, stdout=subprocess.DEVNULL)
+        helper = ROOT / 'lib/op-cli.sh'
+        if not helper.exists():
+            raise SystemExit('Missing bounded 1Password CLI helper')
+        command = 'source "$1"; OP_CALL_TIMEOUT_SECONDS=20; trap op_cli_cleanup_isolated_home EXIT; run_op vault list --format json'
+        subprocess.run(['/bin/bash', '-c', command, 'launchd-service-account-check', str(helper)],
+                       check=True, stdout=subprocess.DEVNULL, timeout=50)
         print("  authenticated existing profile service account; no keychain write needed")
         return
     script = ROOT / "scripts" / "cache-op-service-account-token.sh"

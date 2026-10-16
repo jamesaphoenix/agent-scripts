@@ -26,6 +26,138 @@
   },
   "tasks": [
     {
+      "id": "tutor-qualification-20261014-context-12h-watch",
+      "name": "Qualify saved Bucks candidates using the shared USD10 ledger checks",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.tutor-qualification-20261014-context-12h-watch",
+      "schedule": "every fifteen minutes until 15 October 00:00:32 UTC",
+      "requiresOpServiceAccount": false,
+      "opServiceAccountSource": null,
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
+        "command": [
+          "bash",
+          ".worktrees/tutor-campaign-20261013-12h/agent-loops/tutor-lead-pathways/install-qualification.sh",
+          "watch",
+          "tutor-qualification-20261014-context-12h",
+          "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts"
+        ]
+      },
+      "notes": "James explicitly approved this new twelve-hour pass on 14 October. The first observed approval time is 12:00:32 UTC; preserve the new deadline across restarts and retain every earlier job and deadline. Reuse the original USD10 classification ledger with USD9.3594609 remaining, preserving uncertain submissions and the original USD100 discovery cap. No new DataForSEO or SDK calls, Anthropic key, contact unlocks, outreach, tenant imports or geographic expansion. Keep Bucks/Milton Keynes and requested academic subjects. Hash-verified caches and source observations precede bounded Go fetches. Native fifteen-minute checks, at most three crash recoveries, terminal scratch cleanup and retained final exports, ledgers, evidence and source awaiting PR review."
+    },
+    {
+      "id": "tutor-qualification-20261014-context-12h",
+      "name": "Qualify saved Bucks candidates using the shared USD10 ledger",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.tutor-qualification-20261014-context-12h",
+      "schedule": "finite twelve-hour pass ending 15 October 00:00:32 UTC",
+      "requiresOpServiceAccount": true,
+      "opServiceAccountSource": "profile-or-keychain",
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
+        "command": [
+          "bash",
+          ".worktrees/tutor-campaign-20261013-12h/agent-loops/tutor-lead-pathways/install-qualification.sh",
+          "run",
+          "tutor-qualification-20261014-context-12h",
+          "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts"
+        ]
+      },
+      "notes": "James explicitly approved this new twelve-hour pass on 14 October. The first observed approval time is 12:00:32 UTC; preserve the new deadline across restarts and retain every earlier job and deadline. Reuse the original USD10 classification ledger with USD9.3594609 remaining, preserving uncertain submissions and the original USD100 discovery cap. No new DataForSEO or SDK calls, Anthropic key, contact unlocks, outreach, tenant imports or geographic expansion. Keep Bucks/Milton Keynes and requested academic subjects. Hash-verified caches and source observations precede bounded Go fetches. Native fifteen-minute checks, at most three crash recoveries, terminal scratch cleanup and retained final exports, ledgers, evidence and source awaiting PR review."
+    },
+    {
+      "id": "bucks-private-tutors-20261014-context-12h-watch",
+      "name": "Public profile context for the authorised 14 October follow-on checks",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.bucks-private-tutors-20261014-context-12h-watch",
+      "schedule": "every fifteen minutes until 15 October 00:00:32 UTC",
+      "requiresOpServiceAccount": false,
+      "opServiceAccountSource": null,
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
+        "command": [
+          "bash",
+          ".worktrees/tutor-campaign-20261013-12h/agent-loops/tutor-lead-pathways/install-directory-profiles.sh",
+          "watch",
+          "bucks-private-tutors-20261014-context-12h",
+          "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts"
+        ]
+      },
+      "notes": "James explicitly approved this new twelve-hour pass on 14 October. The first observed approval time is 12:00:32 UTC; preserve the new deadline across restarts and retain every earlier job and deadline. Reuse the original USD10 classification ledger with USD9.3594609 remaining, preserving uncertain submissions and the original USD100 discovery cap. No new DataForSEO or SDK calls, Anthropic key, contact unlocks, outreach, tenant imports or geographic expansion. Keep Bucks/Milton Keynes and requested academic subjects. Hash-verified caches and source observations precede bounded Go fetches. Native fifteen-minute checks, at most three crash recoveries, terminal scratch cleanup and retained final exports, ledgers, evidence and source awaiting PR review."
+    },
+    {
+      "id": "bucks-private-tutors-20261014-context-12h",
+      "name": "Public profile context for the authorised 14 October follow-on",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.bucks-private-tutors-20261014-context-12h",
+      "schedule": "finite twelve-hour pass ending 15 October 00:00:32 UTC",
+      "requiresOpServiceAccount": false,
+      "opServiceAccountSource": null,
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
+        "command": [
+          "bash",
+          ".worktrees/tutor-campaign-20261013-12h/agent-loops/tutor-lead-pathways/install-directory-profiles.sh",
+          "run",
+          "bucks-private-tutors-20261014-context-12h",
+          "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts"
+        ]
+      },
+      "notes": "James explicitly approved this new twelve-hour pass on 14 October. The first observed approval time is 12:00:32 UTC; preserve the new deadline across restarts and retain every earlier job and deadline. Reuse the original USD10 classification ledger with USD9.3594609 remaining, preserving uncertain submissions and the original USD100 discovery cap. No new DataForSEO or SDK calls, Anthropic key, contact unlocks, outreach, tenant imports or geographic expansion. Keep Bucks/Milton Keynes and requested academic subjects. Hash-verified caches and source observations precede bounded Go fetches. Native fifteen-minute checks, at most three crash recoveries, terminal scratch cleanup and retained final exports, ledgers, evidence and source awaiting PR review."
+    },
+    {
+      "id": "tutor-qualification-20261014",
+      "name": "Classify discovered tutor candidates with owned page context",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.tutor-qualification-20261014",
+      "schedule": "finite inventory batch until the original 14 October campaign deadline",
+      "requiresOpServiceAccount": true,
+      "opServiceAccountSource": "profile-or-keychain",
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
+        "command": [
+          "bash",
+          ".worktrees/tutor-campaign-20261013-12h/agent-loops/tutor-lead-pathways/install-qualification.sh",
+          "run",
+          "tutor-qualification-20261014",
+          "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts"
+        ]
+      },
+      "notes": "James explicitly authorised another USD10-20 for classification on 14 October. Use a separate immutable USD10 ledger, preserving the original USD100 discovery cap, old USD3 classifier ledger and uncertain reservations. Reuse saved context before bounded Go fetches. No SDK, Anthropic key, contact unlocks, outreach, tenant imports or geographic expansion. Model candidates require owned evidence and duplicate review before audited contact export. Retain SQLite, source evidence, final exports and budget ledgers; remove task scratch after terminal processing."
+    },
+    {
+      "id": "tutor-qualification-20261014-watch",
+      "name": "Check candidate classification every fifteen minutes",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.tutor-qualification-20261014-watch",
+      "schedule": "every fifteen minutes until classification terminates or the original deadline",
+      "requiresOpServiceAccount": false,
+      "opServiceAccountSource": null,
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
+        "command": [
+          "bash",
+          ".worktrees/tutor-campaign-20261013-12h/agent-loops/tutor-lead-pathways/install-qualification.sh",
+          "watch",
+          "tutor-qualification-20261014",
+          "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts"
+        ]
+      },
+      "notes": "Read SQLite-backed status and actual launchd process liveness. At most three registered recovery requests; never reset the deadline, ledger, cached decisions, source holds or eight-page site allowance. No paid API calls in the watcher."
+    },
+    {
       "id": "bucks-private-tutors-20261011-extension-1",
       "name": "Additional private tutor discovery after identity review",
       "enabled": true,
@@ -37,7 +169,12 @@
       "install": {
         "kind": "command",
         "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
-        "command": ["bash", "agent-loops/tutor-lead-pathways/install-directory-profiles.sh", "run", "bucks-private-tutors-20261011-extension-1"]
+        "command": [
+          "bash",
+          "agent-loops/tutor-lead-pathways/install-directory-profiles.sh",
+          "run",
+          "bucks-private-tutors-20261011-extension-1"
+        ]
       },
       "notes": "Prepare only after the original profile stage is terminal. Preserve its immutable job, limits and evidence. Reuse hash-verified cached successful and failed GET observations in the new stage. Pursue the user's one-thousand-person goal after holding possible duplicates and ambiguous localities. No provider spending, contact unlocks, accounts, messages, purchases or tenant imports."
     },
@@ -53,7 +190,12 @@
       "install": {
         "kind": "command",
         "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
-        "command": ["bash", "agent-loops/tutor-lead-pathways/install-directory-profiles.sh", "watch", "bucks-private-tutors-20261011-extension-1"]
+        "command": [
+          "bash",
+          "agent-loops/tutor-lead-pathways/install-directory-profiles.sh",
+          "watch",
+          "bucks-private-tutors-20261011-extension-1"
+        ]
       },
       "notes": "Same read-only process and checkpoint checks as the original profile stage, at most three registered recovery requests without killing owners. No paid calls. A raw source-profile target does not complete the user's distinct private-tutor goal."
     },
@@ -69,7 +211,11 @@
       "install": {
         "kind": "command",
         "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
-        "command": ["bash", "agent-loops/tutor-lead-pathways/install-directory-profiles.sh", "watch"]
+        "command": [
+          "bash",
+          "agent-loops/tutor-lead-pathways/install-directory-profiles.sh",
+          "watch"
+        ]
       },
       "notes": "User requested fifteen-minute monitoring. Read-only progress and actual process checks, at most three registered recovery requests without killing owners. No paid calls. A stage ending below one thousand does not complete the discovery goal."
     },
@@ -85,7 +231,10 @@
       "install": {
         "kind": "command",
         "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
-        "command": ["bash", "agent-loops/tutor-lead-pathways/install-directory-profiles.sh"]
+        "command": [
+          "bash",
+          "agent-loops/tutor-lead-pathways/install-directory-profiles.sh"
+        ]
       },
       "notes": "User authorised 11 October 2026: pursue at least one thousand private tutors in Buckinghamshire across subjects, excluding institutions. This stage collects public professional profiles without provider spending. Cache successful and failed GET observations by SHA256, obey source robots rules, retain tutor IDs and advertised tuition locality. Never equate directory headline totals with local people. No accounts, contact unlock purchases, outreach or tenant imports."
     },
@@ -620,6 +769,726 @@
         ]
       },
       "notes": "Read-only paid receipts, SHA256 seed batches, replayed identity audit and novelty against the delivered 1010-record baseline. No paid provider calls."
+    },
+    {
+      "id": "tutor-focused-20261012-1",
+      "name": "Decisions-gated tutor crawl",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.tutor-focused-20261012-1",
+      "schedule": "finite six-hour stage",
+      "requiresOpServiceAccount": true,
+      "opServiceAccountSource": "profile-or-keychain",
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
+        "command": [
+          "bash",
+          "agent-loops/tutor-lead-pathways/install-focused.sh",
+          "run",
+          "tutor-focused-20261012-1"
+        ]
+      },
+      "notes": "Existing Maps/organic URL seeds and cached Go evidence. Relevance and unique-domain yield ranking; fifteen-site branches, two external hops. OpenAI Decisions classification USD3 cap within original USD100 allowance; USD43 uncertain DataForSEO holds retained. No new DataForSEO calls or outreach. Cleanup retains evidence, shared caches and exports."
+    },
+    {
+      "id": "tutor-focused-20261012-1-watch",
+      "name": "Decisions-gated tutor crawl health checks",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.tutor-focused-20261012-1-watch",
+      "schedule": "every fifteen minutes until the finite stage ends",
+      "requiresOpServiceAccount": false,
+      "opServiceAccountSource": null,
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
+        "command": [
+          "bash",
+          "agent-loops/tutor-lead-pathways/install-focused.sh",
+          "watch",
+          "tutor-focused-20261012-1"
+        ]
+      },
+      "notes": "Existing Maps/organic URL seeds and cached Go evidence. Relevance and unique-domain yield ranking; fifteen-site branches, two external hops. OpenAI Decisions classification USD3 cap within original USD100 allowance; USD43 uncertain DataForSEO holds retained. No new DataForSEO calls or outreach. Cleanup retains evidence, shared caches and exports."
+    },
+    {
+      "id": "tutor-focused-20261013-1",
+      "name": "Tutor discovery continuation",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.tutor-focused-20261013-1",
+      "schedule": "finite six-hour stage",
+      "requiresOpServiceAccount": true,
+      "opServiceAccountSource": "profile-or-keychain",
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
+        "command": [
+          "bash",
+          ".worktrees/tutor-continuation-20261013/agent-loops/tutor-lead-pathways/install-focused.sh",
+          "run",
+          "tutor-focused-20261013-1",
+          "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts"
+        ]
+      },
+      "notes": "Authorised continuation of the completed six-hour stage, preserving its evidence, lineage and all paid holds. Four concurrent hosts, profile-first ranking, 2000 pages per known directory, access-denied host holds, and separate unaudited profile/domain counts. Same shared Decisions cache and original USD100 cap; no new DataForSEO calls. Fifteen-minute health checks and terminal scratch cleanup."
+    },
+    {
+      "id": "tutor-focused-20261013-1-watch",
+      "name": "Tutor discovery continuation health checks",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.tutor-focused-20261013-1-watch",
+      "schedule": "every fifteen minutes until the finite stage ends",
+      "requiresOpServiceAccount": false,
+      "opServiceAccountSource": null,
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
+        "command": [
+          "bash",
+          ".worktrees/tutor-continuation-20261013/agent-loops/tutor-lead-pathways/install-focused.sh",
+          "watch",
+          "tutor-focused-20261013-1",
+          "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts"
+        ]
+      },
+      "notes": "Authorised continuation of the completed six-hour stage, preserving its evidence, lineage and all paid holds. Four concurrent hosts, profile-first ranking, 2000 pages per known directory, access-denied host holds, and separate unaudited profile/domain counts. Same shared Decisions cache and original USD100 cap; no new DataForSEO calls. Fifteen-minute health checks and terminal scratch cleanup."
+    },
+    {
+      "id": "tutor-lead-pathways-20261013-12h",
+      "name": "tutor lead pathways 20261013 12h",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.tutor-lead-pathways-20261013-12h",
+      "schedule": "finite request-anchored twelve-hour campaign",
+      "requiresOpServiceAccount": true,
+      "opServiceAccountSource": "profile-or-keychain",
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
+        "command": [
+          "bash",
+          ".worktrees/tutor-campaign-20261013-12h/agent-loops/tutor-lead-pathways/install-launchd.sh",
+          "run",
+          "tutor-lead-pathways-20261013-12h",
+          "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts"
+        ]
+      },
+      "notes": "Authorised 13 October 2026 at 11:43:51 UTC, deadline 23:43:51 UTC. Target 2000-3000 additional independent Bucks/Milton Keynes tutor contacts. USD100 lifetime cap: preserve USD66.35 prior exposure including all uncertain holds, reserve USD3 classifier lifetime cap, at most USD30.65 new DataForSEO. Reuse SHA256 caches and semantic query identities. Codex uses existing ChatGPT OAuth only. No outreach or geographic widening. Keep audited contacts separate from URLs. Clean task scratch at terminal completion; retain evidence, caches, ledgers and source awaiting PR review."
+    },
+    {
+      "id": "tutor-lead-pathways-20261013-12h-watch",
+      "name": "tutor lead pathways 20261013 12h watch",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.tutor-lead-pathways-watch-20261013-12h",
+      "schedule": "every fifteen minutes",
+      "requiresOpServiceAccount": false,
+      "opServiceAccountSource": null,
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
+        "command": [
+          "bash",
+          ".worktrees/tutor-campaign-20261013-12h/agent-loops/tutor-lead-pathways/install-launchd.sh",
+          "watch",
+          "tutor-lead-pathways-20261013-12h",
+          "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts"
+        ]
+      },
+      "notes": "Authorised 13 October 2026 at 11:43:51 UTC, deadline 23:43:51 UTC. Target 2000-3000 additional independent Bucks/Milton Keynes tutor contacts. USD100 lifetime cap: preserve USD66.35 prior exposure including all uncertain holds, reserve USD3 classifier lifetime cap, at most USD30.65 new DataForSEO. Reuse SHA256 caches and semantic query identities. Codex uses existing ChatGPT OAuth only. No outreach or geographic widening. Keep audited contacts separate from URLs. Clean task scratch at terminal completion; retain evidence, caches, ledgers and source awaiting PR review."
+    },
+    {
+      "id": "bucks-private-tutors-20261013-12h",
+      "name": "bucks private tutors 20261013 12h",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.bucks-private-tutors-20261013-12h",
+      "schedule": "finite request-anchored twelve-hour public-profile campaign",
+      "requiresOpServiceAccount": false,
+      "opServiceAccountSource": null,
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
+        "command": [
+          "bash",
+          ".worktrees/tutor-campaign-20261013-12h/agent-loops/tutor-lead-pathways/install-directory-profiles.sh",
+          "run",
+          "bucks-private-tutors-20261013-12h",
+          "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts"
+        ]
+      },
+      "notes": "Authorised 13 October 2026 at 11:43:51 UTC, deadline 23:43:51 UTC. Target 2000-3000 additional independent Bucks/Milton Keynes tutor contacts. USD100 lifetime cap: preserve USD66.35 prior exposure including all uncertain holds, reserve USD3 classifier lifetime cap, at most USD30.65 new DataForSEO. Reuse SHA256 caches and semantic query identities. Codex uses existing ChatGPT OAuth only. No outreach or geographic widening. Keep audited contacts separate from URLs. Clean task scratch at terminal completion; retain evidence, caches, ledgers and source awaiting PR review."
+    },
+    {
+      "id": "bucks-private-tutors-20261013-12h-watch",
+      "name": "bucks private tutors 20261013 12h watch",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.bucks-private-tutors-20261013-12h-watch",
+      "schedule": "every fifteen minutes",
+      "requiresOpServiceAccount": false,
+      "opServiceAccountSource": null,
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
+        "command": [
+          "bash",
+          ".worktrees/tutor-campaign-20261013-12h/agent-loops/tutor-lead-pathways/install-directory-profiles.sh",
+          "watch",
+          "bucks-private-tutors-20261013-12h",
+          "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts"
+        ]
+      },
+      "notes": "Authorised 13 October 2026 at 11:43:51 UTC, deadline 23:43:51 UTC. Target 2000-3000 additional independent Bucks/Milton Keynes tutor contacts. USD100 lifetime cap: preserve USD66.35 prior exposure including all uncertain holds, reserve USD3 classifier lifetime cap, at most USD30.65 new DataForSEO. Reuse SHA256 caches and semantic query identities. Codex uses existing ChatGPT OAuth only. No outreach or geographic widening. Keep audited contacts separate from URLs. Clean task scratch at terminal completion; retain evidence, caches, ledgers and source awaiting PR review."
+    },
+    {
+      "id": "tutor-lead-pathways-20261013-12h-campaign-watch",
+      "name": "tutor lead pathways 20261013 12h campaign watch",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.tutor-lead-pathways-20261013-12h-campaign-watch",
+      "schedule": "every fifteen minutes: audit, classifier continuation and terminal cleanup",
+      "requiresOpServiceAccount": false,
+      "opServiceAccountSource": null,
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
+        "command": [
+          "bash",
+          ".worktrees/tutor-campaign-20261013-12h/agent-loops/tutor-lead-pathways/install-campaign-watch.sh",
+          "tutor-lead-pathways-20261013-12h",
+          "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts"
+        ]
+      },
+      "notes": "Authorised 13 October 2026 at 11:43:51 UTC, deadline 23:43:51 UTC. Target 2000-3000 additional independent Bucks/Milton Keynes tutor contacts. USD100 lifetime cap: preserve USD66.35 prior exposure including all uncertain holds, reserve USD3 classifier lifetime cap, at most USD30.65 new DataForSEO. Reuse SHA256 caches and semantic query identities. Codex uses existing ChatGPT OAuth only. No outreach or geographic widening. Keep audited contacts separate from URLs. Clean task scratch at terminal completion; retain evidence, caches, ledgers and source awaiting PR review."
+    },
+    {
+      "id": "tutor-focused-20261013-12h",
+      "name": "tutor focused 20261013 12h",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.tutor-focused-20261013-12h",
+      "schedule": "starts only after prior classifier is terminal, stops at campaign deadline",
+      "requiresOpServiceAccount": true,
+      "opServiceAccountSource": "profile-or-keychain",
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
+        "command": [
+          "bash",
+          ".worktrees/tutor-campaign-20261013-12h/agent-loops/tutor-lead-pathways/install-focused.sh",
+          "run",
+          "tutor-focused-20261013-12h",
+          "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts"
+        ]
+      },
+      "notes": "Authorised 13 October 2026 at 11:43:51 UTC, deadline 23:43:51 UTC. Target 2000-3000 additional independent Bucks/Milton Keynes tutor contacts. USD100 lifetime cap: preserve USD66.35 prior exposure including all uncertain holds, reserve USD3 classifier lifetime cap, at most USD30.65 new DataForSEO. Reuse SHA256 caches and semantic query identities. Codex uses existing ChatGPT OAuth only. No outreach or geographic widening. Keep audited contacts separate from URLs. Clean task scratch at terminal completion; retain evidence, caches, ledgers and source awaiting PR review."
+    },
+    {
+      "id": "tutor-focused-20261013-12h-watch",
+      "name": "tutor focused 20261013 12h watch",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.tutor-focused-20261013-12h-watch",
+      "schedule": "every fifteen minutes after continuation preparation",
+      "requiresOpServiceAccount": false,
+      "opServiceAccountSource": null,
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
+        "command": [
+          "bash",
+          ".worktrees/tutor-campaign-20261013-12h/agent-loops/tutor-lead-pathways/install-focused.sh",
+          "watch",
+          "tutor-focused-20261013-12h",
+          "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts"
+        ]
+      },
+      "notes": "Authorised 13 October 2026 at 11:43:51 UTC, deadline 23:43:51 UTC. Target 2000-3000 additional independent Bucks/Milton Keynes tutor contacts. USD100 lifetime cap: preserve USD66.35 prior exposure including all uncertain holds, reserve USD3 classifier lifetime cap, at most USD30.65 new DataForSEO. Reuse SHA256 caches and semantic query identities. Codex uses existing ChatGPT OAuth only. No outreach or geographic widening. Keep audited contacts separate from URLs. Clean task scratch at terminal completion; retain evidence, caches, ledgers and source awaiting PR review."
+    },
+    {
+      "id": "tutor-focused-20261013-12h-remainder",
+      "name": "Tutor classifier remainder",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.tutor-focused-20261013-12h-remainder",
+      "schedule": "starts after cumulative 10000-page classifier is terminal, same original deadline",
+      "requiresOpServiceAccount": true,
+      "opServiceAccountSource": "profile-or-keychain",
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
+        "command": [
+          "bash",
+          ".worktrees/tutor-campaign-20261013-12h/agent-loops/tutor-lead-pathways/install-focused.sh",
+          "run",
+          "tutor-focused-20261013-12h-remainder",
+          "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts"
+        ]
+      },
+      "notes": "Authorised 13 October 2026 at 11:43:51 UTC, deadline 23:43:51 UTC. Target 2000-3000 additional independent Bucks/Milton Keynes tutor contacts. USD100 lifetime cap: preserve USD66.35 prior exposure including all uncertain holds, reserve USD3 classifier lifetime cap, at most USD30.65 new DataForSEO. Reuse SHA256 caches and semantic query identities. Codex uses existing ChatGPT OAuth only. No outreach or geographic widening. Keep audited contacts separate from URLs. Clean task scratch at terminal completion; retain evidence, caches, ledgers and source awaiting PR review. Carry the completed frontier into a separate stage with at most 20000 cumulative attempts, including all inherited attempts. Same USD3 lifetime Decisions cache, 4000 directory URLs, unchanged geography and recursion gates. Never clone an active parent or reset the deadline."
+    },
+    {
+      "id": "tutor-focused-20261013-12h-remainder-watch",
+      "name": "Tutor classifier remainder watch",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.tutor-focused-20261013-12h-remainder-watch",
+      "schedule": "every fifteen minutes after continuation preparation",
+      "requiresOpServiceAccount": false,
+      "opServiceAccountSource": null,
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
+        "command": [
+          "bash",
+          ".worktrees/tutor-campaign-20261013-12h/agent-loops/tutor-lead-pathways/install-focused.sh",
+          "watch",
+          "tutor-focused-20261013-12h-remainder",
+          "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts"
+        ]
+      },
+      "notes": "Authorised 13 October 2026 at 11:43:51 UTC, deadline 23:43:51 UTC. Target 2000-3000 additional independent Bucks/Milton Keynes tutor contacts. USD100 lifetime cap: preserve USD66.35 prior exposure including all uncertain holds, reserve USD3 classifier lifetime cap, at most USD30.65 new DataForSEO. Reuse SHA256 caches and semantic query identities. Codex uses existing ChatGPT OAuth only. No outreach or geographic widening. Keep audited contacts separate from URLs. Clean task scratch at terminal completion; retain evidence, caches, ledgers and source awaiting PR review. Carry the completed frontier into a separate stage with at most 20000 cumulative attempts, including all inherited attempts. Same USD3 lifetime Decisions cache, 4000 directory URLs, unchanged geography and recursion gates. Never clone an active parent or reset the deadline."
+    },
+    {
+      "id": "tutor-lead-pathways-20261013-extra-12h",
+      "name": "tutor lead pathways 20261013 extra 12h",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.tutor-lead-pathways-20261013-extra-12h",
+      "schedule": "finite request-anchored twelve-hour campaign",
+      "requiresOpServiceAccount": true,
+      "opServiceAccountSource": "profile-or-keychain",
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
+        "command": [
+          "bash",
+          ".worktrees/tutor-campaign-20261013-12h/agent-loops/tutor-lead-pathways/install-launchd.sh",
+          "run",
+          "tutor-lead-pathways-20261013-extra-12h",
+          "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts"
+        ]
+      },
+      "notes": "Explicit extra twelve-hour window requested 13 October 2026. Activate only after the original 23:43:51 UTC deadline and sealed owners; finish 14 October 11:43:51 UTC (12:43 BST). Prioritise 11+ and private academic tutors in Bucks/Milton Keynes. Carry forward USD100 lifetime budget, all uncertain holds, the existing USD3 Decisions reserve and cumulative four-million SDK token admission ceiling. No fresh classifier allowance or outreach. Inherit raw evidence, semantic query ledger, original baseline and contact exports. Add at most 12000 public fetch attempts within 32000 cumulative. Native health checks every fifteen minutes and terminal scratch cleanup; retain source awaiting PR review."
+    },
+    {
+      "id": "tutor-lead-pathways-20261013-extra-12h-watch",
+      "name": "tutor lead pathways 20261013 extra 12h watch",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.tutor-lead-pathways-watch-20261013-extra-12h",
+      "schedule": "every fifteen minutes",
+      "requiresOpServiceAccount": false,
+      "opServiceAccountSource": null,
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
+        "command": [
+          "bash",
+          ".worktrees/tutor-campaign-20261013-12h/agent-loops/tutor-lead-pathways/install-launchd.sh",
+          "watch",
+          "tutor-lead-pathways-20261013-extra-12h",
+          "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts"
+        ]
+      },
+      "notes": "Explicit extra twelve-hour window requested 13 October 2026. Activate only after the original 23:43:51 UTC deadline and sealed owners; finish 14 October 11:43:51 UTC (12:43 BST). Prioritise 11+ and private academic tutors in Bucks/Milton Keynes. Carry forward USD100 lifetime budget, all uncertain holds, the existing USD3 Decisions reserve and cumulative four-million SDK token admission ceiling. No fresh classifier allowance or outreach. Inherit raw evidence, semantic query ledger, original baseline and contact exports. Add at most 12000 public fetch attempts within 32000 cumulative. Native health checks every fifteen minutes and terminal scratch cleanup; retain source awaiting PR review."
+    },
+    {
+      "id": "bucks-private-tutors-20261013-extra-12h",
+      "name": "bucks private tutors 20261013 extra 12h",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.bucks-private-tutors-20261013-extra-12h",
+      "schedule": "finite request-anchored twelve-hour public-profile campaign",
+      "requiresOpServiceAccount": false,
+      "opServiceAccountSource": null,
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
+        "command": [
+          "bash",
+          ".worktrees/tutor-campaign-20261013-12h/agent-loops/tutor-lead-pathways/install-directory-profiles.sh",
+          "run",
+          "bucks-private-tutors-20261013-extra-12h",
+          "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts"
+        ]
+      },
+      "notes": "Explicit extra twelve-hour window requested 13 October 2026. Activate only after the original 23:43:51 UTC deadline and sealed owners; finish 14 October 11:43:51 UTC (12:43 BST). Prioritise 11+ and private academic tutors in Bucks/Milton Keynes. Carry forward USD100 lifetime budget, all uncertain holds, the existing USD3 Decisions reserve and cumulative four-million SDK token admission ceiling. No fresh classifier allowance or outreach. Inherit raw evidence, semantic query ledger, original baseline and contact exports. Add at most 12000 public fetch attempts within 32000 cumulative. Native health checks every fifteen minutes and terminal scratch cleanup; retain source awaiting PR review."
+    },
+    {
+      "id": "bucks-private-tutors-20261013-extra-12h-watch",
+      "name": "bucks private tutors 20261013 extra 12h watch",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.bucks-private-tutors-20261013-extra-12h-watch",
+      "schedule": "every fifteen minutes",
+      "requiresOpServiceAccount": false,
+      "opServiceAccountSource": null,
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
+        "command": [
+          "bash",
+          ".worktrees/tutor-campaign-20261013-12h/agent-loops/tutor-lead-pathways/install-directory-profiles.sh",
+          "watch",
+          "bucks-private-tutors-20261013-extra-12h",
+          "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts"
+        ]
+      },
+      "notes": "Explicit extra twelve-hour window requested 13 October 2026. Activate only after the original 23:43:51 UTC deadline and sealed owners; finish 14 October 11:43:51 UTC (12:43 BST). Prioritise 11+ and private academic tutors in Bucks/Milton Keynes. Carry forward USD100 lifetime budget, all uncertain holds, the existing USD3 Decisions reserve and cumulative four-million SDK token admission ceiling. No fresh classifier allowance or outreach. Inherit raw evidence, semantic query ledger, original baseline and contact exports. Add at most 12000 public fetch attempts within 32000 cumulative. Native health checks every fifteen minutes and terminal scratch cleanup; retain source awaiting PR review."
+    },
+    {
+      "id": "tutor-lead-pathways-20261013-extra-12h-campaign-watch",
+      "name": "tutor lead pathways 20261013 extra 12h campaign watch",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.tutor-lead-pathways-20261013-extra-12h-campaign-watch",
+      "schedule": "every fifteen minutes: audit, classifier continuation and terminal cleanup",
+      "requiresOpServiceAccount": false,
+      "opServiceAccountSource": null,
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
+        "command": [
+          "bash",
+          ".worktrees/tutor-campaign-20261013-12h/agent-loops/tutor-lead-pathways/install-campaign-watch.sh",
+          "tutor-lead-pathways-20261013-extra-12h",
+          "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts"
+        ]
+      },
+      "notes": "Explicit extra twelve-hour window requested 13 October 2026. Activate only after the original 23:43:51 UTC deadline and sealed owners; finish 14 October 11:43:51 UTC (12:43 BST). Prioritise 11+ and private academic tutors in Bucks/Milton Keynes. Carry forward USD100 lifetime budget, all uncertain holds, the existing USD3 Decisions reserve and cumulative four-million SDK token admission ceiling. No fresh classifier allowance or outreach. Inherit raw evidence, semantic query ledger, original baseline and contact exports. Add at most 12000 public fetch attempts within 32000 cumulative. Native health checks every fifteen minutes and terminal scratch cleanup; retain source awaiting PR review."
+    },
+    {
+      "id": "tutor-lead-pathways-20261013-extra-12h-extension-watch",
+      "name": "tutor extra twelve-hour activation",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.tutor-lead-pathways-20261013-extra-12h-extension-watch",
+      "schedule": "every minute until the sealed parent hands over; native health checks then every fifteen minutes",
+      "requiresOpServiceAccount": false,
+      "opServiceAccountSource": null,
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
+        "command": [
+          "bash",
+          ".worktrees/tutor-campaign-20261013-12h/agent-loops/tutor-lead-pathways/install-extension-watch.sh",
+          "tutor-lead-pathways-20261013-extra-12h",
+          "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts"
+        ]
+      },
+      "notes": "Explicit extra twelve-hour window requested 13 October 2026. Activate only after the original 23:43:51 UTC deadline and sealed owners; finish 14 October 11:43:51 UTC (12:43 BST). Prioritise 11+ and private academic tutors in Bucks/Milton Keynes. Carry forward USD100 lifetime budget, all uncertain holds, the existing USD3 Decisions reserve and cumulative four-million SDK token admission ceiling. No fresh classifier allowance or outreach. Inherit raw evidence, semantic query ledger, original baseline and contact exports. Add at most 12000 public fetch attempts within 32000 cumulative. Native health checks every fifteen minutes and terminal scratch cleanup; retain source awaiting PR review."
+    },
+    {
+      "id": "tutor-incremental-20261015-12h",
+      "name": "tutor-incremental-20261015-12h",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.tutor-incremental-20261015-12h",
+      "schedule": "request-anchored twelve-hour pass, 15 October 21:17:40 to 16 October 09:17:40 UTC",
+      "requiresOpServiceAccount": true,
+      "opServiceAccountSource": "profile-or-keychain",
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
+        "command": [
+          "bash",
+          ".worktrees/tutor-campaign-20261013-12h/agent-loops/tutor-lead-pathways/install-incremental.sh",
+          "run",
+          "tutor-incremental-20261015-12h",
+          "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts"
+        ]
+      },
+      "notes": "Explicit additional USD50 and new twelve-hour window. New discovery bank only, old USD100 ledger and all uncertain reservations preserved. Existing separate USD10 Decisions cache reused; no SDK turns or Anthropic key. Bucks and Milton Keynes independent academic tutors only. Go crawler, public profiles, Maps and organic query seeding, source yield and SHA256 reuse. No outreach or purchases. Native fifteen-minute checks preserve deadline and budgets across recovery. Clean task scratch on completion; retain exports, evidence, caches, ledgers and source awaiting PR review."
+    },
+    {
+      "id": "tutor-incremental-20261015-12h-watch",
+      "name": "tutor-incremental-20261015-12h health checks",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.tutor-incremental-20261015-12h-watch",
+      "schedule": "every fifteen minutes until 16 October 09:17:40 UTC",
+      "requiresOpServiceAccount": false,
+      "opServiceAccountSource": null,
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
+        "command": [
+          "bash",
+          ".worktrees/tutor-campaign-20261013-12h/agent-loops/tutor-lead-pathways/install-incremental.sh",
+          "watch",
+          "tutor-incremental-20261015-12h",
+          "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts"
+        ]
+      },
+      "notes": "Explicit additional USD50 and new twelve-hour window. New discovery bank only, old USD100 ledger and all uncertain reservations preserved. Existing separate USD10 Decisions cache reused; no SDK turns or Anthropic key. Bucks and Milton Keynes independent academic tutors only. Go crawler, public profiles, Maps and organic query seeding, source yield and SHA256 reuse. No outreach or purchases. Native fifteen-minute checks preserve deadline and budgets across recovery. Clean task scratch on completion; retain exports, evidence, caches, ledgers and source awaiting PR review."
+    },
+    {
+      "id": "tutor-qualification-20261015-extra50-12h",
+      "name": "tutor-qualification-20261015-extra50-12h",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.tutor-qualification-20261015-extra50-12h",
+      "schedule": "request-anchored twelve-hour pass, 15 October 21:17:40 to 16 October 09:17:40 UTC",
+      "requiresOpServiceAccount": true,
+      "opServiceAccountSource": "profile-or-keychain",
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
+        "command": [
+          "bash",
+          ".worktrees/tutor-campaign-20261013-12h/agent-loops/tutor-lead-pathways/install-qualification.sh",
+          "run",
+          "tutor-qualification-20261015-extra50-12h",
+          "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts"
+        ]
+      },
+      "notes": "Explicit additional USD50 and new twelve-hour window. New discovery bank only, old USD100 ledger and all uncertain reservations preserved. Existing separate USD10 Decisions cache reused; no SDK turns or Anthropic key. Bucks and Milton Keynes independent academic tutors only. Go crawler, public profiles, Maps and organic query seeding, source yield and SHA256 reuse. No outreach or purchases. Native fifteen-minute checks preserve deadline and budgets across recovery. Clean task scratch on completion; retain exports, evidence, caches, ledgers and source awaiting PR review."
+    },
+    {
+      "id": "tutor-qualification-20261015-extra50-12h-watch",
+      "name": "tutor-qualification-20261015-extra50-12h health checks",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.tutor-qualification-20261015-extra50-12h-watch",
+      "schedule": "every fifteen minutes until 16 October 09:17:40 UTC",
+      "requiresOpServiceAccount": false,
+      "opServiceAccountSource": null,
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
+        "command": [
+          "bash",
+          ".worktrees/tutor-campaign-20261013-12h/agent-loops/tutor-lead-pathways/install-qualification.sh",
+          "watch",
+          "tutor-qualification-20261015-extra50-12h",
+          "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts"
+        ]
+      },
+      "notes": "Explicit additional USD50 and new twelve-hour window. New discovery bank only, old USD100 ledger and all uncertain reservations preserved. Existing separate USD10 Decisions cache reused; no SDK turns or Anthropic key. Bucks and Milton Keynes independent academic tutors only. Go crawler, public profiles, Maps and organic query seeding, source yield and SHA256 reuse. No outreach or purchases. Native fifteen-minute checks preserve deadline and budgets across recovery. Clean task scratch on completion; retain exports, evidence, caches, ledgers and source awaiting PR review."
+    },
+    {
+      "id": "bucks-private-tutors-20261015-extra50-12h",
+      "name": "bucks-private-tutors-20261015-extra50-12h",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.bucks-private-tutors-20261015-extra50-12h",
+      "schedule": "request-anchored twelve-hour pass, 15 October 21:17:40 to 16 October 09:17:40 UTC",
+      "requiresOpServiceAccount": false,
+      "opServiceAccountSource": null,
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
+        "command": [
+          "bash",
+          ".worktrees/tutor-campaign-20261013-12h/agent-loops/tutor-lead-pathways/install-directory-profiles.sh",
+          "run",
+          "bucks-private-tutors-20261015-extra50-12h",
+          "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts"
+        ]
+      },
+      "notes": "Explicit additional USD50 and new twelve-hour window. New discovery bank only, old USD100 ledger and all uncertain reservations preserved. Existing separate USD10 Decisions cache reused; no SDK turns or Anthropic key. Bucks and Milton Keynes independent academic tutors only. Go crawler, public profiles, Maps and organic query seeding, source yield and SHA256 reuse. No outreach or purchases. Native fifteen-minute checks preserve deadline and budgets across recovery. Clean task scratch on completion; retain exports, evidence, caches, ledgers and source awaiting PR review."
+    },
+    {
+      "id": "bucks-private-tutors-20261015-extra50-12h-watch",
+      "name": "bucks-private-tutors-20261015-extra50-12h health checks",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.bucks-private-tutors-20261015-extra50-12h-watch",
+      "schedule": "every fifteen minutes until 16 October 09:17:40 UTC",
+      "requiresOpServiceAccount": false,
+      "opServiceAccountSource": null,
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
+        "command": [
+          "bash",
+          ".worktrees/tutor-campaign-20261013-12h/agent-loops/tutor-lead-pathways/install-directory-profiles.sh",
+          "watch",
+          "bucks-private-tutors-20261015-extra50-12h",
+          "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts"
+        ]
+      },
+      "notes": "Explicit additional USD50 and new twelve-hour window. New discovery bank only, old USD100 ledger and all uncertain reservations preserved. Existing separate USD10 Decisions cache reused; no SDK turns or Anthropic key. Bucks and Milton Keynes independent academic tutors only. Go crawler, public profiles, Maps and organic query seeding, source yield and SHA256 reuse. No outreach or purchases. Native fifteen-minute checks preserve deadline and budgets across recovery. Clean task scratch on completion; retain exports, evidence, caches, ledgers and source awaiting PR review."
+    },
+    {
+      "id": "tutor-incremental-20261016-recovery-10h",
+      "name": "tutor-incremental-20261016-recovery-10h",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.tutor-incremental-20261016-recovery-10h",
+      "schedule": "explicit ten-hour recovery from 16 October 08:50:02 to 18:50:02 UTC",
+      "requiresOpServiceAccount": true,
+      "opServiceAccountSource": "profile-or-keychain",
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
+        "command": [
+          "bash",
+          ".worktrees/tutor-credential-recovery-20261016/agent-loops/tutor-lead-pathways/install-incremental.sh",
+          "run",
+          "tutor-incremental-20261016-recovery-10h",
+          "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts"
+        ]
+      },
+      "notes": "User explicitly requested fixing the script, another ten hours and checks every thirty minutes. No additional money authorised: use the original USD50 paid.sqlite, retaining USD0.56 conservative exposure and USD49.44 remaining at handoff, plus the existing USD10 Decisions cache. No new paid bank, SDK turns, Anthropic key or outreach. Empty results are neutral; engine/query errors pause their tactic; Maps and plain organic have reserved slots. Account/billing errors and uncertain submissions remain binding stops. Preserve immutable old windows, all receipts, source caches, scope and branch caps. Final native cleanup removes only task scratch and retains unmerged review work.",
+      "credentialCooldownPath": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts/state/tutor-incremental-20261016-recovery-10h/credential-wait.json"
+    },
+    {
+      "id": "tutor-incremental-20261016-recovery-10h-watch",
+      "name": "tutor-incremental-20261016-recovery-10h checks",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.tutor-incremental-20261016-recovery-10h-watch",
+      "schedule": "every thirty minutes until 16 October 18:50:02 UTC",
+      "requiresOpServiceAccount": false,
+      "opServiceAccountSource": null,
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
+        "command": [
+          "bash",
+          ".worktrees/tutor-credential-recovery-20261016/agent-loops/tutor-lead-pathways/install-incremental.sh",
+          "watch",
+          "tutor-incremental-20261016-recovery-10h",
+          "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts"
+        ]
+      },
+      "notes": "User explicitly requested fixing the script, another ten hours and checks every thirty minutes. No additional money authorised: use the original USD50 paid.sqlite, retaining USD0.56 conservative exposure and USD49.44 remaining at handoff, plus the existing USD10 Decisions cache. No new paid bank, SDK turns, Anthropic key or outreach. Empty results are neutral; engine/query errors pause their tactic; Maps and plain organic have reserved slots. Account/billing errors and uncertain submissions remain binding stops. Preserve immutable old windows, all receipts, source caches, scope and branch caps. Final native cleanup removes only task scratch and retains unmerged review work."
+    },
+    {
+      "id": "tutor-qualification-20261016-recovery-10h",
+      "name": "tutor-qualification-20261016-recovery-10h",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.tutor-qualification-20261016-recovery-10h",
+      "schedule": "explicit ten-hour recovery from 16 October 08:50:02 to 18:50:02 UTC",
+      "requiresOpServiceAccount": true,
+      "opServiceAccountSource": "profile-or-keychain",
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
+        "command": [
+          "bash",
+          ".worktrees/tutor-visible-adverts-20261016/agent-loops/tutor-lead-pathways/install-qualification.sh",
+          "run",
+          "tutor-qualification-20261016-recovery-10h",
+          "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts"
+        ]
+      },
+      "notes": "User explicitly requested fixing the script, another ten hours and checks every thirty minutes. No additional money authorised: use the original USD50 paid.sqlite, retaining USD0.56 conservative exposure and USD49.44 remaining at handoff, plus the existing USD10 Decisions cache. No new paid bank, SDK turns, Anthropic key or outreach. Empty results are neutral; engine/query errors pause their tactic; Maps and plain organic have reserved slots. Account/billing errors and uncertain submissions remain binding stops. Preserve immutable old windows, all receipts, source caches, scope and branch caps. Final native cleanup removes only task scratch and retains unmerged review work. Local University Tutor adapter: eight approved Bucks/Milton Keynes subdomains, public profiles, own subject/location fields, fifteen profiles per listing and one next page. The current USD15 combined spending reduction overrides all older remaining-budget figures. Credentials and the original deadline remain mandatory. Retain up to 2000 characters of each parser-selected own advert and literal own-role quotes in model context. Refresh only changed, replayable profiles with settled original Decisions receipts. Preserve thresholds, uncertain holds, original deadline and the USD15 shared ceiling.",
+      "credentialCooldownPath": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts/state/tutor-qualification-20261016-recovery-10h/credential-wait.json"
+    },
+    {
+      "id": "tutor-qualification-20261016-recovery-10h-watch",
+      "name": "tutor-qualification-20261016-recovery-10h checks",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.tutor-qualification-20261016-recovery-10h-watch",
+      "schedule": "every thirty minutes until 16 October 18:50:02 UTC",
+      "requiresOpServiceAccount": false,
+      "opServiceAccountSource": null,
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
+        "command": [
+          "bash",
+          ".worktrees/tutor-visible-adverts-20261016/agent-loops/tutor-lead-pathways/install-qualification.sh",
+          "watch",
+          "tutor-qualification-20261016-recovery-10h",
+          "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts"
+        ]
+      },
+      "notes": "User explicitly requested fixing the script, another ten hours and checks every thirty minutes. No additional money authorised: use the original USD50 paid.sqlite, retaining USD0.56 conservative exposure and USD49.44 remaining at handoff, plus the existing USD10 Decisions cache. No new paid bank, SDK turns, Anthropic key or outreach. Empty results are neutral; engine/query errors pause their tactic; Maps and plain organic have reserved slots. Account/billing errors and uncertain submissions remain binding stops. Preserve immutable old windows, all receipts, source caches, scope and branch caps. Final native cleanup removes only task scratch and retains unmerged review work. Local University Tutor adapter: eight approved Bucks/Milton Keynes subdomains, public profiles, own subject/location fields, fifteen profiles per listing and one next page. The current USD15 combined spending reduction overrides all older remaining-budget figures. Credentials and the original deadline remain mandatory. Retain up to 2000 characters of each parser-selected own advert and literal own-role quotes in model context. Refresh only changed, replayable profiles with settled original Decisions receipts. Preserve thresholds, uncertain holds, original deadline and the USD15 shared ceiling."
+    },
+    {
+      "id": "bucks-private-tutors-20261016-recovery-10h",
+      "name": "bucks-private-tutors-20261016-recovery-10h",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.bucks-private-tutors-20261016-recovery-10h",
+      "schedule": "explicit ten-hour recovery from 16 October 08:50:02 to 18:50:02 UTC",
+      "requiresOpServiceAccount": false,
+      "opServiceAccountSource": null,
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
+        "command": [
+          "bash",
+          ".worktrees/tutor-local-profiles-20261016/agent-loops/tutor-lead-pathways/install-directory-profiles.sh",
+          "run",
+          "bucks-private-tutors-20261016-recovery-10h",
+          "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts"
+        ]
+      },
+      "notes": "User explicitly requested fixing the script, another ten hours and checks every thirty minutes. No additional money authorised: use the original USD50 paid.sqlite, retaining USD0.56 conservative exposure and USD49.44 remaining at handoff, plus the existing USD10 Decisions cache. No new paid bank, SDK turns, Anthropic key or outreach. Empty results are neutral; engine/query errors pause their tactic; Maps and plain organic have reserved slots. Account/billing errors and uncertain submissions remain binding stops. Preserve immutable old windows, all receipts, source caches, scope and branch caps. Final native cleanup removes only task scratch and retains unmerged review work. Local University Tutor adapter: eight approved Bucks/Milton Keynes subdomains, public profiles, own subject/location fields, fifteen profiles per listing and one next page. The current USD15 combined spending reduction overrides all older remaining-budget figures. Credentials and the original deadline remain mandatory."
+    },
+    {
+      "id": "bucks-private-tutors-20261016-recovery-10h-watch",
+      "name": "bucks-private-tutors-20261016-recovery-10h checks",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.bucks-private-tutors-20261016-recovery-10h-watch",
+      "schedule": "every thirty minutes until 16 October 18:50:02 UTC",
+      "requiresOpServiceAccount": false,
+      "opServiceAccountSource": null,
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
+        "command": [
+          "bash",
+          ".worktrees/tutor-local-profiles-20261016/agent-loops/tutor-lead-pathways/install-directory-profiles.sh",
+          "watch",
+          "bucks-private-tutors-20261016-recovery-10h",
+          "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts"
+        ]
+      },
+      "notes": "User explicitly requested fixing the script, another ten hours and checks every thirty minutes. No additional money authorised: use the original USD50 paid.sqlite, retaining USD0.56 conservative exposure and USD49.44 remaining at handoff, plus the existing USD10 Decisions cache. No new paid bank, SDK turns, Anthropic key or outreach. Empty results are neutral; engine/query errors pause their tactic; Maps and plain organic have reserved slots. Account/billing errors and uncertain submissions remain binding stops. Preserve immutable old windows, all receipts, source caches, scope and branch caps. Final native cleanup removes only task scratch and retains unmerged review work. Local University Tutor adapter: eight approved Bucks/Milton Keynes subdomains, public profiles, own subject/location fields, fifteen profiles per listing and one next page. The current USD15 combined spending reduction overrides all older remaining-budget figures. Credentials and the original deadline remain mandatory."
+    },
+    {
+      "id": "tutor-agent-reviews-20261016",
+      "name": "Wake the existing tutor conversation for actual agent reviews",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.tutor-agent-reviews-20261016",
+      "schedule": "minutes 00 and 30 until 16 October 18:50:02 UTC, plus a final review",
+      "requiresOpServiceAccount": false,
+      "opServiceAccountSource": null,
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
+        "command": [
+          "bash",
+          ".worktrees/tutor-agent-reviews-20261016/agent-loops/tutor-lead-pathways/install-agent-reviews.sh",
+          "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts"
+        ]
+      },
+      "notes": "James clarified that the assistant must inspect the run every thirty minutes. Queue review prompts into the same existing Codex conversation, not another agent. Use pinned SSH to the MacBook app-server and record delivery receipts separately from model-written review acknowledgements. Actual reviews require the MacBook/app-server awake; do not claim delayed or unacknowledged reviews were completed. Retain snapshots for missed slots. No new paid discovery bank, model override, SDK reset or Anthropic key. Stop delivery after the original deadline/final audit grace and retain evidence."
+    },
+    {
+      "id": "tutor-endpoint-probe-20261016",
+      "name": "Bounded alternative tutor discovery indexes",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.tutor-endpoint-probe-20261016",
+      "schedule": "bounded trial with thirty-minute credential cooldown until the original 16 October 18:50:02 UTC deadline",
+      "requiresOpServiceAccount": true,
+      "opServiceAccountSource": "profile-or-keychain",
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
+        "command": [
+          "bash",
+          ".worktrees/tutor-credential-recovery-20261016/agent-loops/tutor-lead-pathways/install-endpoint-probe.sh",
+          "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts"
+        ]
+      },
+      "notes": "James requested exploring other DataForSEO endpoints. Native bounded Local Finder, Bing and homepage HTML term trials use at most fifty cents of the reduced shared USD15 remaining cap. Reuses the existing paid bank and lock, source receipts, duplicate inventory, Go/Decisions intake, uncertain holds and original deadline. No new budget, SDK turns or outreach. Retain source/evidence pending PR review; final cleanup removes owned stopped scratch only.",
+      "credentialCooldownPath": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts/state/tutor-endpoint-probe-20261016/credential-wait.json"
     }
   ]
 }

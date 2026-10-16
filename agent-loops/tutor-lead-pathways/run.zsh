@@ -4,7 +4,7 @@ umask 077
 export PATH="/opt/homebrew/bin:/opt/homebrew/opt/node@22/bin:/Users/jamesphoenix/.npm-global/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:${PATH:-}"
 print -r -- 'Tutor discovery launcher: loading shared profile' >&2
 # Interactive-only profile commands can return nonzero in launchd shells.
-source ~/.zshrc >/dev/null 2>&1 || true
+source ~/.zprofile >/dev/null 2>&1 || true
 print -r -- 'Tutor discovery launcher: profile loaded' >&2
 script_dir="${0:A:h}"
 root_dir="${script_dir:h:h}"

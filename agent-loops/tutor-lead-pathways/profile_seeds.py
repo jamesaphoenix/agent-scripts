@@ -6,6 +6,7 @@ from pathlib import Path
 from directory_profiles import admitted_url
 from discovery import PaidCache, atomic_json, now_iso
 from expansion_metrics import result_urls
+from configuration import focused_roots
 
 
 def write_seed_batch(root, destination, cache):
@@ -16,6 +17,21 @@ def write_seed_batch(root, destination, cache):
         if selected:
             urls.update(selected)
             origins.append({'requestKey': row['key'], 'receiptSha256': row['receipt_hash'], 'urls': selected})
+    for path in sorted((root / 'sdk/results').glob('slot-*.json')):
+        value = json.loads(path.read_text())
+        selected = sorted({url for row in value.get('leads', [])
+                           for candidate in [row.get('website'), *row.get('sourceUrls', [])]
+                           if (url := admitted_url(candidate))})
+        if selected:
+            urls.update(selected)
+            origins.append({'sdkResult': str(path), 'resultSha256': hashlib.sha256(path.read_bytes()).hexdigest(), 'urls': selected})
+    manifest = json.loads((root / 'manifest.json').read_text()) if (root / 'manifest.json').exists() else {}
+    for folder in focused_roots(manifest):
+        path = Path(folder) / 'profile-candidates-not-in-baseline.json'
+        if path.exists():
+            selected = sorted({url for row in json.loads(path.read_text()) if (url := admitted_url(row.get('url')))})
+            urls.update(selected)
+            origins.append({'focusedExport': str(path), 'exportSha256': hashlib.sha256(path.read_bytes()).hexdigest(), 'urls': selected})
     # Public URL hashes and attribution make re-import idempotent. The profile
     # stage owns seen/frontier/page counters and never trusts search locality.
     all_urls = sorted(urls)

@@ -10,9 +10,12 @@ import os
 from pathlib import Path
 import re
 import sqlite3
+import ssl
 import urllib.error
 import urllib.parse
 import urllib.request
+from teachtutti import PROFILE_PATH as TEACHTUTTI_PROFILE_PATH
+import spend_limit
 
 UTC = datetime.timezone.utc
 ENDPOINTS = {
@@ -20,6 +23,9 @@ ENDPOINTS = {
     "organic": "/v3/serp/google/organic/live/advanced",
     "directories": "/v3/serp/google/organic/live/advanced",
     "business": "/v3/business_data/business_listings/search/live",
+    "local_finder": "/v3/serp/google/local_finder/live/advanced",
+    "bing": "/v3/serp/bing/organic/live/advanced",
+    "html_terms": "/v3/domain_analytics/technologies/domains_by_html_terms/live",
 }
 CHAINS = re.compile(
     r"\b(?:kumon|explore learning|first class learning|mathnasium|tutor doctor|teachers to your home|"
@@ -41,6 +47,7 @@ NON_ACADEMIC_CATEGORIES = {
 }
 SCHOOL_CATEGORIES = {
     "school", "independent school", "private school", "preparatory school",
+    "primary school", "secondary school", "elementary school",
     "boarding school", "grammar school", "high school", "sixth form college",
     "college", "university", "preschool", "montessori preschool", "nursery school",
     "special education school",
@@ -55,17 +62,28 @@ SOURCE_HOSTS = {
     "firsttutors.com", "bdadyslexia.org.uk", "haddenham.net", "chilternchatter.com",
     "directory.familyinfo.buckinghamshire.gov.uk", "findtutors.co.uk", "uk.indeed.com",
     "childcare.co.uk", "bark.com", "yell.com", "schoolguide.co.uk", "cylex-uk.co.uk",
-    "yelp.com", "yelp.co.uk", "yelp.ca", "pmt.education", "tutorperch.com",
+    "yelp.com", "yelp.co.uk", "yelp.ca", "pmt.education", "tutorperch.com", "infobel.com", "netmums.com",
+    "thetutorsassociation.wildapricot.org",
+    "uktutors.com", "tutorextra.co.uk", "tutordex.net", "tuitionlist.co.uk", "teachtutti.co.uk", "apprentus.co.uk",
 }
 PROFILE_PATHS = {
+    "apprentus.co.uk": re.compile(r'/private-lessons/[a-z0-9-]{1,80}/[a-z0-9-]{1,80}/[a-z0-9-]{1,80}/[a-z0-9-]{1,160}'),
+    "teachtutti.co.uk": TEACHTUTTI_PROFILE_PATH,
     "childcare.co.uk": re.compile(r"^/profile/\d+/?$"),
     "tutorperch.com": re.compile(r"^/t/[a-z0-9]+(?:-[a-z0-9]+)+/?$"),
+    "thetutorsassociation.wildapricot.org": re.compile(r"^/Sys/PublicProfile/[1-9]\d{0,15}/6119301$"),
 }
 MERGED_LISTS = ("aliases", "categories", "placeIds", "provenance", "emails", "identifiers", "siteEvidence", "establishments", "contactClaims")
 
 
 def now_iso():
     return datetime.datetime.now(UTC).isoformat()
+
+
+def tls_context():
+    """Python.org installs may lack certifi. Keep verification with macOS trust."""
+    trust = Path('/etc/ssl/cert.pem')
+    return ssl.create_default_context(cafile=str(trust) if trust.is_file() else None)
 
 
 def parse_time(value):
@@ -104,7 +122,7 @@ class PaidCache:
     def __init__(self, root, budget_cents, prior_cents):
         self.root = Path(root).resolve()
         self.root.mkdir(parents=True, exist_ok=True, mode=0o700)
-        if type(budget_cents) is not int or type(prior_cents) is not int or not 100 <= budget_cents <= 10000 or prior_cents < 0 or budget_cents + prior_cents > 10000:
+        if type(budget_cents) is not int or type(prior_cents) is not int or not (budget_cents == 0 or 100 <= budget_cents <= 10000) or prior_cents < 0 or budget_cents + prior_cents > 10000:
             raise ValueError("Shared USD100 allowance exceeded")
         self.db = sqlite3.connect(self.root / "paid.sqlite", timeout=30)
         self.db.row_factory = sqlite3.Row
@@ -125,13 +143,14 @@ class PaidCache:
         self.db.execute("INSERT OR IGNORE INTO settings VALUES (1,?,?)", (budget_cents, prior_cents))
         self.db.commit()
         self.budget_cents, self.prior_cents = budget_cents, prior_cents
+        self._verified_receipts = {}
 
     def usage(self):
         rows = self.db.execute("SELECT * FROM requests WHERE imported=0").fetchall()
         spent = sum(r["cost_cents"] for r in rows)
         reserved = sum(r["reservation"] for r in rows if r["status"] == "submitting")
         uncertain = sum(r["reservation"] for r in rows if r["status"] == "uncertain")
-        return {"reportedCostUsd": float(sum(Decimal(r["cost_usd"]) for r in rows)),
+        result = {"reportedCostUsd": float(sum(Decimal(r["cost_usd"]) for r in rows)),
                 "spentCents": spent, "reservedCents": reserved, "uncertainCents": uncertain,
                 "exposureCents": spent + reserved + uncertain,
                 "remainingCents": self.budget_cents - spent - reserved - uncertain,
@@ -139,7 +158,13 @@ class PaidCache:
                 "sharedExposureCents": self.prior_cents + spent + reserved + uncertain,
                 "succeeded": sum(r["status"] == "succeeded" for r in rows),
                 "failed": sum(r["status"] == "failed" for r in rows),
-                "importedReceipts": self.db.execute("SELECT count(*) FROM requests WHERE imported=1").fetchone()[0]}
+                "importedReceipts": self.db.execute("SELECT count(*) FROM requests WHERE imported=1 AND receipt IS NOT NULL").fetchone()[0],
+                "importedUnsettledRequests": self.db.execute("SELECT count(*) FROM requests WHERE imported=1 AND status='uncertain'").fetchone()[0]}
+        limit = spend_limit.summary(self.db)
+        if limit:
+            result['spendLimit'] = limit
+            result['remainingCents'] = min(result['remainingCents'], int(Decimal(str(limit['remainingUsd'])) * 100))
+        return result
 
     def get(self, key):
         row = self.db.execute("SELECT * FROM requests WHERE key=?", (key,)).fetchone()
@@ -148,6 +173,12 @@ class PaidCache:
     def reserve(self, key, lane, payload, maximum_cents):
         if not 1 <= maximum_cents <= 200:
             raise ValueError("Invalid per-request reserve")
+        with spend_limit.admission(self.db) as available:
+            if available is not None and maximum_cents * spend_limit.NANO_PER_CENT > available:
+                return False
+            return self._reserve(key, lane, payload, maximum_cents)
+
+    def _reserve(self, key, lane, payload, maximum_cents):
         try:
             self.db.execute("BEGIN IMMEDIATE")
             if self.get(key) or self.usage()["remainingCents"] < maximum_cents:
@@ -178,6 +209,8 @@ class PaidCache:
             task = tasks[0]
             if not cost.is_finite() or cost < 0 or cost > 10000 or Decimal(str(task["cost"])) != cost:
                 raise ValueError("Paid task cost mismatch")
+            if cost * 100 > row['reservation']:
+                raise ValueError('Paid charge exceeded the reviewed reservation')
         except (KeyError, TypeError, ArithmeticError) as error:
             raise ValueError("Paid cost cannot be verified") from error
         receipt = self.root / "receipts" / (key + ".json")
@@ -217,11 +250,27 @@ class PaidCache:
                         (key, lane, json.dumps(payload, sort_keys=True), status, task["id"], str(receipt), file_hash(receipt), now_iso(), now_iso()))
         self.db.commit()
 
+    def import_unsettled(self, lane, payload, reason):
+        """The inherited exposure includes this hold. Preserve its no-repeat identity."""
+        key = request_key(lane, payload)
+        if self.get(key):
+            return
+        self.db.execute("INSERT INTO requests(key,lane,payload,status,reservation,error,imported,created_at,updated_at) VALUES(?,?,?,'uncertain',0,?,1,?,?)",
+                        (key, lane, json.dumps(payload, sort_keys=True), reason[:250], now_iso(), now_iso()))
+        self.db.commit()
+
     def receipt(self, row):
         path = self.root / "receipts" / (row["key"] + ".json")
+        stat = path.stat()
+        version = (stat.st_dev, stat.st_ino, stat.st_size, stat.st_mtime_ns, stat.st_ctime_ns, row['receipt_hash'])
+        previous = self._verified_receipts.get(row['key'])
+        if previous and previous[0] == version:
+            return previous[1]
         if file_hash(path) != row["receipt_hash"]:
             raise ValueError("Archived receipt changed")
-        return json.loads(path.read_text())["response"]
+        response = json.loads(path.read_text())["response"]
+        self._verified_receipts[row['key']] = (version, response)
+        return response
 
 
 class NoRedirect(urllib.request.HTTPRedirectHandler):
@@ -248,7 +297,7 @@ def provider_request(cache, lane, payload, maximum_cents=100):
                                      {"Authorization": "Basic " + auth, "Content-Type": "application/json"})
     raw, http_status = None, None
     try:
-        with urllib.request.build_opener(NoRedirect()).open(request, timeout=100) as response:
+        with urllib.request.build_opener(NoRedirect(), urllib.request.HTTPSHandler(context=tls_context())).open(request, timeout=100) as response:
             http_status = getattr(response, "status", None)
             raw = response.read(16 * 1024 * 1024 + 1)
         if len(raw) > 16 * 1024 * 1024:
@@ -516,8 +565,33 @@ def research_record(lead, source):
     return record
 
 
+def secondary_records(path, historical, lane, errors):
+    try:
+        result = json.loads(path.read_text())
+        if not isinstance(result, dict) or not isinstance(result.get('leads'), list):
+            raise ValueError('Expected a research object with a leads array')
+        digest = file_hash(path)
+    except (OSError, ValueError, TypeError) as error:
+        errors.append({'artifact': str(path), 'lane': lane, 'reason': type(error).__name__ + ': invalid research artifact'})
+        return []
+    rows = []
+    for index, lead in enumerate(result['leads']):
+        try:
+            if not isinstance(lead, dict):
+                raise ValueError('Expected a structured research lead')
+            record = research_record(lead, {'lane': lane, 'turn': path.name, 'artifact': str(path),
+                'artifactSha256': digest, 'historical': historical, 'observedAt': result.get('observedAt')})
+            if record:
+                rows.append(record)
+        except (ValueError, TypeError, AttributeError, KeyError) as error:
+            errors.append({'artifact': str(path), 'artifactSha256': digest, 'leadIndex': index,
+                           'lane': lane, 'reason': type(error).__name__ + ': invalid research lead'})
+    return rows
+
+
 def collect_records(cache, run_dir):
     records = []
+    import_errors = []
     manifest = json.loads((run_dir / "manifest.json").read_text()) if (run_dir / "manifest.json").exists() else {}
     evidence_roots = [Path(value) for value in manifest.get("historicalEvidenceRoots", [])]
     for row in cache.db.execute("SELECT * FROM requests WHERE receipt IS NOT NULL AND status='succeeded'").fetchall():
@@ -527,22 +601,12 @@ def collect_records(cache, run_dir):
     sdk_results = [(path, root != run_dir) for root in [run_dir, *evidence_roots]
                    for path in sorted((root / "sdk/results").glob("*.json"))]
     for path, historical in sdk_results:
-        result = json.loads(path.read_text())
-        for lead in result.get("leads", []):
-            record = research_record(lead, {"lane": "codex_oauth", "turn": path.name,
-                                           "artifact": str(path), "artifactSha256": file_hash(path),
-                                           "historical": historical})
-            if record:
-                records.append(record)
+        records.extend(secondary_records(path, historical, 'codex_oauth', import_errors))
     manual_results = [(path, root != run_dir) for root in [run_dir, *evidence_roots]
                       for path in sorted((root / "review/candidates").glob("*.json"))]
     for path, historical in manual_results:
-        result = json.loads(path.read_text())
-        for lead in result.get("leads", []):
-            record = research_record(lead, {"lane": "manual_source_review", "artifact": str(path), "historical": historical,
-                                           "artifactSha256": file_hash(path), "observedAt": result.get("observedAt")})
-            if record:
-                records.append(record)
+        records.extend(secondary_records(path, historical, 'manual_source_review', import_errors))
+    atomic_json(run_dir / 'review/candidate-import-errors.json', import_errors)
     # Reuse prior Go page evidence, then add this run's fetched pages. No website refetch is required.
     historical = list(Path(manifest["historyRoot"]).glob("tracelearn-tutors-*/discovery.json")) if manifest.get("historyRoot") else []
     historical.extend(path for root in evidence_roots for path in sorted((root / "crawls").glob("*/crawl.json")))

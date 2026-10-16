@@ -133,7 +133,9 @@ def profile_context_index(roots, candidates):
                     continue
                 decoded = decode_page(body, receipt.get('contentType', ''))
                 profile = profile_record(decoded, url)
-                if host in {'uktutors.com', 'tutordex.net', 'tutorextra.co.uk', 'tutorperch.com',
+                own_profile = (host in {'childcare.co.uk', 'tutorhunt.com'}
+                               and profile and profile.get('ownedProfileFields') is True)
+                if own_profile or host in {'uktutors.com', 'tutordex.net', 'tutorextra.co.uk', 'tutorperch.com',
                             'tuitionlist.co.uk', 'teachtutti.co.uk', 'apprentus.co.uk'} or host.endswith('.universitytutor.com'):
                     document = Document(decoded).root
                     canonicals = [n.attrs.get('content') if n.tag == 'meta' else n.attrs.get('href')
@@ -151,7 +153,7 @@ def profile_context_index(roots, candidates):
                 fields = {k: profile.get(k) for k in ('name', 'personId', 'platform', 'localityClaim', 'services',
                     'profileCity', 'profileCounty', 'organization', 'tuitionLevels', 'website', 'locationConflict')}
                 kind = 'public_profile_fields_v1'
-                if host not in {'thetutorsassociation.wildapricot.org', 'childcare.co.uk', 'tutorhunt.com'}:
+                if own_profile or host not in {'thetutorsassociation.wildapricot.org', 'childcare.co.uk', 'tutorhunt.com'}:
                     kind = 'public_profile_fields_v2'
                     fields.update({k: profile.get(k) for k in ('evidenceKind', 'institution', 'advertisedUnavailable',
                         'nonTuitionAdvert', 'currentLocalityDeclarations', 'additionalLocalityClaims')})

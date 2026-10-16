@@ -432,7 +432,8 @@ def profile_record(text, url):
     elif p.hostname == "www.tutorhunt.com":
         if not re.fullmatch(r"/users/[a-z0-9-]{1,64}/", p.path):
             return None
-        header = document.first(lambda n: n.attrs.get("id") == "profilenameinfo")
+        headers = [n for n in document.walk() if n.attrs.get("id") == "profilenameinfo"]
+        header = headers[0] if len(headers) == 1 else None
         names = [n for n in header.walk() if n.attrs.get('id') == 'profilenametxt'] if header else []
         if len(names) > 1:
             return None
@@ -446,6 +447,10 @@ def profile_record(text, url):
             return None
         row = annotate_advert(public_person(p.hostname, p.path.split('/')[2], name.text(), location.text(), subjects, url), description=info.text())
         row["advertisedUnavailable"] = bool(re.search(r"\bNot available to contact\b", document.text(), re.I))
+        tables = [n for n in document.walk() if n.tag == "table" and n.has_class("profilesubjectstattable")]
+        own_cards = [n for n in document.walk() if n.has_class("card") and name and n.first(
+            lambda c: c.tag == "h2" and c.text().casefold() == "information about " + name.text().casefold())]
+        row['ownedProfileFields'] = len(tables) == 1 and len(own_cards) == 1
         return row
     elif p.hostname == "www.uktutors.com":
         if not re.fullmatch(r"/tutor/\d+/[a-z0-9-]+", p.path):
@@ -514,13 +519,20 @@ def profile_record(text, url):
     elif p.hostname == "www.childcare.co.uk":
         if not re.fullmatch(r"/profile/\d+", p.path):
             return None
-        header = document.first(lambda n: n.has_class("profile-header--info-wrapper"))
+        owners = [n for n in document.walk() if n.attrs.get('data-service') == 'Private Tutor'
+                  and n.attrs.get('data-user-id') == p.path.split('/')[-1]]
+        if len(owners) > 1 or (not owners and any(n.attrs.get('data-service') == 'Private Tutor'
+                                               and n.attrs.get('data-user-id') for n in document.walk())):
+            return None
+        own = owners[0] if owners else document
+        headers = [n for n in own.walk() if n.has_class("profile-header--info-wrapper")]
+        header = headers[0] if len(headers) == 1 else None
         name = header.first(lambda n: n.tag == "h1") if header else None
         role = header.first(lambda n: n.tag == "h3") if header else None
         location = re.fullmatch(r"Private Tutor in (.+?)(?: \(also available[^)]*\))?", role.text()) if role else None
         if not name or not name.text() or not location:
             return None
-        services = [n.text() for n in document.walk() if n.has_class("tag") and n.has_class("positive")
+        services = [n.text() for n in own.walk() if n.has_class("tag") and n.has_class("positive")
                     and (ACADEMIC.search(n.text()) or NON_TUITION.search(n.text()))]
         county_claim = None
         for script in document.walk():
@@ -536,11 +548,12 @@ def profile_record(text, url):
                 for crumb in item["itemListElement"]:
                     if isinstance(crumb, dict) and crumb.get("name") == "Private Tutors in Buckinghamshire" and crumb.get("item") == "https://www.childcare.co.uk/search/Private-Tutors/Buckinghamshire":
                         county_claim = "Buckinghamshire"
-        about = document.first(lambda n: any(isinstance(c, Node) and c.tag == "h3" and c.text() == "About Me" for c in n.children))
+        about = own.first(lambda n: any(isinstance(c, Node) and c.tag == "h3" and c.text() == "About Me" for c in n.children))
         description = " ".join(c.text() for c in about.children if isinstance(c, Node) and c.tag == "p") if about else ""
         return annotate_advert({"name": name.text(), "personId": p.path.split("/")[-1], "platform": "childcare.co.uk", "sourceUrls": [url],
                 "localityClaim": location.group(1), "directoryCountyCategory": county_claim, "services": services,
-                "evidenceKind": "public_person_profile", "outreachEligible": False, "institution": False}, description=description)
+                "evidenceKind": "public_person_profile", "outreachEligible": False, "institution": False,
+                "ownedProfileFields": bool(owners), "ownRoleQuote": role.text() if owners else None}, description=description)
     elif p.hostname == "tutorperch.com":
         if not p.path.startswith("/t/"):
             return None

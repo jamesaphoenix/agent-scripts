@@ -1374,7 +1374,7 @@
         "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
         "command": [
           "bash",
-          ".worktrees/tutor-profile-evidence-20261016/agent-loops/tutor-lead-pathways/install-qualification.sh",
+          ".worktrees/tutor-offer-evidence-round2-20261016/agent-loops/tutor-lead-pathways/install-qualification.sh",
           "run",
           "tutor-qualification-20261016-recovery-10h",
           "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts"
@@ -1397,7 +1397,7 @@
         "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
         "command": [
           "bash",
-          ".worktrees/tutor-profile-evidence-20261016/agent-loops/tutor-lead-pathways/install-qualification.sh",
+          ".worktrees/tutor-offer-evidence-round2-20261016/agent-loops/tutor-lead-pathways/install-qualification.sh",
           "watch",
           "tutor-qualification-20261016-recovery-10h",
           "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts"

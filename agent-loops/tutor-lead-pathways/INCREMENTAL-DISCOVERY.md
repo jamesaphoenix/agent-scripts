@@ -101,6 +101,15 @@ worker's launcher and monitor. No secret is written to the cooldown evidence.
 The endpoint trial can retry credential startup at that interval, but completed
 requests and its total fifty-cent ceiling are retained across retries.
 
+Childcare and Tutor Hunt profile contexts include the parser-selected own
+biography when the person container is unambiguous and the cached canonical
+URL identifies that same member. Childcare role quotes come from that member's
+header. Other members' subject tags and biographies do not supply evidence.
+Legacy pages lacking those ownership checks keep their existing bare fields.
+Only changed local, subject-matching contexts with settled original Decisions
+receipts are queued again. Existing uncertain holds, thresholds, budgets and
+the saved deadline are unchanged; an unchanged context reuses its cached result.
+
 ## Actual agent reviews
 
 The native health probes are separate from James's request for the assistant to

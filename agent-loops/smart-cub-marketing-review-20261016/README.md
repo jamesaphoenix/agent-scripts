@@ -39,3 +39,12 @@ checkpoint before considering the next aspect. A marketing-revision-review-dispa
 file stops new admissions after the active request is durably saved. It never cancels a paid
 request or grants final approval. Revision status/logs have a separate marketing-revision
 prefix, preserving the old checkpoint. Installation is inactive until the operator's kick.
+
+The authorised pilot reserves four whole-clip review slots: two teaching, one marketing
+and one corrected teaching. All consumers must use the same pinned workflow/review_admission.py
+before two teaching shards are started. Family slots and exact media intents use inherited
+flock leases. A review child retains its lease if its dispatcher dies; never unlink lease
+files to recover capacity. A stop file prevents the next child admission, without cancelling
+an active paid request. Admission does not change the shared USD 100 ledger or reconcile
+uncertain requests. The standalone guard also accepts a single review command after `--`,
+with --run-root, --family, --id, --aspect and the exact --output-sha256.

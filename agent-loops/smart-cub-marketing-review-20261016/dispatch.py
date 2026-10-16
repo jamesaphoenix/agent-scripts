@@ -3,6 +3,7 @@
 import datetime
 import fcntl
 import hashlib
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -18,6 +19,7 @@ STATUS = RUN / 'workflow/marketing-review-dispatch-status.json'
 FROZEN = '03c83d8aae51a158de6ad10990902d98fb40d67a2853fe95fc8a2d103a8caf15'
 PROTECTED = ['scripts/review-media.py', 'scripts/review-ledger.py', 'data/scripts.json',
              'data/ctas.json', 'data/cta-assignments.json']
+ADMISSION_SHA = '541476d01d7010d7ed68cc612bd4f7a362f4c39c5b0d63dc0e2927c68fe2b2ad'
 
 
 def now():
@@ -69,6 +71,17 @@ def archive_previous_error(state):
     if previous:
         state.setdefault('historicalHalts', []).append({**previous, 'archivedAt': now(),
             'reason': 'Explicitly resumed queue; previous halt is historical'})
+
+
+def review_admission(intent):
+    path = RUN / 'workflow/review_admission.py'
+    if not path.is_file() or sha(path) != ADMISSION_SHA:
+        raise ValueError('Shared review admission implementation changed or is absent')
+    spec = importlib.util.spec_from_file_location('task_review_admission', path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module.admission(RUN, family='marketing', intent=intent,
+        stop_path=RUN / 'workflow/marketing-revision-review-dispatch.STOP')
 
 
 def configure_revision():
@@ -145,12 +158,14 @@ def revision_queue(revision):
                            '--ledger', str(RUN / 'ledger/media-review-ledger.json'),
                            '--evidence-root', config['canonicalEvidenceRoot']]
                 offset = log.stat().st_size if log.exists() else 0
-                with log.open('a') as stream:
-                    child = subprocess.Popen(command, cwd=APP, stdout=stream, stderr=subprocess.STDOUT,
-                                             env={**os.environ, 'PYTHONUNBUFFERED': '1'})
-                    state['activeReviewPid'] = child.pid
-                    save(STATUS, state)
-                    code = child.wait()
+                with review_admission({'id': identity, 'aspect': aspect,
+                                       'outputSha256': receipt['sha256']}) as admission:
+                    with log.open('a') as stream:
+                        child = admission.popen(command, cwd=APP, stdout=stream, stderr=subprocess.STDOUT,
+                                                 env={**os.environ, 'PYTHONUNBUFFERED': '1'})
+                        state['activeReviewPid'] = child.pid
+                        save(STATUS, state)
+                        code = child.wait()
                 if code:
                     raise ValueError(f'Revision reviewer failed for {key}; no automatic paid retry')
                 with log.open() as stream:

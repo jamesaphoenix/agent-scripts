@@ -4,6 +4,7 @@ from pathlib import Path
 import tempfile
 import subprocess
 import unittest
+from contextlib import contextmanager
 from unittest import mock
 
 SPEC=importlib.util.spec_from_file_location('dispatch',Path(__file__).with_name('dispatch.py'))
@@ -40,10 +41,15 @@ class ReadinessTests(unittest.TestCase):
                 return Child()
 
             receipt = {'sha256': 'exact output', 'receiptSha256': 'exact receipt'}
+            @contextmanager
+            def admission(intent):
+                class Lease:
+                    popen = staticmethod(provider)
+                yield Lease()
             with mock.patch.object(module, 'RUN', root), mock.patch.object(module, 'APP', app), \
                  mock.patch.object(module, 'STATUS', status), \
                  mock.patch.object(module, 'ready_pair', return_value={'tall': receipt, 'wide': receipt}), \
-                 mock.patch.object(module.subprocess, 'Popen', side_effect=provider):
+                 mock.patch.object(module, 'review_admission', side_effect=admission):
                 with self.assertRaisesRegex(ValueError, 'Operator stop file'):
                     module.revision_queue((config_path, config, module.sha(config_path)))
             state = json.loads(status.read_text())

@@ -14,6 +14,12 @@ if launchctl print "gui/$(id -u)/$LABEL" 2>/dev/null | /usr/bin/grep -q 'pid =';
 fi
 mkdir -p "$HOME/Library/LaunchAgents" "$RUN_DIR/evidence"
 mkdir -p "$RUNTIME/bin"
+mkdir -p "$RUN_DIR/workflow"
+if [[ -f "$RUN_DIR/workflow/review_admission.py" ]] && ! cmp -s "$SCRIPT_DIR/review_admission.py" "$RUN_DIR/workflow/review_admission.py"; then
+  echo 'Existing admission implementation differs; reconcile active consumers first' >&2
+  exit 1
+fi
+cp "$SCRIPT_DIR/review_admission.py" "$RUN_DIR/workflow/review_admission.py"
 cp "$SCRIPT_DIR/run.sh" "$SCRIPT_DIR/dispatch.py" "$RUNTIME/"
 cp "$SCRIPT_DIR/op-shim.py" "$RUNTIME/bin/op"
 chmod 700 "$RUNTIME/bin/op"

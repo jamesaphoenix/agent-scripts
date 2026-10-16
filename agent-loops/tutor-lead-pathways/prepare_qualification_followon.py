@@ -24,13 +24,18 @@ def prepare(previous, output, candidates, authorization, profile_root):
     start = datetime.datetime.fromisoformat(auth['requestedAt'])
     deadline = datetime.datetime.fromisoformat(auth['deadline'])
     approved = auth.get('instruction') == 'Yes, start the new pass'
+    hours = 12
     if auth.get('instruction') == ADDITIONAL_DISCOVERY_INSTRUCTION:
         from incremental_discovery import validate_authorization
         validate_authorization(auth)
         approved = True
+    from incremental_discovery import RECOVERY_INSTRUCTION, validate_recovery_authorization
+    if auth.get('instruction') == RECOVERY_INSTRUCTION:
+        validate_recovery_authorization(auth)
+        approved, hours = True, 10
     if (not approved or start.tzinfo is None or deadline.tzinfo is None
-            or deadline-start != datetime.timedelta(hours=12)):
-        raise ValueError('The new pass requires its explicit twelve-hour authorisation')
+            or deadline-start != datetime.timedelta(hours=hours)):
+        raise ValueError('The new pass requires its explicit bounded window authorisation')
     with (previous/'run.lock').open('a') as lock:
         fcntl.flock(lock, fcntl.LOCK_EX|fcntl.LOCK_NB)
         status = json.loads((previous/'status.json').read_text())

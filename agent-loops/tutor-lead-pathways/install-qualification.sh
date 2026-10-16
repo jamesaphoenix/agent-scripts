@@ -22,7 +22,7 @@ value={'Label':label,'ProgramArguments':['/bin/zsh','-f',scripts+'/qualify.zsh',
 if mode=='watch':
  value['ProgramArguments']=[sys.executable,scripts+'/qualify_inventory.py','watch','--run-dir',str(state),
      '--owner-label',owner,'--monitor-label',monitor]
- value['StartInterval']=900
+ value['StartInterval']=job.get('monitorIntervalSeconds',900)
 path=pathlib.Path.home()/'Library/LaunchAgents'/f'{label}.plist'
 path.parent.mkdir(parents=True,exist_ok=True)
 with path.open('wb') as stream:plistlib.dump(value,stream)

@@ -13,7 +13,7 @@ scripts,root,stage,mode=sys.argv[1:]
 sys.path.insert(0,scripts)
 from incremental_discovery import load_job,process_live
 state=pathlib.Path(root)/'state'/stage
-load_job(state)
+job,_=load_job(state)
 owner='com.jud.'+stage
 label=owner if mode=='run' else owner+'-watch'
 if process_live(label):
@@ -25,7 +25,7 @@ value={'Label':label,'WorkingDirectory':root,'RunAtLoad':True,'ProcessType':'Sta
  'EnvironmentVariables':{'PATH':'/opt/homebrew/bin:/usr/bin:/bin','PYTHONUNBUFFERED':'1'}}
 if mode=='watch':
  value['ProgramArguments']=[sys.executable,scripts+'/incremental_discovery.py','watch','--run-dir',str(state)]
- value['StartInterval']=900
+ value['StartInterval']=job['monitorIntervalSeconds']
 path=pathlib.Path.home()/'Library/LaunchAgents'/(label+'.plist')
 path.parent.mkdir(parents=True,exist_ok=True)
 with path.open('wb') as stream:plistlib.dump(value,stream)

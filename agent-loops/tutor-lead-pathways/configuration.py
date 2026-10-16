@@ -54,9 +54,13 @@ def profile_page_ceiling(job):
     if hashlib.sha256(raw).hexdigest() != job['additionalWindowAuthorizationSha256']:
         raise ValueError('Additional public-crawl authorization changed')
     authorization = json.loads(raw)
-    start, deadline, _ = campaign_window({'hours': 12,
-        'authorizedStartedAt': authorization['requestedAt'],
-        'authorizedDeadline': authorization['deadline']})
+    from incremental_discovery import RECOVERY_INSTRUCTION, validate_recovery_authorization
+    if authorization.get('instruction') == RECOVERY_INSTRUCTION:
+        start, deadline = validate_recovery_authorization(authorization)
+    else:
+        start, deadline, _ = campaign_window({'hours': 12,
+            'authorizedStartedAt': authorization['requestedAt'],
+            'authorizedDeadline': authorization['deadline']})
     if (job['startedAt'] != start.isoformat() or job['deadlineUnix'] != deadline.timestamp()
             or type(job['newAttemptLimit']) is not int or not 1 <= job['newAttemptLimit'] <= 12000
             or job['pageLimit'] != job['initialAttemptCount'] + job['newAttemptLimit']

@@ -1314,6 +1314,138 @@
         ]
       },
       "notes": "Explicit additional USD50 and new twelve-hour window. New discovery bank only, old USD100 ledger and all uncertain reservations preserved. Existing separate USD10 Decisions cache reused; no SDK turns or Anthropic key. Bucks and Milton Keynes independent academic tutors only. Go crawler, public profiles, Maps and organic query seeding, source yield and SHA256 reuse. No outreach or purchases. Native fifteen-minute checks preserve deadline and budgets across recovery. Clean task scratch on completion; retain exports, evidence, caches, ledgers and source awaiting PR review."
+    },
+    {
+      "id": "tutor-incremental-20261016-recovery-10h",
+      "name": "tutor-incremental-20261016-recovery-10h",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.tutor-incremental-20261016-recovery-10h",
+      "schedule": "explicit ten-hour recovery from 16 October 08:50:02 to 18:50:02 UTC",
+      "requiresOpServiceAccount": true,
+      "opServiceAccountSource": "profile-or-keychain",
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
+        "command": [
+          "bash",
+          ".worktrees/tutor-recovery-20261016-10h/agent-loops/tutor-lead-pathways/install-incremental.sh",
+          "run",
+          "tutor-incremental-20261016-recovery-10h",
+          "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts"
+        ]
+      },
+      "notes": "User explicitly requested fixing the script, another ten hours and checks every thirty minutes. No additional money authorised: use the original USD50 paid.sqlite, retaining USD0.56 conservative exposure and USD49.44 remaining at handoff, plus the existing USD10 Decisions cache. No new paid bank, SDK turns, Anthropic key or outreach. Empty results are neutral; engine/query errors pause their tactic; Maps and plain organic have reserved slots. Account/billing errors and uncertain submissions remain binding stops. Preserve immutable old windows, all receipts, source caches, scope and branch caps. Final native cleanup removes only task scratch and retains unmerged review work."
+    },
+    {
+      "id": "tutor-incremental-20261016-recovery-10h-watch",
+      "name": "tutor-incremental-20261016-recovery-10h checks",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.tutor-incremental-20261016-recovery-10h-watch",
+      "schedule": "every thirty minutes until 16 October 18:50:02 UTC",
+      "requiresOpServiceAccount": false,
+      "opServiceAccountSource": null,
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
+        "command": [
+          "bash",
+          ".worktrees/tutor-recovery-20261016-10h/agent-loops/tutor-lead-pathways/install-incremental.sh",
+          "watch",
+          "tutor-incremental-20261016-recovery-10h",
+          "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts"
+        ]
+      },
+      "notes": "User explicitly requested fixing the script, another ten hours and checks every thirty minutes. No additional money authorised: use the original USD50 paid.sqlite, retaining USD0.56 conservative exposure and USD49.44 remaining at handoff, plus the existing USD10 Decisions cache. No new paid bank, SDK turns, Anthropic key or outreach. Empty results are neutral; engine/query errors pause their tactic; Maps and plain organic have reserved slots. Account/billing errors and uncertain submissions remain binding stops. Preserve immutable old windows, all receipts, source caches, scope and branch caps. Final native cleanup removes only task scratch and retains unmerged review work."
+    },
+    {
+      "id": "tutor-qualification-20261016-recovery-10h",
+      "name": "tutor-qualification-20261016-recovery-10h",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.tutor-qualification-20261016-recovery-10h",
+      "schedule": "explicit ten-hour recovery from 16 October 08:50:02 to 18:50:02 UTC",
+      "requiresOpServiceAccount": true,
+      "opServiceAccountSource": "profile-or-keychain",
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
+        "command": [
+          "bash",
+          ".worktrees/tutor-recovery-20261016-10h/agent-loops/tutor-lead-pathways/install-qualification.sh",
+          "run",
+          "tutor-qualification-20261016-recovery-10h",
+          "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts"
+        ]
+      },
+      "notes": "User explicitly requested fixing the script, another ten hours and checks every thirty minutes. No additional money authorised: use the original USD50 paid.sqlite, retaining USD0.56 conservative exposure and USD49.44 remaining at handoff, plus the existing USD10 Decisions cache. No new paid bank, SDK turns, Anthropic key or outreach. Empty results are neutral; engine/query errors pause their tactic; Maps and plain organic have reserved slots. Account/billing errors and uncertain submissions remain binding stops. Preserve immutable old windows, all receipts, source caches, scope and branch caps. Final native cleanup removes only task scratch and retains unmerged review work."
+    },
+    {
+      "id": "tutor-qualification-20261016-recovery-10h-watch",
+      "name": "tutor-qualification-20261016-recovery-10h checks",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.tutor-qualification-20261016-recovery-10h-watch",
+      "schedule": "every thirty minutes until 16 October 18:50:02 UTC",
+      "requiresOpServiceAccount": false,
+      "opServiceAccountSource": null,
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
+        "command": [
+          "bash",
+          ".worktrees/tutor-recovery-20261016-10h/agent-loops/tutor-lead-pathways/install-qualification.sh",
+          "watch",
+          "tutor-qualification-20261016-recovery-10h",
+          "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts"
+        ]
+      },
+      "notes": "User explicitly requested fixing the script, another ten hours and checks every thirty minutes. No additional money authorised: use the original USD50 paid.sqlite, retaining USD0.56 conservative exposure and USD49.44 remaining at handoff, plus the existing USD10 Decisions cache. No new paid bank, SDK turns, Anthropic key or outreach. Empty results are neutral; engine/query errors pause their tactic; Maps and plain organic have reserved slots. Account/billing errors and uncertain submissions remain binding stops. Preserve immutable old windows, all receipts, source caches, scope and branch caps. Final native cleanup removes only task scratch and retains unmerged review work."
+    },
+    {
+      "id": "bucks-private-tutors-20261016-recovery-10h",
+      "name": "bucks-private-tutors-20261016-recovery-10h",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.bucks-private-tutors-20261016-recovery-10h",
+      "schedule": "explicit ten-hour recovery from 16 October 08:50:02 to 18:50:02 UTC",
+      "requiresOpServiceAccount": false,
+      "opServiceAccountSource": null,
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
+        "command": [
+          "bash",
+          ".worktrees/tutor-recovery-20261016-10h/agent-loops/tutor-lead-pathways/install-directory-profiles.sh",
+          "run",
+          "bucks-private-tutors-20261016-recovery-10h",
+          "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts"
+        ]
+      },
+      "notes": "User explicitly requested fixing the script, another ten hours and checks every thirty minutes. No additional money authorised: use the original USD50 paid.sqlite, retaining USD0.56 conservative exposure and USD49.44 remaining at handoff, plus the existing USD10 Decisions cache. No new paid bank, SDK turns, Anthropic key or outreach. Empty results are neutral; engine/query errors pause their tactic; Maps and plain organic have reserved slots. Account/billing errors and uncertain submissions remain binding stops. Preserve immutable old windows, all receipts, source caches, scope and branch caps. Final native cleanup removes only task scratch and retains unmerged review work."
+    },
+    {
+      "id": "bucks-private-tutors-20261016-recovery-10h-watch",
+      "name": "bucks-private-tutors-20261016-recovery-10h checks",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.bucks-private-tutors-20261016-recovery-10h-watch",
+      "schedule": "every thirty minutes until 16 October 18:50:02 UTC",
+      "requiresOpServiceAccount": false,
+      "opServiceAccountSource": null,
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
+        "command": [
+          "bash",
+          ".worktrees/tutor-recovery-20261016-10h/agent-loops/tutor-lead-pathways/install-directory-profiles.sh",
+          "watch",
+          "bucks-private-tutors-20261016-recovery-10h",
+          "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts"
+        ]
+      },
+      "notes": "User explicitly requested fixing the script, another ten hours and checks every thirty minutes. No additional money authorised: use the original USD50 paid.sqlite, retaining USD0.56 conservative exposure and USD49.44 remaining at handoff, plus the existing USD10 Decisions cache. No new paid bank, SDK turns, Anthropic key or outreach. Empty results are neutral; engine/query errors pause their tactic; Maps and plain organic have reserved slots. Account/billing errors and uncertain submissions remain binding stops. Preserve immutable old windows, all receipts, source caches, scope and branch caps. Final native cleanup removes only task scratch and retains unmerged review work."
     }
   ]
 }

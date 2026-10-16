@@ -1,6 +1,7 @@
 """A separately authorised discovery bank; previous budgets and holds stay sealed."""
 import argparse
 from contextlib import ExitStack
+import datetime
 import fcntl
 import json
 import os
@@ -20,6 +21,7 @@ from keyword_expansion import SearchIndex, keyword_plan, search_identity, upstre
 from prepare_campaign import archive_history, seed_batch
 
 INSTRUCTION = 'My suggestion is have another $50 of budget and go find more tutors for the next 12 hours plz.'
+RECOVERY_INSTRUCTION = 'Could you fix the script and run it for another 10 hours or so then?'
 EXTRA_CENTS = 5000
 STOP = False
 
@@ -30,6 +32,17 @@ def validate_authorization(auth):
     if (auth.get('instruction') != INSTRUCTION or auth.get('additionalDiscoveryCents') != EXTRA_CENTS
             or auth.get('previousDiscoveryCapCents') != 10000 or auth.get('combinedDiscoveryCapCents') != 15000):
         raise ValueError('An explicit additional USD50 discovery authorisation is required')
+    return start, deadline
+
+
+def validate_recovery_authorization(auth):
+    start = datetime.datetime.fromisoformat(auth['requestedAt'])
+    deadline = datetime.datetime.fromisoformat(auth['deadline'])
+    if (auth.get('instruction') != RECOVERY_INSTRUCTION or start.tzinfo is None or deadline.tzinfo is None
+            or deadline - start != datetime.timedelta(hours=10) or auth.get('newBudgetCents') != 0
+            or auth.get('originalBudgetCapCents') != EXTRA_CENTS or auth.get('monitorIntervalSeconds') != 1800
+            or not re.fullmatch('[a-f0-9]{64}', auth.get('bankManifestSha256', ''))):
+        raise ValueError('Recovery requires an explicit ten-hour window and the existing budget')
     return start, deadline
 
 
@@ -138,6 +151,18 @@ def load_job(root):
         if file_hash(root / name) != job[key]:
             raise ValueError('Immutable discovery input changed: ' + name)
     auth = json.loads((root / 'authorization.json').read_text())
+    if job.get('recoveryBankRoot'):
+        _, deadline = validate_recovery_authorization(auth)
+        bank = Path(job['recoveryBankRoot'])
+        original, _ = load_job(bank)
+        if (bank.resolve() != Path(auth['bankRoot']).resolve()
+                or file_hash(bank / 'manifest.json') != auth['bankManifestSha256']
+                or job['authorizedStartedAt'] != auth['requestedAt'] or job['authorizedDeadline'] != auth['deadline']
+                or job['monitorIntervalSeconds'] != 1800 or job['planSha256'] != original['planSha256']
+                or any(job[k] != original[k] for k in ('budgetCents', 'priorExposureCents', 'originalBankExposureCents',
+                    'combinedCapCents', 'maximumSdkTurns', 'keywordIndexPath', 'originalOwners', 'towns', 'scopeSha256'))):
+            raise ValueError('Recovery cannot change its bank, scope, queries, deadline or allowance')
+        return job, deadline.timestamp()
     _, deadline = validate_authorization(auth)
     if (job['budgetCents'] != EXTRA_CENTS or job['priorExposureCents'] != 0 or job['combinedCapCents'] != 15000
             or job['originalBankExposureCents'] != auth['originalBankExposureCents']
@@ -169,8 +194,15 @@ def wake_qualification(job):
 
 
 def choose_query(plan, cache, index, state):
-    choices = [q for q in index.unsearched(plan) if not cache.get(q['key'])]
+    choices = [q for q in index.unsearched(plan) if not cache.get(q['key'])
+               and state.get('tacticHealth', {}).get(q['tactic'], {}).get('cooldownUntil', 0) <= time.time()]
     count = state['completedQueries']
+    # Reserve two of every three slots for reliable plain searches. Operator
+    # novelty must not starve Maps or simpler organic searches.
+    preferred = 'plain:maps' if count % 3 == 0 else 'plain:organic' if count % 3 == 1 else None
+    preferred_choices = [q for q in choices if q['tactic'] == preferred]
+    if preferred_choices:
+        choices = preferred_choices
     def score(q):
         stats = state['tactics'].get(q['tactic'], {})
         attempts = stats.get('requests', 0)
@@ -179,6 +211,50 @@ def choose_query(plan, cache, index, state):
         return (0 if attempts == 0 else 1, attempts if count % 10 == 0 else -novelty,
                 q.get('priority', 0) * -1, q['key'])
     return min(choices, key=score) if choices else None
+
+
+def result_kind(row, envelope):
+    """Provider codes are documented at docs.dataforseo.com/v3/appendix/errors/."""
+    if row and re.search(r'HTTP Error (?:401|402)\b', row.get('error') or ''):
+        return 'account_blocked'
+    if not row or row['status'] in ('submitting', 'uncertain'):
+        return 'uncertain'
+    if row['status'] == 'succeeded':
+        return 'success'
+    codes = [envelope.get('status_code')] if envelope else []
+    codes += [task.get('status_code') for task in (envelope or {}).get('tasks', [])]
+    if 40102 in codes:
+        return 'empty'
+    if any(code in {40100, 40104, 40200, 40201, 40203, 40204, 40207, 40210} for code in codes):
+        return 'account_blocked'
+    if any(code in {40101, 40103, 40202, 40209, 50000, 50301, 50302, 50303, 50304, 50401, 50402} for code in codes):
+        return 'source_error'
+    return 'query_error'
+
+
+def record_health(state, item, row, envelope, now=None):
+    now = time.time() if now is None else now
+    kind = result_kind(row, envelope)
+    health = state.setdefault('tacticHealth', {}).setdefault(item['tactic'], {'failures': 0, 'cooldownUntil': 0})
+    state.setdefault('outcomes', {})[kind] = state.get('outcomes', {}).get(kind, 0) + 1
+    state['consecutiveUncertain'] = state.get('consecutiveUncertain', 0) + 1 if kind == 'uncertain' else 0
+    if kind in ('success', 'empty'):
+        health.update(failures=0, cooldownUntil=0)
+    elif kind in ('source_error', 'query_error'):
+        health['failures'] += 1
+        if health['failures'] >= 3:
+            health['cooldownUntil'] = now + min(1800, 300 * 2 ** min(health['failures'] - 3, 3))
+    return 'account_blocked' if kind == 'account_blocked' else 'api_unavailable' if state['consecutiveUncertain'] >= 5 else None
+
+
+def recoverable_stop(state, cache):
+    """Reconcile a legacy broad outage label from settled receipts, never clear holds."""
+    if state.get('phase') != 'api_unavailable':
+        return False
+    rows = cache.db.execute('''SELECT * FROM requests WHERE imported=0
+        ORDER BY created_at DESC, key DESC LIMIT 5''').fetchall()
+    return len(rows) == 5 and all(r['status'] == 'failed' and r['receipt']
+        and result_kind(dict(r), cache.receipt(r)) in ('empty', 'source_error', 'query_error') for r in rows)
 
 
 def observe_results(root, job, item, envelope, state, seen):
@@ -216,12 +292,13 @@ def run(root):
         return
     signal.signal(signal.SIGTERM, stop)
     signal.signal(signal.SIGINT, stop)
-    with (root / 'run.lock').open('a') as lock:
+    bank_root = Path(job.get('recoveryBankRoot', root))
+    with (bank_root / 'run.lock').open('a') as lock:
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         for old in job['originalOwners']:
             if file_hash(Path(old['path']) / 'manifest.json') != old['manifestSha256'] or process_live(old['ownerLabel']):
                 raise ValueError('Previous spending owner changed or restarted')
-        cache, index = PaidCache(root, EXTRA_CENTS, 0), SearchIndex(job['keywordIndexPath'])
+        cache, index = PaidCache(bank_root, EXTRA_CENTS, 0), SearchIndex(job['keywordIndexPath'])
         state = json.loads((root / 'runtime.json').read_text())
         seen = set(state['seenOwners'])
         if not state.get('baselineOwnersCaptured'):
@@ -230,13 +307,17 @@ def run(root):
         state.update(phase='running', pid=os.getpid(), loadedSourceSha=loaded_source_sha(), observedAt=now_iso())
         atomic_json(root / 'runtime.json', state)
         plan = json.loads((root / 'plan.json').read_text())
-        consecutive_failures = 0
         try:
             cache.recover_interrupted()
-            index.sync_run(root, job['towns'])
+            index.sync_run(bank_root, job['towns'])
             while not STOP and time.time() < deadline - 120:
                 item = choose_query(plan, cache, index, state)
                 if not item:
+                    if any(not cache.get(q['key']) for q in index.unsearched(plan)):
+                        state.update(observedAt=now_iso(), waitingFor='tactic_cooldown')
+                        atomic_json(root / 'runtime.json', state)
+                        time.sleep(min(30, max(0, deadline - 120 - time.time())))
+                        continue
                     state['phase'] = 'search_plan_exhausted'
                     break
                 reserve = 2 if item['lane'] == 'maps' else 5
@@ -246,16 +327,20 @@ def run(root):
                 started = time.monotonic()
                 envelope = provider_request(cache, item['lane'], item['payload'], maximum_cents=reserve)
                 row = cache.get(item['key'])
-                consecutive_failures = 0 if row and row['status'] == 'succeeded' else consecutive_failures + 1
-                observe_results(root, job, item, envelope if row and row['status'] == 'succeeded' else None, state, seen)
+                terminal = record_health(state, item, row, envelope)
+                try:
+                    observe_results(root, job, item, envelope if row and row['status'] == 'succeeded' else None, state, seen)
+                except (ValueError, TypeError, KeyError, OSError) as error:
+                    state['errors'] = [*state['errors'][-99:], {'at': now_iso(), 'stage': 'result_extraction',
+                        'key': item['key'], 'type': type(error).__name__, 'message': str(error)[:240]}]
                 state['completedQueries'] += 1
-                index.sync_run(root, job['towns'])
+                index.sync_run(bank_root, job['towns'])
                 wake_qualification(job)
                 state.update(observedAt=now_iso(), seenOwners=sorted(seen), budget=cache.usage(),
                     combinedExposureCents=job['originalBankExposureCents'] + cache.usage()['exposureCents'])
                 atomic_json(root / 'runtime.json', state)
-                if consecutive_failures >= 5:
-                    state['phase'] = 'api_unavailable'
+                if terminal:
+                    state['phase'] = terminal
                     break
                 remaining = job['requestIntervalSeconds'] - (time.monotonic() - started)
                 while remaining > 0 and not STOP and time.time() < deadline - 120:
@@ -280,19 +365,36 @@ def watch(root):
     state = json.loads((root / 'runtime.json').read_text())
     live = process_live(owner)
     prior = json.loads((root / 'monitor.json').read_text()) if (root / 'monitor.json').exists() else {}
-    terminal = time.time() >= deadline or state['phase'] in ('api_unavailable', 'budget_reached', 'search_plan_exhausted', 'deadline')
+    recovered = False
+    if not live and time.time() < deadline and state.get('phase') == 'api_unavailable':
+        bank = Path(job.get('recoveryBankRoot', root))
+        with (bank / 'run.lock').open('a') as lock:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            cache = PaidCache(bank, EXTRA_CENTS, 0)
+            try: recovered = recoverable_stop(state, cache)
+            finally: cache.db.close()
+        if recovered:
+            state.update(phase='interrupted', recoveryReason='Settled search-engine/empty results were not an account outage')
+            atomic_json(root / 'runtime.json', state)
+    terminal = time.time() >= deadline or state['phase'] in ('api_unavailable', 'account_blocked', 'budget_reached', 'search_plan_exhausted', 'deadline')
     report = {'observedAt': now_iso(), 'processLive': live, 'terminal': terminal, 'runtime': state,
-              'recoveries': prior.get('recoveries', 0), 'deadline': job['authorizedDeadline']}
+              'recoveries': prior.get('recoveries', 0), 'deadline': job['authorizedDeadline'], 'settledErrorStopRecovered': recovered}
     if not terminal and not live and report['recoveries'] < 3:
         subprocess.run(['launchctl', 'kickstart', f'gui/{os.getuid()}/{owner}'], capture_output=True, timeout=10)
         report['recoveries'] += 1
     if not terminal:
         wake_qualification(job)
+    qroot = Path(job['qualificationRoot'])
+    if (qroot / 'status.json').exists():
+        qualification = json.loads((qroot / 'status.json').read_text())
+        report['qualification'] = {k: qualification.get(k) for k in ('phase', 'observedAt', 'counts', 'decisions')}
+    report['health'] = 'terminal' if terminal else 'degraded' if not live else 'stalled' if time.time() - datetime.datetime.fromisoformat(state['observedAt']).timestamp() > 1800 else 'healthy'
     atomic_json(root / 'monitor.json', report)
     atomic_json(root / 'monitor' / (now_iso().replace(':', '-') + '.json'), report)
-    if terminal and not live:
+    if terminal and not live and time.time() >= deadline:
+        bank = Path(job.get('recoveryBankRoot', root))
         atomic_json(root / 'cleanup.json', {'observedAt': now_iso(), 'removed': [],
-            'retained': ['paid.sqlite', 'receipts', 'observations', 'manifest.json', 'authorization.json',
+            'retained': [str(bank / 'paid.sqlite'), str(bank / 'receipts'), 'observations', 'manifest.json', 'authorization.json',
                          'plan.json', 'runtime.json', 'monitor', 'source checkout awaiting PR review'],
             'note': 'No disposable downloads were created. Preserve all paid and source evidence.'})
         subprocess.run(['launchctl', 'bootout', f'gui/{os.getuid()}/{owner}-watch'], capture_output=True, timeout=10)

@@ -30,11 +30,41 @@ The handoff, manifests, budgets, source SHA, observations, source yields and
 monitor reports live in the three runtime state directories. The paid worker
 reserves USD0.02 per Maps request and USD0.05 per organic request. These are
 maximum reservations, not reported provider prices. It stops after five
-consecutive unverified/failed responses, an exhausted plan, its budget or the
-original deadline. Public-profile and qualification workers preserve their own
+consecutive uncertain submissions, an account/billing error, an exhausted plan,
+its budget or the original deadline. Empty results are neutral. Repeated engine
+or query errors pause their tactic, leaving other sources available.
+Public-profile and qualification workers preserve their own
 durable stop conditions. No emails, domain purchases, SDK turns or Anthropic API
 key are part of this pass.
 
 At terminal completion each monitor cleans only its worker's scratch. Retain
 exports, receipts, page caches, ledgers, reservations and source awaiting PR review.
 The MacBook is not responsible for the jobs' lifetime.
+
+## Ten-hour recovery
+
+The 16 October request authorises a new ten-hour window from 08:50:02 UTC to
+18:50:02 UTC, with thirty-minute native checks. It adds no money. The recovery
+manifest references the original USD50 `paid.sqlite` directly; its spent amount,
+reservations, SHA256 receipts and failed identities remain unchanged. No new
+paid ledger is created. The original twelve-hour manifest and deadline remain
+as historical evidence.
+
+The earlier owner stopped after five settled responses mixed internal search
+engine errors with empty results. Those outcomes do not establish an account
+outage. Regression coverage runs past five engine errors and two empty results
+to a successful request, while account failures and uncertain charges still
+stop safely. Provider code meanings are documented in the
+[DataForSEO error reference](https://docs.dataforseo.com/v3/appendix/errors/).
+
+Two of every three query slots are reserved for Maps and plain organic searches,
+so novelty from operator queries cannot monopolise discovery. The monitor keeps
+reporting genuine terminal account/budget stops until the saved deadline; it does
+not repeatedly submit paid work. It can reconcile the legacy outage label only
+from settled, hash-verified failure receipts and never releases uncertain holds.
+
+`prepare_recovery.py` seals a stopped, drained profile worker for replacement,
+preserving its old job, deadline, records and fetch receipts. It refuses live or
+nonempty parents. The new profile and qualification stages retain reusable
+context and their shared Decisions bank, with all three native monitors set to
+1,800 seconds. Final cleanup retains paid evidence and source awaiting PR review.

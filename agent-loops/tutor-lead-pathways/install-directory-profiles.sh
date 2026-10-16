@@ -26,6 +26,7 @@ sys.path.insert(0,scripts)
 from configuration import profile_page_ceiling
 job_path=pathlib.Path(state)/"job.json"
 hours,pages,target=3,5000,1000
+job={}
 if job_path.exists():
  job=json.loads(job_path.read_text())
  hours=(job["deadlineUnix"]-datetime.datetime.fromisoformat(job["startedAt"]).timestamp())/3600
@@ -44,7 +45,7 @@ value={"Label":label,"ProgramArguments":[sys.executable,scripts+"/directory_prof
 if mode=="watch":
  value["ProgramArguments"]=[sys.executable,scripts+"/monitor_directory_profiles.py","--run-dir",state,
        "--owner-label",owner,"--monitor-label",monitor]
- value.pop("KeepAlive");value.pop("ThrottleInterval");value["StartInterval"]=900
+ value.pop("KeepAlive");value.pop("ThrottleInterval");value["StartInterval"]=job.get('monitorIntervalSeconds',900)
  value["StandardOutPath"]=state+"/monitor-stdout.log";value["StandardErrorPath"]=state+"/monitor-stderr.log"
 with open(path,"wb") as stream:plistlib.dump(value,stream)
 PY

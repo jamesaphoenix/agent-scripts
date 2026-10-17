@@ -567,6 +567,25 @@
         ]
       },
       "notes": "Wait for the main effect-14 review deferral and the preceding native-framing repair job. Preserve unreviewed source movies and encoded audio, rerender only the portrait, transfer updated exact-hash files, then stop for local frame inspection. This worker sends zero paid generations and does not archive an unchecked repair. Clear the explicit pre-review hold only after decoded frames prove the label is visible, then run its one first paired review through the original MacBook ledger and verify private R2/D1 delivery before owned scratch cleanup. No public release or owner acceptance."
+    },
+    {
+      "id": "brand-video-native-ledger-20261017",
+      "name": "Rebuild coverage-ledger geometry before its first paired review",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.brand-video-native-ledger-20261017",
+      "schedule": "Finite RunAtLoad; wait for the original unreviewed pair and explicit quality hold",
+      "requiresOpServiceAccount": false,
+      "opServiceAccountSource": null,
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts/.worktrees/brand-video-render",
+        "command": [
+          "bash",
+          "agent-loops/brand-video-native-ledger/install-launchd.sh"
+        ]
+      },
+      "notes": "Preserve original ai-19 movies and native scenes; rebuild both native plates through the shared worker preparation helper after removing a foreground plaque that hides a visit counter. Reuse cached speech, prove encoded audio unchanged, and stop after transfer for local inspection. Zero paid generations in this worker. Only after inspection may the MacBook bridge send its one first paired review and privately byte-verify current and historical objects. Retain scene/plate/movie evidence and old checkpoints until verified; then remove only owned temporary frames. Keep main queue and unrelated jobs running. No owner acceptance or public release."
     }
   ]
 }

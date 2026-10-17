@@ -1002,17 +1002,20 @@ def run(root, seeds, hours, page_limit, target):
                 state["errors"].append({"reason": "seed_batch_rejected", "type": type(error).__name__})
             if not state["queue"]:
                 if source_still_producing(job):
-                    state["updatedAt"] = now()
-                    save(state_path, state)
+                    if state.get("phase") != "awaiting_sources":
+                        state["phase"] = "awaiting_sources"
+                        state["updatedAt"] = now()
+                        save(state_path, state)
                     save(root / 'status.json', {'observedAt': now(), 'pid': os.getpid(), 'phase': 'awaiting_sources',
                         'attempts': state['attempts'], 'queue': 0, 'errors': len(state['errors']),
                         'bucksPrivateProfiles': len(json.loads((root / 'bucks-private-tutors.json').read_text())),
                         'paidCostUsd': 0, 'effectiveSourceSha': state.get('effectiveSourceSha'),
                         'cacheReplays': {key: {k: v for k, v in value.items() if k != 'processedKeys'}
                                         for key, value in state.get('cacheReplays', {}).items()}})
-                    time.sleep(5)
+                    time.sleep(30)
                     continue
                 break
+            state["phase"] = "running"
             url = next_page(state, cache)
             if url in state["seen"]:
                 continue

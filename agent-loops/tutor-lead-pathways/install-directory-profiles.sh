@@ -22,6 +22,7 @@ chmod 700 "$RUN_DIR"
 "$PYTHON_BIN" - "$PLIST_PATH" "$SCRIPT_DIR" "$RUN_DIR" "$LABEL" "$MODE" "$OWNER" "$MONITOR" <<'PY'
 import datetime,json,pathlib,plistlib,sys
 path,scripts,state,label,mode,owner,monitor=sys.argv[1:]
+stage=pathlib.Path(state).name
 sys.path.insert(0,scripts)
 from configuration import profile_page_ceiling
 job_path=pathlib.Path(state)/"job.json"

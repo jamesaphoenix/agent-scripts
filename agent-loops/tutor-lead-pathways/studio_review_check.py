@@ -24,6 +24,8 @@ def check(now=None):
     slot = min(int(now.timestamp()) // 1800 * 1800, int(deadline.timestamp()))
     key = datetime.datetime.fromtimestamp(slot, datetime.timezone.utc).strftime('%Y%m%dT%H%M%SZ')
     target = CONTROL / 'inspections' / (key + '.json')
+    if now > deadline + datetime.timedelta(minutes=30):
+        subprocess.run(['launchctl','bootout',f'gui/{os.getuid()}/{LABEL}'],capture_output=True,timeout=10)
     if target.exists():
         return
     summary = {'observedAt': now_iso(), 'slot': key, 'deadline': auth['deadline'],
@@ -53,8 +55,6 @@ def check(now=None):
                               capture_output=True,text=True,timeout=20)
         atomic_json(CONTROL/'deliveries'/(key+'.json'), {'at':now_iso(),'exitCode':sent.returncode,
                     'deliveryOnly':True,'actualAgentInspection':False})
-    if now > deadline + datetime.timedelta(minutes=30):
-        subprocess.run(['launchctl','bootout',f'gui/{os.getuid()}/{LABEL}'],capture_output=True,timeout=10)
 
 
 if __name__ == '__main__':

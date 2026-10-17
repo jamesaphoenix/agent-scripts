@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Fetch queued public owned-site context without a classification credential."""
 import argparse
+from contextlib import closing
 import hashlib
 import json
 from pathlib import Path
@@ -24,7 +25,11 @@ def validate_url(value, job):
     host = urlsplit(url).hostname.removeprefix('www.')
     if source_host(host) or profile_key(url) or host in {'facebook.com', 'instagram.com', 'sites.google.com'}:
         return None
-    if url in job['blockedUrls']:
+    def hold_identity(candidate):
+        parsed = urlsplit(candidate)
+        return (parsed.hostname.removeprefix('www.') if parsed.hostname else None,
+                parsed.path.rstrip('/') or '/', parsed.query)
+    if any(hold_identity(url) == hold_identity(held) for held in job['blockedUrls']):
         return None
     return url
 
@@ -51,7 +56,8 @@ def admit_batches(seed_dir, db, job):
             continue
         try:
             batch = json.loads(raw)
-            if set(batch) != {'schemaVersion', 'sourceUrl', 'urls'} or batch['schemaVersion'] != 1:
+            if (set(batch) != {'schemaVersion', 'sourceUrl', 'urls'} or batch['schemaVersion'] != 1
+                    or not admitted(batch['sourceUrl']) or PRIVATE_ROUTE.search(urlsplit(batch['sourceUrl']).path)):
                 raise ValueError('invalid schema')
             if not isinstance(batch['urls'], list) or not 1 <= len(batch['urls']) <= 30:
                 raise ValueError('invalid batch size')
@@ -102,7 +108,7 @@ def run(runtime, max_pages=4):
                 continue
             old = qual / 'candidates.sqlite'
             if old.exists():
-                with sqlite3.connect(old) as candidates:
+                with closing(sqlite3.connect(old)) as candidates:
                     if candidates.execute("SELECT 1 FROM fetch_claims WHERE url=? AND state IN ('held','submitting')", (url,)).fetchone():
                         with db:
                             db.execute("UPDATE pages SET state='held',error='Prior qualification fetch hold' WHERE url=?", (url,))

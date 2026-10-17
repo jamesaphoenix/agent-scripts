@@ -1,5 +1,6 @@
 import hashlib
 import json
+from contextlib import closing
 from pathlib import Path
 import sqlite3
 import sys
@@ -39,7 +40,7 @@ class FreeContextFeederTests(unittest.TestCase):
                'authorizedDeadline': '2026-10-18T09:46:36+00:00',
                'deadlineUnix': 1792316796.0, 'crawler': str(crawler),
                'crawlerSha256': hashlib.sha256(b'pinned').hexdigest(),
-               'blockedUrls': ['https://held.example.com/']}
+               'blockedUrls': ['http://www.held.example.com/']}
         (self.qual / 'job.json').write_text(json.dumps(job))
         self.seeds = self.control / 'free-context/seed-batches'
         self.seeds.mkdir(parents=True)
@@ -58,7 +59,7 @@ class FreeContextFeederTests(unittest.TestCase):
         self.assertEqual(fetch.call_count, 1)
         self.assertEqual(report['states'], {'succeeded': 1})
         self.assertEqual(report['providerCalls'], 0)
-        with sqlite3.connect(self.control / 'free-context/pages.sqlite') as db:
+        with closing(sqlite3.connect(self.control / 'free-context/pages.sqlite')) as db:
             row = db.execute('SELECT text_sha256,checkpoint_sha256 FROM pages').fetchone()
         self.assertEqual(row, (hashlib.sha256(evidence['text'].encode()).hexdigest(), 'a' * 64))
         self.assertFalse((self.qual / 'exports/automated-qualification/accepted.json').exists())

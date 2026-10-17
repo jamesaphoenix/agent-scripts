@@ -175,8 +175,9 @@ def ensure_op_service_account(task: dict[str, Any]) -> None:
         # honours this recorded wait without reading a secret.
         import datetime
         cooldown = Path(task['credentialCooldownPath'])
-        diagnostic = ROOT / 'state/tutor-studio-20261017-tutor-graph-16h/credential-quota-diagnostic.json'
-        auth = ROOT / 'state/tutor-studio-20261017-tutor-graph-16h/authorization.json'
+        control = cooldown.parent.parent / 'tutor-studio-20261017-tutor-graph-16h'
+        diagnostic = control / 'credential-quota-diagnostic.json'
+        auth = control / 'authorization.json'
         if cooldown.exists() and diagnostic.exists() and auth.exists():
             wait = json.loads(cooldown.read_text())
             evidence = json.loads(diagnostic.read_text())

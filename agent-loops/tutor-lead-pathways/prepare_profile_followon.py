@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Prepare a separate finite stage from sealed, hash-verified public evidence."""
 import argparse
+from contextlib import nullcontext
 import datetime
 import fcntl
 import hashlib
@@ -19,8 +20,17 @@ def digest(path):
 
 
 def prepare(parent, output, hours, new_pages, target, seed_batch=None, source_run_dir=None, requested_start=None,
-            cumulative_ceiling=20000, allow_empty=False):
-    maximum_hours, maximum_pages = (12, 12000) if requested_start else (6, 5000)
+            cumulative_ceiling=20000, allow_empty=False, tutor_graph_authorization=None):
+    graph_auth = None
+    if tutor_graph_authorization:
+        from prepare_qualification_followon import validate_tutor_graph
+        graph_auth = json.loads(tutor_graph_authorization.read_text())
+        start, deadline = validate_tutor_graph(graph_auth)
+        if (parent.resolve() != Path(graph_auth['previousProfileRoot']).resolve()
+                or requested_start != start or hours != 16
+                or cumulative_ceiling != 32000 or not source_run_dir):
+            raise ValueError('Tutor graph profile stage ancestry or window changed')
+    maximum_hours, maximum_pages = (16 if graph_auth else 12, 12000) if requested_start else (6, 5000)
     if not 0 < hours <= maximum_hours or not 1 <= new_pages <= maximum_pages or not 1 <= target <= 5000:
         raise ValueError("Choose bounded duration, additional attempts and target")
     if type(cumulative_ceiling) is not int or cumulative_ceiling not in (20000, 32000) or (cumulative_ceiling == 32000 and not requested_start):
@@ -29,11 +39,15 @@ def prepare(parent, output, hours, new_pages, target, seed_batch=None, source_ru
         raise ValueError('An empty frontier requires an authorised live seed source')
     if output.exists():
         raise ValueError("Follow-on stage already exists; resume it without re-preparing")
-    with (parent / "owner.lock").open("a") as lock:
-        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    # The graph cutover stops the old owner first. Do not hold its lock during the
+    # large immutable cache copy; verify the source checkpoint did not change.
+    with (nullcontext() if graph_auth else (parent / "owner.lock").open("a")) as lock:
+        if not graph_auth:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         status = json.loads((parent / "status.json").read_text())
         state = json.loads((parent / "state.json").read_text())
-        if status.get("phase") != "stage_complete" or state.get("phase") != "stage_complete":
+        allowed_phases = ("stage_complete", "awaiting_sources") if graph_auth else ("stage_complete",)
+        if status.get("phase") not in allowed_phases or state.get("phase") not in allowed_phases:
             raise ValueError("Parent stage must be terminal")
         if any(admitted_url(u) != u for u in state["queue"]):
             raise ValueError("Parent frontier left admitted public paths")
@@ -96,6 +110,10 @@ def prepare(parent, output, hours, new_pages, target, seed_batch=None, source_ru
                    "scope": "Public individual tutor profiles across subjects in Bucks and Milton Keynes. Independent locality and consent verification remain required."}
             if source_run_dir:
                 job["seedSourceRun"] = str(source_run_dir)
+            if graph_auth:
+                job['additionalWindowAuthorization'] = str(tutor_graph_authorization.resolve())
+                job['additionalWindowAuthorizationSha256'] = digest(tutor_graph_authorization)
+                job['monitorIntervalSeconds'] = 1800
             state["phase"] = "running"
             state["updatedAt"] = now()
             profiles = merge_profiles(state["records"])
@@ -113,6 +131,10 @@ def prepare(parent, output, hours, new_pages, target, seed_batch=None, source_ru
                       "parentRowsReplayed": len(replayed),
                       "paidCalls": 0, "originalParentDeadlineRetained": True}
             save(temporary / "preparation.json", result)
+            if graph_auth and any(digest(parent / name) != provenance[key] for name, key in
+                                  (("job.json", "jobSha256"), ("state.json", "stateSha256"),
+                                   ("status.json", "statusSha256"))):
+                raise ValueError('Stopped parent profile checkpoint changed during copy')
             temporary.rename(output)
         except BaseException:
             shutil.rmtree(temporary)
@@ -129,5 +151,12 @@ if __name__ == "__main__":
     parser.add_argument("--target", type=int, default=1500)
     parser.add_argument("--seed-batch", type=Path)
     parser.add_argument("--source-run-dir", type=Path)
+    parser.add_argument("--requested-start")
+    parser.add_argument("--cumulative-ceiling", type=int, default=20000)
+    parser.add_argument("--allow-empty", action="store_true")
+    parser.add_argument("--tutor-graph-authorization", type=Path)
     args = parser.parse_args()
-    print(json.dumps(prepare(args.parent_dir, args.run_dir, args.hours, args.additional_pages, args.target, args.seed_batch, args.source_run_dir)))
+    start = datetime.datetime.fromisoformat(args.requested_start) if args.requested_start else None
+    print(json.dumps(prepare(args.parent_dir, args.run_dir, args.hours, args.additional_pages, args.target,
+                             args.seed_batch, args.source_run_dir, start, args.cumulative_ceiling,
+                             args.allow_empty, args.tutor_graph_authorization)))

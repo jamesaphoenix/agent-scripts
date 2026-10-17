@@ -64,6 +64,13 @@ def profile_page_ceiling(job):
         if (job.get('parentStage', {}).get('runDir') != str(parent.resolve())
                 or job.get('parentStage', {}).get('jobSha256') != hashlib.sha256((parent/'job.json').read_bytes()).hexdigest()):
             raise ValueError('Public crawl parent changed')
+    elif authorization.get('instruction') == 'Go go for another 10-20 hours.':
+        from prepare_qualification_followon import validate_tutor_graph
+        start, deadline = validate_tutor_graph(authorization)
+        parent = Path(authorization['previousProfileRoot'])
+        if (job.get('parentStage', {}).get('runDir') != str(parent.resolve())
+                or job.get('parentStage', {}).get('jobSha256') != hashlib.sha256((parent/'job.json').read_bytes()).hexdigest()):
+            raise ValueError('Tutor graph public crawl parent changed')
     else:
         start, deadline, _ = campaign_window({'hours': 12,
             'authorizedStartedAt': authorization['requestedAt'],

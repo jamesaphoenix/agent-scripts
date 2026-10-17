@@ -15,6 +15,32 @@ from qualification_context import cache_path
 
 ADDITIONAL_DISCOVERY_INSTRUCTION = 'My suggestion is have another $50 of budget and go find more tutors for the next 12 hours plz.'
 STUDIO_FREE_INSTRUCTION = 'Could you continue this work on my Mac Studio? Please using herdr?'
+TUTOR_GRAPH_INSTRUCTION = 'Go go for another 10-20 hours.'
+
+
+def validate_tutor_graph(auth):
+    start = datetime.datetime.fromisoformat(auth['requestedAt'])
+    deadline = datetime.datetime.fromisoformat(auth['deadline'])
+    if (auth.get('instruction') != TUTOR_GRAPH_INSTRUCTION
+            or auth.get('precedingInstruction') != 'Could you continually improving the crawl and only adding extra tutor sites to our graph.'
+            or auth.get('requestedAt') != '2026-10-17T17:46:36+00:00'
+            or auth.get('deadline') != '2026-10-18T09:46:36+00:00'
+            or start.tzinfo is None or deadline-start != datetime.timedelta(hours=16)
+            or auth.get('durationHours') != 16
+            or auth.get('newMoneyAuthorizedCents') != 0
+            or auth.get('maximumRemainingSpendNano') != 3798775900
+            or auth.get('sharedCombinedCeilingUsd') != 15
+            or auth.get('paidDataForSeoSearchesAllowed') is not False
+            or auth.get('decisionsClassificationAllowed') is not True
+            or auth.get('maximumSdkTurns') != 0
+            or auth.get('anthropicApiKeyAllowed') is not False
+            or auth.get('outreachAllowed') is not False
+            or auth.get('monitorIntervalSeconds') != 1800
+            or auth.get('scopeSha256') != '626d1ea33c5d87366917a34f22f3fc8deed5fde3b6227503afa2ffc79d10f5c6'
+            or auth.get('previousQualificationRoot') != '/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts/state/tutor-qualification-20261017-free-12h'
+            or auth.get('previousProfileRoot') != '/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts/state/bucks-private-tutors-20261017-free-12h'):
+        raise ValueError('Invalid tutor graph continuation authorization')
+    return start, deadline
 
 
 def validate_studio_free(auth):
@@ -45,7 +71,13 @@ def prepare(previous, output, candidates, authorization, profile_root):
     approved = auth.get('instruction') == 'Yes, start the new pass'
     hours = 12
     preserve_states = auth.get('instruction') == STUDIO_FREE_INSTRUCTION
-    if preserve_states:
+    if auth.get('instruction') == TUTOR_GRAPH_INSTRUCTION:
+        validate_tutor_graph(auth)
+        if (str(previous) != auth['previousQualificationRoot']
+                or str(profile_root.resolve()) != '/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts/state/bucks-private-tutors-20261017-tutor-graph-16h'):
+            raise ValueError('Tutor graph stage ancestry changed')
+        preserve_states, approved, hours = True, True, 16
+    if auth.get('instruction') == STUDIO_FREE_INSTRUCTION:
         validate_studio_free(auth)
         approved = True
     if auth.get('instruction') == ADDITIONAL_DISCOVERY_INSTRUCTION:

@@ -31,9 +31,15 @@ if job_path.exists():
  job=json.loads(job_path.read_text())
  hours=(job["deadlineUnix"]-datetime.datetime.fromisoformat(job["startedAt"]).timestamp())/3600
  pages,target=job["pageLimit"],job["target"]
+ graph_stage=stage.endswith('tutor-graph-16h')
+ if graph_stage:
+  from prepare_qualification_followon import validate_tutor_graph
+  auth=json.loads(pathlib.Path(job['additionalWindowAuthorization']).read_text())
+  validate_tutor_graph(auth)
+  assert stage=='bucks-private-tutors-20261017-tutor-graph-16h'
  # Earlier prepared jobs used two clock reads, differing by microseconds.
- assert 0<hours<=12+1/3600000 and 1<=pages<=profile_page_ceiling(job) and 1<=target<=5000
- hours=min(hours,12)
+ assert 0<hours<=(16 if graph_stage else 12)+1/3600000 and 1<=pages<=profile_page_ceiling(job) and 1<=target<=5000
+ hours=min(hours,16 if graph_stage else 12)
 value={"Label":label,"ProgramArguments":[sys.executable,scripts+"/directory_profiles.py",
        "--run-dir",state,"--hours",str(hours),"--pages",str(pages),"--target",str(target),
        "--seed","https://www.findtutors.co.uk/buckinghamshire-tutors/",

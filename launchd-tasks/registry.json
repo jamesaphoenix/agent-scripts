@@ -1554,7 +1554,8 @@
           "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts"
         ]
       },
-      "notes": "Free Studio continuation; unchanged Bucks/Milton Keynes academic scope. No paid DataForSEO, no new allowance, no SDK turns, no outreach. Shared Decisions ledger and conservative USD15 overlay remain binding. Preserve old jobs, held and uncertain identities, receipts, caches and original deadline."
+      "notes": "Free Studio continuation; unchanged Bucks/Milton Keynes academic scope. No paid DataForSEO, no new allowance, no SDK turns, no outreach. Shared Decisions ledger and conservative USD15 overlay remain binding. Preserve old jobs, held and uncertain identities, receipts, caches and original deadline.",
+      "credentialCooldownPath": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts/state/tutor-qualification-20261017-free-12h/credential-wait.json"
     },
     {
       "id": "tutor-qualification-20261017-free-12h-watch",

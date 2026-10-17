@@ -41,16 +41,22 @@ def parse_profile(document, url):
         return None
     description = descriptions[0]
     own = re.fullmatch(re.escape(name) + r', private teacher from (.+?) offers (.+?) classes', description)
+    generic = re.fullmatch(re.escape(name) + r', private teacher from (.+?) offers classes through FindTutors', description)
     online = re.fullmatch(re.escape(name) + r', online tutor who teaches (.+?) online classes via the internet', description)
-    if not own and not online:
+    if not own and not generic and not online:
         return None
-    subjects.extend([own[2] if own else online[1]])
+    if own or online:
+        subjects.append(own[2] if own else online[1])
+    if not subjects:
+        return None
     places = [own[1]] if own else []
     locations = [n for n in document.walk() if n.attrs.get('id') == 'location_box']
     if len(locations) > 1:
         return None
     if locations:
         places.extend(p.strip() for p in locations[0].text().removeprefix('Location of my classes').split('·') if p.strip())
+    if generic:
+        places.append(generic[1])
     # These are explicitly the owner's class locations, not towns copied from
     # breadcrumbs or the "other tutors" section. Online alone is not local.
     local = [p for p in places if locality_status(p) == 'advertised_bucks_locality']

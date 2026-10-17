@@ -41,6 +41,16 @@ class FindTutorsProfileTests(unittest.TestCase):
         row = profile_record(html(description=description, locations='London · Marlow · High Wycombe'), URL)
         self.assertEqual(row['localityClaim'], 'Marlow')
 
+    def test_generic_own_description_uses_bound_name_classes_and_locality(self):
+        description = 'Jane Example, private teacher from Buckingham, Dadford offers classes through FindTutors'
+        row = profile_record(html(description=description, locations='Buckingham · Winslow'), URL)
+        self.assertEqual(row['name'], 'Jane Example')
+        self.assertEqual(row['services'], ['11 Plus', 'Maths'])
+        self.assertEqual(row['localityClaim'], 'Buckingham')
+        self.assertEqual(profile_locality_status(row), 'advertised_bucks_locality')
+        self.assertIsNone(profile_record(html(description=description.replace('Jane Example', 'Other Person')), URL))
+        self.assertIsNone(profile_record(html(description=description).replace('Classes of Maths, classes of 11 Plus', ''), URL))
+
     def test_foreign_canonical_ambiguous_ids_and_conflicting_own_names_are_rejected(self):
         for body in (html().replace(URL, URL.replace('jane-example', 'other-person')),
                      html() + '<input id="contact_user_id" value="999">',

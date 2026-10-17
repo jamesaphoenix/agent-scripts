@@ -457,7 +457,7 @@
     {
       "id": "brand-video-render-20261016",
       "name": "Render JUD Effect 4 AI engineering and Claude pilots",
-      "enabled": true,
+      "enabled": false,
       "machine": "mac-studio",
       "launchdLabel": "com.jud.brand-video-render-20261016",
       "schedule": "finite serial pilot queue, RunAtLoad, stops for pilot review",
@@ -471,12 +471,12 @@
           "agent-loops/brand-video-render/install-launchd.sh"
         ]
       },
-      "notes": "James authorised implementation on 16 October. Render and encode exclusively on Studio, preserve other jobs and at least 35 GiB free. No paid API calls in this worker. Await human approval of three pilots before producing the remaining 57. Budget is GBP100 across the entire project, never reset. Verify exports, archive and rsync before deleting task-owned frames; retain final exports, sources, evidence and ledgers."
+      "notes": "James authorised implementation on 16 October. Render and encode exclusively on Studio, preserve other jobs and at least 35 GiB free. No paid API calls in this worker. Await human approval of three pilots before producing the remaining 57. Budget is GBP100 across the entire project, never reset. Verify exports, archive and rsync before deleting task-owned frames; retain final exports, sources, evidence and ledgers. Finite execution completed and disabled on 17 October 2026 after independent private archive verification. Three pilots and forty additional tutorials await owner acceptance; the other seventeen remain gated. Retain all sources and final evidence; do not reinstall without a new authorised task."
     },
     {
       "id": "brand-video-delivery-20261016",
       "name": "Verify, transfer and archive JUD tutorial pilots",
-      "enabled": true,
+      "enabled": false,
       "machine": "mac-studio",
       "launchdLabel": "com.jud.brand-video-delivery-20261016",
       "schedule": "finite RunAtLoad controller, waits for render completion and MacBook reachability",
@@ -490,12 +490,12 @@
           "agent-loops/brand-video-render/install-delivery-launchd.sh"
         ]
       },
-      "notes": "Finite Studio-owned delivery. Verify all six exports and native frame proofs, rsync to the MacBook, then run the missing single-pass pilot reviews through the original GBP100 ledger. Never regenerate an existing review, narration or music. Archive privately in R2 and update D1. Delete disposable Studio frames only after independent transfer and archive verification. Preserve editable sources, native video caches, review history and the budget. Stop for owner review; no further 57 videos or public release."
+      "notes": "Finite Studio-owned delivery. Verify all six exports and native frame proofs, rsync to the MacBook, then run the missing single-pass pilot reviews through the original GBP100 ledger. Never regenerate an existing review, narration or music. Archive privately in R2 and update D1. Delete disposable Studio frames only after independent transfer and archive verification. Preserve editable sources, native video caches, review history and the budget. Stop for owner review; no further 57 videos or public release. Finite execution completed and disabled on 17 October 2026 after independent private archive verification. Three pilots and forty additional tutorials await owner acceptance; the other seventeen remain gated. Retain all sources and final evidence; do not reinstall without a new authorised task."
     },
     {
       "id": "brand-video-overnight-20261016",
       "name": "Produce forty authorised JUD tutorials and morning evidence report",
-      "enabled": true,
+      "enabled": false,
       "machine": "mac-studio",
       "launchdLabel": "com.jud.brand-video-overnight-20261016",
       "schedule": "Finite RunAtLoad job; original ten-hour admission deadline, eight-hour report checkpoint",
@@ -509,12 +509,12 @@
           "agent-loops/brand-video-overnight/install-launchd.sh"
         ]
       },
-      "notes": "James explicitly authorised forty additional tutorials overnight, ten adapted from his articles. Studio exclusively renders and encodes; a lightweight SSH bridge uses the original MacBook GBP100 ledger for expressive stitched ElevenLabs, at most one paired Flash generation per tutorial, and private byte-verified R2/D1 delivery. No budget reset, automatic paid retry, public release or inferred owner acceptance. Report to the Desktop and preserve failures. Cleanup only owned frame caches after archive and transfer verification; retain final exports, editable assets, source recipes, reviews, evidence, caches and ledgers. Preserve unrelated jobs."
+      "notes": "James explicitly authorised forty additional tutorials overnight, ten adapted from his articles. Studio exclusively renders and encodes; a lightweight SSH bridge uses the original MacBook GBP100 ledger for expressive stitched ElevenLabs, at most one paired Flash generation per tutorial, and private byte-verified R2/D1 delivery. No budget reset, automatic paid retry, public release or inferred owner acceptance. Report to the Desktop and preserve failures. Cleanup only owned frame caches after archive and transfer verification; retain final exports, editable assets, source recipes, reviews, evidence, caches and ledgers. Preserve unrelated jobs. Finite execution completed and disabled on 17 October 2026 after independent private archive verification. Three pilots and forty additional tutorials await owner acceptance; the other seventeen remain gated. Retain all sources and final evidence; do not reinstall without a new authorised task."
     },
     {
       "id": "brand-video-repair-20261016",
       "name": "Repair the first three overnight tutorial exports from their existing review findings",
-      "enabled": true,
+      "enabled": false,
       "machine": "mac-studio",
       "launchdLabel": "com.jud.brand-video-repair-20261016",
       "schedule": "Finite RunAtLoad repairs; original overnight deadline retained",
@@ -528,12 +528,12 @@
           "agent-loops/brand-video-repair/install-launchd.sh"
         ]
       },
-      "notes": "Repair selected early exports locally with cached voices and no paid generation or second Flash review. Preserve reviewed original movies and immutable provider receipts, prove code remains visible at every beat boundary, compare encoded audio, transfer and byte-verify new R2 revisions before deleting owned picture intermediates. No owner acceptance or public publishing inferred. Keep the main forty-video job and unrelated processes running."
+      "notes": "Repair selected early exports locally with cached voices and no paid generation or second Flash review. Preserve reviewed original movies and immutable provider receipts, prove code remains visible at every beat boundary, compare encoded audio, transfer and byte-verify new R2 revisions before deleting owned picture intermediates. No owner acceptance or public publishing inferred. Keep the main forty-video job and unrelated processes running. Finite execution completed and disabled on 17 October 2026 after independent private archive verification. Three pilots and forty additional tutorials await owner acceptance; the other seventeen remain gated. Retain all sources and final evidence; do not reinstall without a new authorised task."
     },
     {
       "id": "brand-video-native-framing-20261017",
       "name": "Repair native portrait label framing from local full-resolution checks",
-      "enabled": true,
+      "enabled": false,
       "machine": "mac-studio",
       "launchdLabel": "com.jud.brand-video-native-framing-20261017",
       "schedule": "Finite RunAtLoad repairs; original overnight deadline retained",
@@ -547,12 +547,12 @@
           "agent-loops/brand-video-native-framing/install-launchd.sh"
         ]
       },
-      "notes": "Picture-only portrait framing repairs for effect-11 and effect-12. Keep cached narration and original single-pass Flash receipts, preserve reviewed movies, compare encoded audio, and independently inspect new native labels before owner-review status. Zero new paid generations. Keep main forty-video render job and other host workloads running. Remove owned picture intermediates only after exact transfer and private R2 read-back verification."
+      "notes": "Picture-only portrait framing repairs for effect-11 and effect-12. Keep cached narration and original single-pass Flash receipts, preserve reviewed movies, compare encoded audio, and independently inspect new native labels before owner-review status. Zero new paid generations. Keep main forty-video render job and other host workloads running. Remove owned picture intermediates only after exact transfer and private R2 read-back verification. Finite execution completed and disabled on 17 October 2026 after independent private archive verification. Three pilots and forty additional tutorials await owner acceptance; the other seventeen remain gated. Retain all sources and final evidence; do not reinstall without a new authorised task."
     },
     {
       "id": "brand-video-native-prereview-20261017",
       "name": "Repair the race portrait before its first paired Flash review",
-      "enabled": true,
+      "enabled": false,
       "machine": "mac-studio",
       "launchdLabel": "com.jud.brand-video-native-prereview-20261017",
       "schedule": "Finite RunAtLoad; wait for current framing repairs and original initial transfer to finish",
@@ -566,12 +566,12 @@
           "agent-loops/brand-video-native-prereview/install-launchd.sh"
         ]
       },
-      "notes": "Wait for the main effect-14 review deferral and the preceding native-framing repair job. Preserve unreviewed source movies and encoded audio, rerender only the portrait, transfer updated exact-hash files, then stop for local frame inspection. This worker sends zero paid generations and does not archive an unchecked repair. Clear the explicit pre-review hold only after decoded frames prove the label is visible, then run its one first paired review through the original MacBook ledger and verify private R2/D1 delivery before owned scratch cleanup. No public release or owner acceptance."
+      "notes": "Wait for the main effect-14 review deferral and the preceding native-framing repair job. Preserve unreviewed source movies and encoded audio, rerender only the portrait, transfer updated exact-hash files, then stop for local frame inspection. This worker sends zero paid generations and does not archive an unchecked repair. Clear the explicit pre-review hold only after decoded frames prove the label is visible, then run its one first paired review through the original MacBook ledger and verify private R2/D1 delivery before owned scratch cleanup. No public release or owner acceptance. Finite execution completed and disabled on 17 October 2026 after independent private archive verification. Three pilots and forty additional tutorials await owner acceptance; the other seventeen remain gated. Retain all sources and final evidence; do not reinstall without a new authorised task."
     },
     {
       "id": "brand-video-native-ledger-20261017",
       "name": "Rebuild coverage-ledger geometry before its first paired review",
-      "enabled": true,
+      "enabled": false,
       "machine": "mac-studio",
       "launchdLabel": "com.jud.brand-video-native-ledger-20261017",
       "schedule": "Finite RunAtLoad; wait for the original unreviewed pair and explicit quality hold",
@@ -585,12 +585,12 @@
           "agent-loops/brand-video-native-ledger/install-launchd.sh"
         ]
       },
-      "notes": "Preserve original ai-19 movies and native scenes; rebuild both native plates through the shared worker preparation helper after removing a foreground plaque that hides a visit counter. Reuse cached speech, prove encoded audio unchanged, and stop after transfer for local inspection. Zero paid generations in this worker. Only after inspection may the MacBook bridge send its one first paired review and privately byte-verify current and historical objects. Retain scene/plate/movie evidence and old checkpoints until verified; then remove only owned temporary frames. Keep main queue and unrelated jobs running. No owner acceptance or public release."
+      "notes": "Preserve original ai-19 movies and native scenes; rebuild both native plates through the shared worker preparation helper after removing a foreground plaque that hides a visit counter. Reuse cached speech, prove encoded audio unchanged, and stop after transfer for local inspection. Zero paid generations in this worker. Only after inspection may the MacBook bridge send its one first paired review and privately byte-verify current and historical objects. Retain scene/plate/movie evidence and old checkpoints until verified; then remove only owned temporary frames. Keep main queue and unrelated jobs running. No owner acceptance or public release. Finite execution completed and disabled on 17 October 2026 after independent private archive verification. Three pilots and forty additional tutorials await owner acceptance; the other seventeen remain gated. Retain all sources and final evidence; do not reinstall without a new authorised task."
     },
     {
       "id": "brand-video-cast-layout-20261017",
       "name": "Repair the first two overnight cast compositions from the first paired review",
-      "enabled": true,
+      "enabled": false,
       "machine": "mac-studio",
       "launchdLabel": "com.jud.brand-video-cast-layout-20261017",
       "schedule": "Finite RunAtLoad repairs; original overnight deadline retained",
@@ -604,12 +604,12 @@
           "agent-loops/brand-video-cast-layout/install-launchd.sh"
         ]
       },
-      "notes": "Wait for each original privately verified delivery. Recompose claude-02 and claude-03 in both formats from cached narration and shared native plates. Restore the portrait teaching flow and soften the landscape plate edge. Preserve immutable first reviews and original movies; send zero further paid generations. Prove encoded audio unchanged, inspect decoded repair frames, and byte-verify R2/D1 before owned temporary cleanup. Preserve the main queue and unrelated work; no public release or owner acceptance."
+      "notes": "Wait for each original privately verified delivery. Recompose claude-02 and claude-03 in both formats from cached narration and shared native plates. Restore the portrait teaching flow and soften the landscape plate edge. Preserve immutable first reviews and original movies; send zero further paid generations. Prove encoded audio unchanged, inspect decoded repair frames, and byte-verify R2/D1 before owned temporary cleanup. Preserve the main queue and unrelated work; no public release or owner acceptance. Finite execution completed and disabled on 17 October 2026 after independent private archive verification. Three pilots and forty additional tutorials await owner acceptance; the other seventeen remain gated. Retain all sources and final evidence; do not reinstall without a new authorised task."
     },
     {
       "id": "brand-video-hook-callout-20261017",
       "name": "Keep the hooks outcome visible above portrait captions",
-      "enabled": true,
+      "enabled": false,
       "machine": "mac-studio",
       "launchdLabel": "com.jud.brand-video-hook-callout-20261017",
       "schedule": "Finite RunAtLoad repairs; original overnight deadline retained",
@@ -623,7 +623,7 @@
           "agent-loops/brand-video-hook-callout/install-launchd.sh"
         ]
       },
-      "notes": "Recompose only the claude-08 portrait from its original paired review finding. Keep cached narration and the already reviewed landscape; preserve original media and review, compare encoded audio and inspect decoded outcome and caption spacing. Zero additional paid generations. Private byte verification precedes owned temporary cleanup. Preserve main queue and unrelated work; no owner acceptance or public release."
+      "notes": "Recompose only the claude-08 portrait from its original paired review finding. Keep cached narration and the already reviewed landscape; preserve original media and review, compare encoded audio and inspect decoded outcome and caption spacing. Zero additional paid generations. Private byte verification precedes owned temporary cleanup. Preserve main queue and unrelated work; no owner acceptance or public release. Finite execution completed and disabled on 17 October 2026 after independent private archive verification. Three pilots and forty additional tutorials await owner acceptance; the other seventeen remain gated. Retain all sources and final evidence; do not reinstall without a new authorised task."
     }
   ]
 }

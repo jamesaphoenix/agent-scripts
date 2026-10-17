@@ -1009,6 +1009,29 @@
         "lowPriorityIO": false,
         "nice": 10
       }
+    },
+    {
+      "id": "smart-cub-teaching-corrected40-review-20261016",
+      "name": "Smart Cub fixed forty corrected teaching advisory reviews",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.smart-cub-teaching-corrected40-review-20261016",
+      "schedule": "manual one-shot kick; RunAtLoad=false, KeepAlive=false",
+      "requiresOpServiceAccount": true,
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/Desktop/projects/just-understanding-data/agent-scripts",
+        "command": [
+          "bash",
+          "agent-loops/smart-cub-teaching-corrected40-review-20261016/install-launchd.sh"
+        ]
+      },
+      "notes": "PREPARATION PROPOSAL ONLY. Exact40 mechanical terminal, immutable advisory plan and separate root paid-plan release required before binding, official registration/install or one kick. One child/max1request under existing corrected guard slot and shared USD100 ledger. Existing/uncertain/incomplete attempt halts without automatic retry; complete observations still need individual agent judgement. No quality approval.",
+      "schedulingPolicy": {
+        "processType": "Standard",
+        "lowPriorityIO": false,
+        "nice": 10
+      }
     }
   ]
 }

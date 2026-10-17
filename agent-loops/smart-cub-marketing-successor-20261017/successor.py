@@ -157,6 +157,13 @@ def graph(config):
     require(actual == config['frozenSourceSnapshot'], 'Frozen successor graph changed')
 
 
+def paid_freshness(config_path, config_sha, config, identity, ready):
+    """Run inside the shared admission lease, immediately before the paid child."""
+    checked(config_path, config_sha)
+    graph(config)
+    require(pair(identity, config) == ready, 'Pair changed while waiting admission')
+
+
 def pair(identity, config):
     result = {}
     for aspect in ASPECTS:
@@ -298,8 +305,7 @@ def review(config_path, config_sha, config, state, status):
             state.update(state='waiting_marketing_guard', activeIntent=intent, activeLog=str(log))
             save(status, state)
             with guard.admission(RUN, family='marketing', intent=intent, stop_path=WORK / 'review.STOP') as lease:
-                checked(config_path, config_sha)
-                require(pair(identity, config) == ready, 'Pair changed while waiting admission')
+                paid_freshness(config_path, config_sha, config, identity, ready)
                 with log.open('x') as stream:
                     state['state'] = 'launch_intent_saved_before_child'
                     save(status, state)

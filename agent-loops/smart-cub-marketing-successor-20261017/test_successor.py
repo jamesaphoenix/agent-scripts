@@ -122,6 +122,22 @@ class SuccessorTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'Unregistered marketing'):
                 M.review_command(config, 'teaching:held', 'wide')
 
+    def test_unlisted_source_drift_after_guard_wait_blocks_paid_child(self):
+        # Protected inputs/config still pass, but an unlisted scene file changes
+        # the actual SourceSnapshotter fingerprint while waiting for the slot.
+        config = {'frozenSourceSnapshot': 'expected-entire-graph'}
+        with mock.patch.object(M, 'checked') as protected, mock.patch.object(M.subprocess, 'check_output', return_value='changed-entire-graph\n') as snapshot, mock.patch.object(M, 'pair') as pair:
+            with self.assertRaisesRegex(ValueError, 'Frozen successor graph changed'):
+                M.paid_freshness(Path('/exact/config'), 'config-sha', config, M.PILOT[0], {})
+            protected.assert_called_once()
+            snapshot.assert_called_once()
+            self.assertIn('SourceSnapshotter', snapshot.call_args.args[0][-1])
+            self.assertEqual(snapshot.call_args.kwargs['cwd'], M.APP)
+            pair.assert_not_called()
+        source = Path(__file__).with_name('successor.py').read_text()
+        block = source[source.index("with guard.admission(RUN, family='marketing'"):]
+        self.assertLess(block.index('paid_freshness('), block.index('child = lease.popen('))
+
 
 if __name__ == '__main__':
     unittest.main()

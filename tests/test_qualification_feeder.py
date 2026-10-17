@@ -178,6 +178,34 @@ class QualificationFeederTests(unittest.TestCase):
             watch(self.root, 'owner', 'monitor')
         self.assertEqual(launch.call_args.args[0][1], 'bootout')
 
+    def test_watcher_retries_just_expired_credential_cooldown_without_using_crash_recovery(self):
+        atomic_json(self.root / 'job.json', self.job)
+        atomic_json(self.root / 'status.json', {'phase': 'prepared'})
+        with patch('qualify_inventory.subprocess_status', return_value=False), \
+                patch('launch.credential_delay', side_effect=[5, 0]), \
+                patch('qualify_inventory.time.sleep') as sleep, \
+                patch('subprocess.run') as launch:
+            watch(self.root, 'owner', 'monitor')
+        sleep.assert_called_once_with(6)
+        self.assertEqual(launch.call_args.args[0][1], 'kickstart')
+        report = json.loads((self.root / 'monitor.json').read_text())
+        self.assertEqual(report['action'], 'credential_retry_after_cooldown')
+        self.assertEqual(report['recoveries'], 0)
+
+    def test_watcher_does_not_wait_past_deadline_for_credential_cooldown(self):
+        self.job['deadlineUnix'] = time.time() + 2
+        atomic_json(self.root / 'job.json', self.job)
+        atomic_json(self.root / 'status.json', {'phase': 'prepared'})
+        with patch('qualify_inventory.subprocess_status', return_value=False), \
+                patch('launch.credential_delay', return_value=5), \
+                patch('qualify_inventory.time.sleep') as sleep, \
+                patch('subprocess.run') as launch:
+            watch(self.root, 'owner', 'monitor')
+        sleep.assert_not_called()
+        launch.assert_not_called()
+        report = json.loads((self.root / 'monitor.json').read_text())
+        self.assertEqual(report['action'], 'credential_cooldown')
+
     def watch_complete_window(self):
         self.job['expandOwnedContext'] = True
         atomic_json(self.root / 'job.json', self.job)

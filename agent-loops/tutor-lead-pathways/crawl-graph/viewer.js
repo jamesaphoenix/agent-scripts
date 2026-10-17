@@ -138,7 +138,7 @@ function rebuild({ fit = true } = {}) {
   $('visible-count').textContent = `${number(visible.length)} / ${number(data.nodes.length)} domains · ${number(visibleEdges.length)} connections`;
   $('empty').hidden = visible.length > 0;
   $('view-title').textContent = view === 'research' ? 'Where the research led.' : 'Follow the crawl.';
-  $('view-description').textContent = view === 'research' ? 'Domains with qualified profile evidence, plus their recorded neighbours.' : 'Recorded links between observed websites. Unlinked seeds are hidden by default.';
+  $('view-description').textContent = data.meta.tutorOnly ? 'Model-qualified local tutor sites. Only recorded connections are shown.' : view === 'research' ? 'Domains with qualified profile evidence, plus their recorded neighbours.' : 'Recorded links between observed websites. Unlinked seeds are hidden by default.';
   if (!renderer) return;
   positions = layout(visible, visibleEdges);
   dispose(cloud); dispose(lines); dispose(highlighted);
@@ -327,7 +327,7 @@ function search() {
 }
 function resetFilters() {
   for (const cat of Object.keys(categories)) $('show-' + cat).checked = true;
-  $('show-isolated').checked = false; $('hide-utilities').checked = true; $('tutor-only').checked = false;
+  $('show-isolated').checked = Boolean(data.meta.tutorOnly); $('hide-utilities').checked = true; $('tutor-only').checked = false;
   forced.clear(); selected = null; selectedEdge = null; rebuild(); renderInspector();
 }
 function resize() {
@@ -408,6 +408,10 @@ function populateAbout() {
   body.append(element('p', '', 'Built with Three.js. The JavaScript, graph data and styles are embedded in this file. No external service is called when you open it.'));
 }
 function wireControls() {
+  if (data.meta.tutorOnly) {
+    $('show-isolated').checked = true;
+    document.querySelector('.heading p').textContent = 'Qualified local tutor websites.';
+  }
   $('total-domains').textContent = number(data.meta.nodeCount); $('total-links').textContent = number(data.meta.edgeCount);
   $('total-fetched').textContent = number(data.meta.domainsFetched); $('total-pages').textContent = number(data.meta.fetchedPages);
   $('qualified-count').textContent = number(data.meta.modelQualifiedProfiles);

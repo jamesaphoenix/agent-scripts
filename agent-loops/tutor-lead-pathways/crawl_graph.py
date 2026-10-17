@@ -186,7 +186,7 @@ class DomainGraph:
         return {'schemaVersion': 1, 'meta': metadata, 'nodes': nodes, 'edges': edges}
 
 
-def export(runtime, qualification, output):
+def export(runtime, qualification, output, control_root=None):
     runtime, qualification = Path(runtime).resolve(), Path(qualification).resolve()
     job = json.loads((qualification / 'job.json').read_text())
     graph = DomainGraph()
@@ -201,7 +201,7 @@ def export(runtime, qualification, output):
         return json.loads(raw)
     roots = list(dict.fromkeys([qualification, *map(Path, job.get('fetchRoots', [])),
                               *map(Path, job.get('crawlRoots', []))]))
-    control = runtime / 'state/tutor-studio-20261017-free-12h'
+    control = Path(control_root).resolve() if control_root else runtime / 'state/tutor-studio-20261017-free-12h'
     if control.exists():
         roots.append(control / 'review/autoresearch')
     checkpoint_paths = set()
@@ -265,7 +265,7 @@ def export(runtime, qualification, output):
     if supplemental.exists():
         reviewed.extend(read(supplemental))
     graph.attach_profiles(reviewed, reviewed=True)
-    auth = runtime / 'state/tutor-studio-20261017-free-12h/authorization.json'
+    auth = control / 'authorization.json'
     current_start = json.loads(auth.read_text())['requestedAt'] if auth.exists() else job.get('startedAt')
     result = graph.result({'capturedAt': datetime.datetime.now(datetime.timezone.utc).isoformat(),
         'qualificationRoot': relative(qualification), 'currentPassStartedAt': current_start,
@@ -285,6 +285,7 @@ if __name__ == '__main__':
     parser.add_argument('--runtime-root', type=Path, required=True)
     parser.add_argument('--qualification-root', type=Path, required=True)
     parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument('--control-root', type=Path)
     args = parser.parse_args()
-    metadata = export(args.runtime_root, args.qualification_root, args.output)
+    metadata = export(args.runtime_root, args.qualification_root, args.output, args.control_root)
     print(json.dumps({k: v for k, v in metadata.items() if k not in ('artifactManifest', 'readErrors')}, indent=2))

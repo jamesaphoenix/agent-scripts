@@ -1,0 +1,66 @@
+{
+  "version": 1,
+  "task": "smart-cub-teaching-cloze-context-v2-20261016",
+  "handoff": {
+    "path": "/Users/jamesphoenix/render-tmp/smart-cub-refresh-20261016/teaching-repairs/runners/cloze-v2-88f0b8176/render-handoff.json",
+    "sha256": "fce854943468d21dfa2a5b49f261d195befb396a96683f22654c28a14b161f8a",
+    "bytes": 2556
+  },
+  "jobIndex": 0,
+  "job": {
+    "selection": "cloze-context-v2",
+    "compositionIds": [
+      "v3-y6-complete-context-cloze-wide",
+      "v3-y6-complete-context-cloze-tall"
+    ],
+    "sourceFingerprint": "19c69b88714b2d3170d0b0befc3546648e17c4afd005ce92dfbf5b0fd15918a9",
+    "project": "/Users/jamesphoenix/render-tmp/smart-cub-refresh-20261016/teaching-repairs/cloze-context-v2-style-lab",
+    "cwd": "/Users/jamesphoenix/render-tmp/smart-cub-refresh-20261016/revision/smart-cub/apps/prototypes/founder-videos",
+    "argv": [
+      "/opt/homebrew/opt/node@22/bin/node",
+      "--import",
+      "tsx",
+      "/Users/jamesphoenix/render-tmp/smart-cub-refresh-20261016/teaching-repairs/runners/cloze-v2-88f0b8176/scripts/render-teaching-corrections.ts",
+      "--project",
+      "/Users/jamesphoenix/render-tmp/smart-cub-refresh-20261016/teaching-repairs/cloze-context-v2-style-lab",
+      "--selection",
+      "cloze-context-v2",
+      "--execute"
+    ]
+  },
+  "runner": "/Users/jamesphoenix/render-tmp/smart-cub-refresh-20261016/teaching-repairs/runners/cloze-v2-88f0b8176",
+  "runnerManifest": {
+    "path": "/Users/jamesphoenix/render-tmp/smart-cub-refresh-20261016/teaching-repairs/runners/cloze-v2-88f0b8176/runner-manifest.json",
+    "sha256": "c44cb310044d8c515c31e8192bb4df77a3d01a9da9ca47996f8b521a76a2e139",
+    "bytes": 1683
+  },
+  "staging": {
+    "path": "/Users/jamesphoenix/render-tmp/smart-cub-refresh-20261016/teaching-repairs/cloze-context-v2-staging-verification-88f0b8176.json",
+    "sha256": "a9e674ed49ccbf477344f5ca0e3fe43f815c4cf054676dee333fce2fc4f9d549",
+    "bytes": 2008
+  },
+  "status": "teaching-cloze-context-v2-dispatch-status.json",
+  "predecessorStatus": "teaching-derived-word-spacing-dispatch-status.json",
+  "predecessor": {
+    "selection": "derived-word-spacing",
+    "compositionIds": [
+      "v3-y6-form-derived-word-wide",
+      "v3-y6-form-derived-word-tall"
+    ],
+    "sourceFingerprint": "545e8182b9aef0b426483ca1abacec5ef44b1696dc793e030b5e8af26b96535e",
+    "project": "/Users/jamesphoenix/render-tmp/smart-cub-refresh-20261016/teaching-repairs/derived-word-spacing-style-lab",
+    "cwd": "/Users/jamesphoenix/render-tmp/smart-cub-refresh-20261016/revision/smart-cub/apps/prototypes/founder-videos",
+    "argv": [
+      "/opt/homebrew/opt/node@22/bin/node",
+      "--import",
+      "tsx",
+      "/Users/jamesphoenix/render-tmp/smart-cub-refresh-20261016/teaching-repairs/runners/derived-2197a6400/scripts/render-teaching-corrections.ts",
+      "--project",
+      "/Users/jamesphoenix/render-tmp/smart-cub-refresh-20261016/teaching-repairs/derived-word-spacing-style-lab",
+      "--selection",
+      "derived-word-spacing",
+      "--execute"
+    ]
+  },
+  "predecessorProof": "teaching-cloze-context-v2-predecessor-proof.json"
+}

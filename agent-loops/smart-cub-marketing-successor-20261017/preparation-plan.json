@@ -1,0 +1,32 @@
+{
+  "contract": "marketing-successor-host-preparation-plan/v1",
+  "state": "PREPARATION_ONLY_NO_APPROVED_CONFIG_OR_REGISTRY_INSTALL",
+  "newApp": "/Users/jamesphoenix/render-tmp/smart-cub-refresh-20261016/marketing-revision-two/smart-cub/apps/prototypes/founder-videos",
+  "candidateFinalFingerprintFromSourceReviewer": "0696a265be50c4fa45659d012de05c6736ae425d0bad0d1a870afbcbe55f550c",
+  "candidateCacheMapSha256": "32c5cf3eaa74a052ae9fb2358629f3a2eb419aa5ae1236379bd5c477fa62ed16",
+  "pilotIds": [
+    "p9-after-a-bad-mock",
+    "t29-ratio-as-shares"
+  ],
+  "pilotOutputs": 4,
+  "bulkOutputs": 260,
+  "bulkMustSkipExactPilotReceipts": 4,
+  "requiredBeforeAnyActualConfig": [
+    "Actual20/40mechanical normal terminal with exact output/receipt/mechanical and dead PID/group proof",
+    "Root-reviewed source successor registration plan and actual atomic marketing-only root replacement preserving old authorities/history/budget",
+    "New actual family binding hash,149 narration proof, frozen final source graph,26immutable final20helper hashes and new independent cache-copy map",
+    "Root full read of host code/config/protection proof and separate explicit official registration/install/kick release"
+  ],
+  "requiredBeforeBulk": [
+    "All4new pilot outputs exact source/receipt/current hashes",
+    "Root individual pilot QA and explicit immutable pilot-qa-bulk-release.json",
+    "Separate paid bulk admission permission in that release"
+  ],
+  "priorSourceRegistryTasks": 47,
+  "priorRuntimeRegistryTasks": 43,
+  "actualRegistryEntriesAdded": 0,
+  "runtimeJobsInstalled": 0,
+  "oldPausedCheckpointsOrGatesChanged": false,
+  "providerCalls": 0,
+  "qualityApproved": false
+}

@@ -1,0 +1,15 @@
+{
+  "contract": "smart-cub-corrected40-review-launch/v1",
+  "script": {
+    "path": "/Users/jamesphoenix/render-tmp/smart-cub-refresh-20261016/workflow/corrected-forty-66d9e35d0/scripts/review-corrected-batch.py",
+    "bytes": 12904,
+    "sha256": "eed5d447048f801cdf84742c4a29b34157a4e987bc15cd49fa78c635097c261e"
+  },
+  "plan": {
+    "path": "/Users/jamesphoenix/render-tmp/smart-cub-refresh-20261016/workflow/corrected-forty-66d9e35d0/review-plan.json",
+    "bytes": 49794,
+    "sha256": "1b902031ace357c7a24ce60297c7ea6798ee0f5b014bd071b69e6e0753f11f03"
+  },
+  "status": "/Users/jamesphoenix/render-tmp/smart-cub-refresh-20261016/workflow/corrected-forty-66d9e35d0/review-status.json",
+  "stopPath": "/Users/jamesphoenix/render-tmp/smart-cub-refresh-20261016/workflow/corrected-forty-66d9e35d0/review.STOP"
+}

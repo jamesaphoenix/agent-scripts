@@ -1,0 +1,396 @@
+{
+  "version": 1,
+  "state": "prepared_requires_root_implementation_review_before_any_paid_activation",
+  "scope": {
+    "id": "teaching:nvr.pattern.compare-attributes",
+    "aspect": "wide",
+    "outputSha256": "42a8803e77eb8e7fc16cef93cf80b75b018b55dbcaad7d7c6c14e5d788079fb4",
+    "seconds": 170.366667,
+    "fps": 2,
+    "audio": "complete original MP4 audio",
+    "model": "gemini-3.6-flash",
+    "maximumAdditionalPaidRequests": 1,
+    "maximumCents": 11,
+    "sharedCapCents": 10000,
+    "admissionFamily": "corrected",
+    "admissionSlot": 3
+  },
+  "implementationFiles": [
+    {
+      "path": "helpers/blend-corrected-teaching.py",
+      "sha256": "d59f2897de01078ea34e92fc866d467349e1fc5ed9912ed854a46edd3fb69b7f"
+    },
+    {
+      "path": "helpers/blend-teaching.py",
+      "sha256": "010046fc53ca862424ef44ef6c9c0f5db426b5a1cef50cd98b8165ecc1533b2f"
+    },
+    {
+      "path": "helpers/critic.py",
+      "sha256": "26832ceb119b91b52c9a3e4ef5350a884cfb422747ceb2d63902d695009ddc8d"
+    },
+    {
+      "path": "helpers/deliver-videos.py",
+      "sha256": "70dba63b31a2a881a34bb2e5797884e39de2f50b6ac57b5362c2c0412dd7d52e"
+    },
+    {
+      "path": "helpers/extent.py",
+      "sha256": "6b53cf79f1817f82611865bc16bc9434616390c2c10cfc7b36a8696246a0365b"
+    },
+    {
+      "path": "helpers/fal-fetch.py",
+      "sha256": "4e998fd80a43df23f293b38b0e1406fb367394a70817f93ac4a2d2be5d27ec3d"
+    },
+    {
+      "path": "helpers/fal-run.py",
+      "sha256": "ae68e795a3a81129c40c6ee037e91808583e6adad57c3e88151a0b5072c67a00"
+    },
+    {
+      "path": "helpers/fill-check.py",
+      "sha256": "cd5ba077866b94f06deeb9c116a0e00ba869fbfbfb91ede312c39a362fdefc80"
+    },
+    {
+      "path": "helpers/pace.py",
+      "sha256": "59f8571d1559bd2d32761ac1e05b8247cb0f77b38b55e870c7bbe4b02ebb2439"
+    },
+    {
+      "path": "helpers/prepare-review.py",
+      "sha256": "c328473f4fc3bc24ea271ece18f43534b143c60c1a0eb810a217691b8a649541"
+    },
+    {
+      "path": "helpers/production-roots.py",
+      "sha256": "aed95815344a7f7caf9009799304b3db6220f677dade0db90fcebd6a8d46d0cd"
+    },
+    {
+      "path": "helpers/qa.py",
+      "sha256": "2f7c735e2ebb0b4b7177613e17cb1513c90b5bce6ff78288bc811530f7b7fde2"
+    },
+    {
+      "path": "helpers/reconcile-review.py",
+      "sha256": "daee09781677e74c26767d5378feb7eafae1739d240c72fb7a389366dc53467f"
+    },
+    {
+      "path": "helpers/review-corrected-teaching.py",
+      "sha256": "f7b5ef293b25768b9c76ba3adee2953e7f293e9acb7ea5a5b557acff6d51b0fc"
+    },
+    {
+      "path": "helpers/review-ledger.py",
+      "sha256": "1a15163dd5398e1a553b5be5b91c5d3371d147081f0e6baf933d93e6cb483d24"
+    },
+    {
+      "path": "helpers/review-media.py",
+      "sha256": "e671ae8c349d3a36caaf7bd223f5e83ab1a1e9b0ed541cbbce394f64b8c50269"
+    },
+    {
+      "path": "helpers/selected-avatar.py",
+      "sha256": "7c39269de3dd34bf97064a3cf9827450498b817d02decafb08a02930379616fa"
+    },
+    {
+      "path": "helpers/stage-teaching-corrections.py",
+      "sha256": "0f9e41816b35c69f62c0604c8a79887289612954ac008f4b7929dc09242b6095"
+    },
+    {
+      "path": "helpers/teaching-blend-dispatch.py",
+      "sha256": "001652c0164c27b222e53a07950ea9c731d706f71448a71ad02016a0478f6746"
+    },
+    {
+      "path": "helpers/teaching-final-corrections.py",
+      "sha256": "70167bec537569b907a7c28f305505991b7ea286f538e734d3c3c251f16d5468"
+    },
+    {
+      "path": "helpers/teaching-narration-repair.py",
+      "sha256": "820f440124d673fcf5c277afac4f1406a3689336d1aabe6109304d226ae4538e"
+    },
+    {
+      "path": "helpers/teaching-review-dispatch.py",
+      "sha256": "7b419925ae0b1b2aa71fc3cfa11291220b1de2a669c745b4e016455e9c97a762"
+    },
+    {
+      "path": "helpers/teaching-source-overrides.py",
+      "sha256": "9f16e80186fac5aca3a32dd5e1d37461314724ff9230685be91dc9905d00c235"
+    },
+    {
+      "path": "helpers/text-size.py",
+      "sha256": "2a01c519aa8b8a5413a1211dc016d7619c1608c26df0bc9e282653d39986b317"
+    },
+    {
+      "path": "helpers/variant-policy.py",
+      "sha256": "4d1041675cfe473930955b49de1161cab16cbe97f32fde39ec926c55402eecfd"
+    },
+    {
+      "path": "helpers/verify-teaching-blend.py",
+      "sha256": "6e98794b2ee55cfa5cd24351d5c07be0651fba46237a7119966af2f7c4c5ab36"
+    },
+    {
+      "path": "helpers/voice-regenerate.py",
+      "sha256": "836782d1e2fed47226a3aa0fca7c538a292ee7524e4f9fe550e25211075d869c"
+    },
+    {
+      "path": "run-one.py",
+      "sha256": "4f91a88ee4d18b0e8513f5d159963edb246d82fab1702994e466c087dc1d5e70"
+    },
+    {
+      "path": "test_variant.py",
+      "sha256": "a23414f051472b85c31bf4da58a81761648705fd8cd9b903590867751d82c1ad"
+    },
+    {
+      "path": "README.md",
+      "sha256": "926dace1efa2f4bd1a097d93d6efe9638e44ce4c2d965151efb1250f4565d0cf"
+    }
+  ],
+  "protectedOriginalFiles": [
+    {
+      "path": "/Users/jamesphoenix/render-tmp/smart-cub-refresh-20261016/smart-cub/apps/prototypes/founder-videos/out/review-complete/teaching_nvr.pattern.compare-attributes/wide/42a8803e77eb8e7fc16c/request-76f78055ca41267b40200a5c.json",
+      "sha256": "34269413bf58c0779c6c71c3421ad1735cc04d42ae1dc22f18caa5005ca4cfc7"
+    },
+    {
+      "path": "/Users/jamesphoenix/render-tmp/smart-cub-refresh-20261016/smart-cub/apps/prototypes/founder-videos/out/teaching/nvr.pattern.compare-attributes-wide-cta.mp4",
+      "sha256": "42a8803e77eb8e7fc16cef93cf80b75b018b55dbcaad7d7c6c14e5d788079fb4"
+    },
+    {
+      "path": "/Users/jamesphoenix/render-tmp/smart-cub-refresh-20261016/smart-cub/apps/prototypes/founder-videos/out/review-complete/teaching_nvr.pattern.compare-attributes/wide/42a8803e77eb8e7fc16c/context-76f78055ca41267b40200a5c.json",
+      "sha256": "9d9aff292d4badfb02881b4652992a407dacb4d4c0cdc7bb78b6af66013db254"
+    },
+    {
+      "path": "/Users/jamesphoenix/render-tmp/smart-cub-refresh-20261016/smart-cub/apps/prototypes/founder-videos/out/review-complete/teaching_nvr.pattern.compare-attributes/wide/42a8803e77eb8e7fc16c/prompt-76f78055ca41267b40200a5c.txt",
+      "sha256": "1b0af5eedb4b1db8056a01984d86b58a261be0349025a42ad3387aac6a950a14"
+    },
+    {
+      "path": "/Users/jamesphoenix/render-tmp/smart-cub-refresh-20261016/smart-cub/apps/prototypes/founder-videos/out/review-complete/teaching_nvr.pattern.compare-attributes/wide/42a8803e77eb8e7fc16c/body-76f78055ca41267b40200a5c.json",
+      "sha256": "cc127c8e7be1d59566a118243e844705dfe2669de78d8a78e39fc40dcd2d55b0"
+    },
+    {
+      "path": "/Users/jamesphoenix/render-tmp/smart-cub-refresh-20261016/smart-cub/apps/prototypes/founder-videos/out/review-complete/teaching_nvr.pattern.compare-attributes/wide/42a8803e77eb8e7fc16c/response-76f78055ca41267b40200a5c.json",
+      "sha256": "8820001d180b91acfa8360267feb81623a3574d6b05148cbe7224fb69bd9ae8c"
+    },
+    {
+      "path": "/Users/jamesphoenix/render-tmp/smart-cub-refresh-20261016/smart-cub/apps/prototypes/founder-videos/out/review-complete/teaching_nvr.pattern.compare-attributes/wide/42a8803e77eb8e7fc16c/technical.json",
+      "sha256": "c45eba99cd2e1192f24c0df4ce61ebccea39d78af590fc16e776e4c163967f48"
+    },
+    {
+      "path": "/Users/jamesphoenix/render-tmp/smart-cub-refresh-20261016/smart-cub/apps/prototypes/founder-videos/out/review-complete/teaching_nvr.pattern.compare-attributes/wide/42a8803e77eb8e7fc16c/ffprobe.json",
+      "sha256": "2d7b0f52a55c6f3c9f1401ad9210c3ee89a5af8d06322c1d628fa1e8a6a0d790"
+    },
+    {
+      "path": "/Users/jamesphoenix/render-tmp/smart-cub-refresh-20261016/smart-cub/apps/prototypes/founder-videos/out/review-complete/teaching_nvr.pattern.compare-attributes/wide/42a8803e77eb8e7fc16c/ffmpeg.log",
+      "sha256": "7a6bbe6928a11928dc1cd046d6f5443523405d66d4e17726d080248d57f456a1"
+    },
+    {
+      "path": "/Users/jamesphoenix/render-tmp/smart-cub-refresh-20261016/smart-cub/apps/prototypes/founder-videos/scripts/review-media.py",
+      "sha256": "852264b62466688b5091667891908362a87b3b176f84a6075810cd38ba00aba8"
+    },
+    {
+      "path": "/Users/jamesphoenix/render-tmp/smart-cub-refresh-20261016/workflow/family-helpers-f86aa9cb6/scripts/blend-teaching.py",
+      "sha256": "010046fc53ca862424ef44ef6c9c0f5db426b5a1cef50cd98b8165ecc1533b2f"
+    },
+    {
+      "path": "/Users/jamesphoenix/render-tmp/smart-cub-refresh-20261016/workflow/family-helpers-f86aa9cb6/scripts/review-ledger.py",
+      "sha256": "1a15163dd5398e1a553b5be5b91c5d3371d147081f0e6baf933d93e6cb483d24"
+    },
+    {
+      "path": "/Users/jamesphoenix/render-tmp/smart-cub-refresh-20261016/workflow/family-helpers-f86aa9cb6/scripts/fal-run.py",
+      "sha256": "ae68e795a3a81129c40c6ee037e91808583e6adad57c3e88151a0b5072c67a00"
+    },
+    {
+      "path": "/Users/jamesphoenix/render-tmp/smart-cub-refresh-20261016/workflow/family-helpers-f86aa9cb6/scripts/text-size.py",
+      "sha256": "2a01c519aa8b8a5413a1211dc016d7619c1608c26df0bc9e282653d39986b317"
+    },
+    {
+      "path": "/Users/jamesphoenix/render-tmp/smart-cub-refresh-20261016/workflow/family-helpers-f86aa9cb6/scripts/fill-check.py",
+      "sha256": "cd5ba077866b94f06deeb9c116a0e00ba869fbfbfb91ede312c39a362fdefc80"
+    },
+    {
+      "path": "/Users/jamesphoenix/render-tmp/smart-cub-refresh-20261016/workflow/family-helpers-f86aa9cb6/scripts/teaching-blend-dispatch.py",
+      "sha256": "001652c0164c27b222e53a07950ea9c731d706f71448a71ad02016a0478f6746"
+    },
+    {
+      "path": "/Users/jamesphoenix/render-tmp/smart-cub-refresh-20261016/workflow/family-helpers-f86aa9cb6/scripts/pace.py",
+      "sha256": "59f8571d1559bd2d32761ac1e05b8247cb0f77b38b55e870c7bbe4b02ebb2439"
+    },
+    {
+      "path": "/Users/jamesphoenix/render-tmp/smart-cub-refresh-20261016/workflow/family-helpers-f86aa9cb6/scripts/review-corrected-teaching.py",
+      "sha256": "f7b5ef293b25768b9c76ba3adee2953e7f293e9acb7ea5a5b557acff6d51b0fc"
+    },
+    {
+      "path": "/Users/jamesphoenix/render-tmp/smart-cub-refresh-20261016/workflow/family-helpers-f86aa9cb6/scripts/stage-teaching-corrections.py",
+      "sha256": "0f9e41816b35c69f62c0604c8a79887289612954ac008f4b7929dc09242b6095"
+    },
+    {
+      "path": "/Users/jamesphoenix/render-tmp/smart-cub-refresh-20261016/workflow/family-helpers-f86aa9cb6/scripts/deliver-videos.py",
+      "sha256": "70dba63b31a2a881a34bb2e5797884e39de2f50b6ac57b5362c2c0412dd7d52e"
+    },
+    {
+      "path": "/Users/jamesphoenix/render-tmp/smart-cub-refresh-20261016/workflow/family-helpers-f86aa9cb6/scripts/verify-teaching-blend.py",
+      "sha256": "6e98794b2ee55cfa5cd24351d5c07be0651fba46237a7119966af2f7c4c5ab36"
+    },
+    {
+      "path": "/Users/jamesphoenix/render-tmp/smart-cub-refresh-20261016/workflow/family-helpers-f86aa9cb6/scripts/voice-regenerate.py",
+      "sha256": "836782d1e2fed47226a3aa0fca7c538a292ee7524e4f9fe550e25211075d869c"
+    },
+    {
+      "path": "/Users/jamesphoenix/render-tmp/smart-cub-refresh-20261016/workflow/family-helpers-f86aa9cb6/scripts/teaching-narration-repair.py",
+      "sha256": "820f440124d673fcf5c277afac4f1406a3689336d1aabe6109304d226ae4538e"
+    },
+    {
+      "path": "/Users/jamesphoenix/render-tmp/smart-cub-refresh-20261016/workflow/family-helpers-f86aa9cb6/scripts/selected-avatar.py",
+      "sha256": "7c39269de3dd34bf97064a3cf9827450498b817d02decafb08a02930379616fa"
+    },
+    {
+      "path": "/Users/jamesphoenix/render-tmp/smart-cub-refresh-20261016/workflow/family-helpers-f86aa9cb6/scripts/blend-corrected-teaching.py",
+      "sha256": "d59f2897de01078ea34e92fc866d467349e1fc5ed9912ed854a46edd3fb69b7f"
+    },
+    {
+      "path": "/Users/jamesphoenix/render-tmp/smart-cub-refresh-20261016/workflow/family-helpers-f86aa9cb6/scripts/review-media.py",
+      "sha256": "852264b62466688b5091667891908362a87b3b176f84a6075810cd38ba00aba8"
+    },
+    {
+      "path": "/Users/jamesphoenix/render-tmp/smart-cub-refresh-20261016/workflow/family-helpers-f86aa9cb6/scripts/teaching-review-dispatch.py",
+      "sha256": "7b419925ae0b1b2aa71fc3cfa11291220b1de2a669c745b4e016455e9c97a762"
+    },
+    {
+      "path": "/Users/jamesphoenix/render-tmp/smart-cub-refresh-20261016/workflow/family-helpers-f86aa9cb6/scripts/reconcile-review.py",
+      "sha256": "daee09781677e74c26767d5378feb7eafae1739d240c72fb7a389366dc53467f"
+    },
+    {
+      "path": "/Users/jamesphoenix/render-tmp/smart-cub-refresh-20261016/workflow/family-helpers-f86aa9cb6/scripts/teaching-final-corrections.py",
+      "sha256": "70167bec537569b907a7c28f305505991b7ea286f538e734d3c3c251f16d5468"
+    },
+    {
+      "path": "/Users/jamesphoenix/render-tmp/smart-cub-refresh-20261016/workflow/family-helpers-f86aa9cb6/scripts/production-roots.py",
+      "sha256": "aed95815344a7f7caf9009799304b3db6220f677dade0db90fcebd6a8d46d0cd"
+    },
+    {
+      "path": "/Users/jamesphoenix/render-tmp/smart-cub-refresh-20261016/workflow/family-helpers-f86aa9cb6/scripts/critic.py",
+      "sha256": "26832ceb119b91b52c9a3e4ef5350a884cfb422747ceb2d63902d695009ddc8d"
+    },
+    {
+      "path": "/Users/jamesphoenix/render-tmp/smart-cub-refresh-20261016/workflow/family-helpers-f86aa9cb6/scripts/extent.py",
+      "sha256": "6b53cf79f1817f82611865bc16bc9434616390c2c10cfc7b36a8696246a0365b"
+    },
+    {
+      "path": "/Users/jamesphoenix/render-tmp/smart-cub-refresh-20261016/workflow/family-helpers-f86aa9cb6/scripts/prepare-review.py",
+      "sha256": "ccfe49c49e22b8b31ab2bc7102c749844ef22c2feba6f83e8477eaf7e75ac7a2"
+    },
+    {
+      "path": "/Users/jamesphoenix/render-tmp/smart-cub-refresh-20261016/workflow/family-helpers-f86aa9cb6/scripts/qa.py",
+      "sha256": "2f7c735e2ebb0b4b7177613e17cb1513c90b5bce6ff78288bc811530f7b7fde2"
+    },
+    {
+      "path": "/Users/jamesphoenix/render-tmp/smart-cub-refresh-20261016/workflow/family-helpers-f86aa9cb6/scripts/fal-fetch.py",
+      "sha256": "4e998fd80a43df23f293b38b0e1406fb367394a70817f93ac4a2d2be5d27ec3d"
+    },
+    {
+      "path": "/Users/jamesphoenix/render-tmp/smart-cub-refresh-20261016/workflow/family-helpers-f86aa9cb6/scripts/teaching-source-overrides.py",
+      "sha256": "fcc3f24c80f04cd56c6eb843a8df628be7aca3f0eeb16d6d75aa5ace6c6dd619"
+    },
+    {
+      "path": "/Users/jamesphoenix/render-tmp/smart-cub-refresh-20261016/workflow/family-helpers-491921cf0-final12/scripts/blend-teaching.py",
+      "sha256": "010046fc53ca862424ef44ef6c9c0f5db426b5a1cef50cd98b8165ecc1533b2f"
+    },
+    {
+      "path": "/Users/jamesphoenix/render-tmp/smart-cub-refresh-20261016/workflow/family-helpers-491921cf0-final12/scripts/review-ledger.py",
+      "sha256": "1a15163dd5398e1a553b5be5b91c5d3371d147081f0e6baf933d93e6cb483d24"
+    },
+    {
+      "path": "/Users/jamesphoenix/render-tmp/smart-cub-refresh-20261016/workflow/family-helpers-491921cf0-final12/scripts/fal-run.py",
+      "sha256": "ae68e795a3a81129c40c6ee037e91808583e6adad57c3e88151a0b5072c67a00"
+    },
+    {
+      "path": "/Users/jamesphoenix/render-tmp/smart-cub-refresh-20261016/workflow/family-helpers-491921cf0-final12/scripts/text-size.py",
+      "sha256": "2a01c519aa8b8a5413a1211dc016d7619c1608c26df0bc9e282653d39986b317"
+    },
+    {
+      "path": "/Users/jamesphoenix/render-tmp/smart-cub-refresh-20261016/workflow/family-helpers-491921cf0-final12/scripts/fill-check.py",
+      "sha256": "cd5ba077866b94f06deeb9c116a0e00ba869fbfbfb91ede312c39a362fdefc80"
+    },
+    {
+      "path": "/Users/jamesphoenix/render-tmp/smart-cub-refresh-20261016/workflow/family-helpers-491921cf0-final12/scripts/teaching-blend-dispatch.py",
+      "sha256": "001652c0164c27b222e53a07950ea9c731d706f71448a71ad02016a0478f6746"
+    },
+    {
+      "path": "/Users/jamesphoenix/render-tmp/smart-cub-refresh-20261016/workflow/family-helpers-491921cf0-final12/scripts/pace.py",
+      "sha256": "59f8571d1559bd2d32761ac1e05b8247cb0f77b38b55e870c7bbe4b02ebb2439"
+    },
+    {
+      "path": "/Users/jamesphoenix/render-tmp/smart-cub-refresh-20261016/workflow/family-helpers-491921cf0-final12/scripts/review-corrected-teaching.py",
+      "sha256": "f7b5ef293b25768b9c76ba3adee2953e7f293e9acb7ea5a5b557acff6d51b0fc"
+    },
+    {
+      "path": "/Users/jamesphoenix/render-tmp/smart-cub-refresh-20261016/workflow/family-helpers-491921cf0-final12/scripts/stage-teaching-corrections.py",
+      "sha256": "0f9e41816b35c69f62c0604c8a79887289612954ac008f4b7929dc09242b6095"
+    },
+    {
+      "path": "/Users/jamesphoenix/render-tmp/smart-cub-refresh-20261016/workflow/family-helpers-491921cf0-final12/scripts/deliver-videos.py",
+      "sha256": "70dba63b31a2a881a34bb2e5797884e39de2f50b6ac57b5362c2c0412dd7d52e"
+    },
+    {
+      "path": "/Users/jamesphoenix/render-tmp/smart-cub-refresh-20261016/workflow/family-helpers-491921cf0-final12/scripts/verify-teaching-blend.py",
+      "sha256": "6e98794b2ee55cfa5cd24351d5c07be0651fba46237a7119966af2f7c4c5ab36"
+    },
+    {
+      "path": "/Users/jamesphoenix/render-tmp/smart-cub-refresh-20261016/workflow/family-helpers-491921cf0-final12/scripts/voice-regenerate.py",
+      "sha256": "836782d1e2fed47226a3aa0fca7c538a292ee7524e4f9fe550e25211075d869c"
+    },
+    {
+      "path": "/Users/jamesphoenix/render-tmp/smart-cub-refresh-20261016/workflow/family-helpers-491921cf0-final12/scripts/teaching-narration-repair.py",
+      "sha256": "820f440124d673fcf5c277afac4f1406a3689336d1aabe6109304d226ae4538e"
+    },
+    {
+      "path": "/Users/jamesphoenix/render-tmp/smart-cub-refresh-20261016/workflow/family-helpers-491921cf0-final12/scripts/selected-avatar.py",
+      "sha256": "7c39269de3dd34bf97064a3cf9827450498b817d02decafb08a02930379616fa"
+    },
+    {
+      "path": "/Users/jamesphoenix/render-tmp/smart-cub-refresh-20261016/workflow/family-helpers-491921cf0-final12/scripts/blend-corrected-teaching.py",
+      "sha256": "d59f2897de01078ea34e92fc866d467349e1fc5ed9912ed854a46edd3fb69b7f"
+    },
+    {
+      "path": "/Users/jamesphoenix/render-tmp/smart-cub-refresh-20261016/workflow/family-helpers-491921cf0-final12/scripts/review-media.py",
+      "sha256": "852264b62466688b5091667891908362a87b3b176f84a6075810cd38ba00aba8"
+    },
+    {
+      "path": "/Users/jamesphoenix/render-tmp/smart-cub-refresh-20261016/workflow/family-helpers-491921cf0-final12/scripts/teaching-review-dispatch.py",
+      "sha256": "7b419925ae0b1b2aa71fc3cfa11291220b1de2a669c745b4e016455e9c97a762"
+    },
+    {
+      "path": "/Users/jamesphoenix/render-tmp/smart-cub-refresh-20261016/workflow/family-helpers-491921cf0-final12/scripts/reconcile-review.py",
+      "sha256": "daee09781677e74c26767d5378feb7eafae1739d240c72fb7a389366dc53467f"
+    },
+    {
+      "path": "/Users/jamesphoenix/render-tmp/smart-cub-refresh-20261016/workflow/family-helpers-491921cf0-final12/scripts/teaching-final-corrections.py",
+      "sha256": "70167bec537569b907a7c28f305505991b7ea286f538e734d3c3c251f16d5468"
+    },
+    {
+      "path": "/Users/jamesphoenix/render-tmp/smart-cub-refresh-20261016/workflow/family-helpers-491921cf0-final12/scripts/production-roots.py",
+      "sha256": "aed95815344a7f7caf9009799304b3db6220f677dade0db90fcebd6a8d46d0cd"
+    },
+    {
+      "path": "/Users/jamesphoenix/render-tmp/smart-cub-refresh-20261016/workflow/family-helpers-491921cf0-final12/scripts/critic.py",
+      "sha256": "26832ceb119b91b52c9a3e4ef5350a884cfb422747ceb2d63902d695009ddc8d"
+    },
+    {
+      "path": "/Users/jamesphoenix/render-tmp/smart-cub-refresh-20261016/workflow/family-helpers-491921cf0-final12/scripts/extent.py",
+      "sha256": "6b53cf79f1817f82611865bc16bc9434616390c2c10cfc7b36a8696246a0365b"
+    },
+    {
+      "path": "/Users/jamesphoenix/render-tmp/smart-cub-refresh-20261016/workflow/family-helpers-491921cf0-final12/scripts/prepare-review.py",
+      "sha256": "ccfe49c49e22b8b31ab2bc7102c749844ef22c2feba6f83e8477eaf7e75ac7a2"
+    },
+    {
+      "path": "/Users/jamesphoenix/render-tmp/smart-cub-refresh-20261016/workflow/family-helpers-491921cf0-final12/scripts/qa.py",
+      "sha256": "2f7c735e2ebb0b4b7177613e17cb1513c90b5bce6ff78288bc811530f7b7fde2"
+    },
+    {
+      "path": "/Users/jamesphoenix/render-tmp/smart-cub-refresh-20261016/workflow/family-helpers-491921cf0-final12/scripts/fal-fetch.py",
+      "sha256": "4e998fd80a43df23f293b38b0e1406fb367394a70817f93ac4a2d2be5d27ec3d"
+    },
+    {
+      "path": "/Users/jamesphoenix/render-tmp/smart-cub-refresh-20261016/workflow/family-helpers-491921cf0-final12/scripts/teaching-source-overrides.py",
+      "sha256": "9f16e80186fac5aca3a32dd5e1d37461314724ff9230685be91dc9905d00c235"
+    }
+  ],
+  "guardSha256": "541476d01d7010d7ed68cc612bd4f7a362f4c39c5b0d63dc0e2927c68fe2b2ad",
+  "newEvidenceRoot": "/Users/jamesphoenix/render-tmp/smart-cub-refresh-20261016/smart-cub/apps/prototypes/founder-videos/out/review-complete-compare-wide-followup-v1",
+  "candidatePolicy": "Explicit --exact-request absolute/projectrelative path and SHA required; reject prior cache, missing request, changed prompt/module/version/output/context/body, unsettled or unknown provider state. No newest timestamp fallback. Preparation.model otherwise retains existing exact source/receipt/context/current inventory and raw response checks. Finalise also rechecks same explicit request.",
+  "oldPaidState": "Completed terminal incomplete observation, settled3c unchanged, no automatic resubmission. New prompt/module identity is a separate bounded follow-up.",
+  "activation": "Root must review source/tests/cache-reader proof, then explicitly authorise one run-one.py --execute on Studio with trusted runtime op environment. No activation during preparation.",
+  "quality": "Advisory only, no final blend contract/quality decision/ledger pass automatically created. Incomplete new advisory remains incomplete."
+}

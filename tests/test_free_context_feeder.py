@@ -72,6 +72,19 @@ class FreeContextFeederTests(unittest.TestCase):
         self.assertEqual(report['states'], {'pending': 1})
         self.assertGreaterEqual(report['rejectedInputs'], 1)
 
+    def test_cross_owner_redirect_is_held_without_promotion(self):
+        url = 'https://local-tutor.example.com/'
+        self.seed([url])
+        evidence = {'url': 'https://unrelated.example.com/', 'text': 'unrelated text',
+                    'fetchCheckpointSha256': 'b' * 64}
+        with patch.object(feeder, 'fetch', return_value=evidence):
+            report = feeder.run(self.runtime)
+        self.assertEqual(report['states'], {'held': 1})
+        with closing(sqlite3.connect(self.control / 'free-context/pages.sqlite')) as db:
+            row = db.execute('SELECT text_sha256,error FROM pages').fetchone()
+        self.assertIsNone(row[0])
+        self.assertIn('left its original owner', row[1])
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -57,6 +57,13 @@ def profile_page_ceiling(job):
     from incremental_discovery import RECOVERY_INSTRUCTION, validate_recovery_authorization
     if authorization.get('instruction') == RECOVERY_INSTRUCTION:
         start, deadline = validate_recovery_authorization(authorization)
+    elif authorization.get('instruction') == 'Could you continue this work on my Mac Studio? Please using herdr?':
+        from prepare_qualification_followon import validate_studio_free
+        start, deadline = validate_studio_free(authorization)
+        parent = Path(authorization['previousProfileRoot'])
+        if (job.get('parentStage', {}).get('runDir') != str(parent.resolve())
+                or job.get('parentStage', {}).get('jobSha256') != hashlib.sha256((parent/'job.json').read_bytes()).hexdigest()):
+            raise ValueError('Public crawl parent changed')
     else:
         start, deadline, _ = campaign_window({'hours': 12,
             'authorizedStartedAt': authorization['requestedAt'],
@@ -64,7 +71,7 @@ def profile_page_ceiling(job):
     if (job['startedAt'] != start.isoformat() or job['deadlineUnix'] != deadline.timestamp()
             or type(job['newAttemptLimit']) is not int or not 1 <= job['newAttemptLimit'] <= 12000
             or job['pageLimit'] != job['initialAttemptCount'] + job['newAttemptLimit']
-            or not authorization.get('parentManifestSha256')):
+            or not (authorization.get('parentManifestSha256') or authorization.get('previousProfileRoot'))):
         raise ValueError('Public crawl changed its additional window or page allowance')
     return 32000
 

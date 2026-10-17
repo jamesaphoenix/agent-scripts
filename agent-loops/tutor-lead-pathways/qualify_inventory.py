@@ -535,8 +535,26 @@ def watch(root, owner, monitor):
             'pendingWebsiteSeedBatches':seed_batches,'seedIntakeError':seed_error}
     atomic_json(root/'monitor.json',report)
     from launch import credential_delay
-    if not terminal and not process and credential_delay(root):
+    delay = credential_delay(root) if not terminal and not process else 0
+    if delay:
         report['action'] = 'credential_cooldown'
+        atomic_json(root/'monitor.json', report)
+        # A thirty-minute launchd tick may precede a known account-quota
+        # reset by a few minutes. Finish only that bounded wait here so the
+        # owner need not lose another full interval. Longer waits remain
+        # launchd's responsibility.
+        if delay > 300 or time.time() + delay + 1 >= job['deadlineUnix']:
+            return
+        time.sleep(delay + 1)
+        if (time.time() >= job['deadlineUnix'] or credential_delay(root)
+                or subprocess_status(owner)):
+            return
+        latest = json.loads((root/'status.json').read_text()) if (root/'status.json').exists() else {}
+        if latest.get('phase') in ('deadline', 'budget_reached', 'api_unavailable'):
+            return
+        import subprocess
+        subprocess.run(['launchctl','kickstart',f'gui/{os.getuid()}/{owner}'],capture_output=True,timeout=10)
+        report['action'] = 'credential_retry_after_cooldown'
         atomic_json(root/'monitor.json', report)
         return
     if terminal and not process:

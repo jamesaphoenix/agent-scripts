@@ -3,7 +3,7 @@ set -euo pipefail
 [[ "$(id -un)" == "jamesphoenix" ]] || { echo "Install this task on Mac Studio only." >&2; exit 1; }
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="${3:-$(cd "$SCRIPT_DIR/../.." && pwd)}"
-PYTHON_BIN="$(command -v python3)"
+PYTHON_BIN="/opt/homebrew/opt/python@3.14/bin/python3.14"
 [[ "$PYTHON_BIN" == /* && -x "$PYTHON_BIN" ]] || { echo "An installed Python 3 interpreter is required." >&2; exit 1; }
 MODE="${1:-run}"
 STAGE="${2:-bucks-private-tutors-20261011}"

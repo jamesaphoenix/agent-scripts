@@ -1489,6 +1489,115 @@
       },
       "notes": "James requested exploring other DataForSEO endpoints. Native bounded Local Finder, Bing and homepage HTML term trials use at most fifty cents of the reduced shared USD15 remaining cap. Reuses the existing paid bank and lock, source receipts, duplicate inventory, Go/Decisions intake, uncertain holds and original deadline. No new budget, SDK turns or outreach. Retain source/evidence pending PR review; final cleanup removes owned stopped scratch only.",
       "credentialCooldownPath": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts/state/tutor-endpoint-probe-20261016/credential-wait.json"
+    },
+    {
+      "id": "bucks-private-tutors-20261017-free-12h",
+      "name": "bucks-private-tutors-20261017-free-12h",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.bucks-private-tutors-20261017-free-12h",
+      "schedule": "authorised window ending 2026-10-17T21:03:13Z",
+      "requiresOpServiceAccount": false,
+      "opServiceAccountSource": null,
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
+        "command": [
+          "bash",
+          ".worktrees/tutor-studio-free-20261017/agent-loops/tutor-lead-pathways/install-directory-profiles.sh",
+          "run",
+          "bucks-private-tutors-20261017-free-12h",
+          "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts"
+        ]
+      },
+      "notes": "Free Studio continuation; unchanged Bucks/Milton Keynes academic scope. No paid DataForSEO, no new allowance, no SDK turns, no outreach. Shared Decisions ledger and conservative USD15 overlay remain binding. Preserve old jobs, held and uncertain identities, receipts, caches and original deadline."
+    },
+    {
+      "id": "bucks-private-tutors-20261017-free-12h-watch",
+      "name": "bucks-private-tutors-20261017-free-12h-watch",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.bucks-private-tutors-20261017-free-12h-watch",
+      "schedule": "authorised window ending 2026-10-17T21:03:13Z, checks every 30 minutes",
+      "requiresOpServiceAccount": false,
+      "opServiceAccountSource": null,
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
+        "command": [
+          "bash",
+          ".worktrees/tutor-studio-free-20261017/agent-loops/tutor-lead-pathways/install-directory-profiles.sh",
+          "watch",
+          "bucks-private-tutors-20261017-free-12h",
+          "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts"
+        ]
+      },
+      "notes": "Free Studio continuation; unchanged Bucks/Milton Keynes academic scope. No paid DataForSEO, no new allowance, no SDK turns, no outreach. Shared Decisions ledger and conservative USD15 overlay remain binding. Preserve old jobs, held and uncertain identities, receipts, caches and original deadline."
+    },
+    {
+      "id": "tutor-qualification-20261017-free-12h",
+      "name": "tutor-qualification-20261017-free-12h",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.tutor-qualification-20261017-free-12h",
+      "schedule": "authorised window ending 2026-10-17T21:03:13Z",
+      "requiresOpServiceAccount": true,
+      "opServiceAccountSource": "profile-or-keychain",
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
+        "command": [
+          "bash",
+          ".worktrees/tutor-studio-free-20261017/agent-loops/tutor-lead-pathways/install-qualification.sh",
+          "run",
+          "tutor-qualification-20261017-free-12h",
+          "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts"
+        ]
+      },
+      "notes": "Free Studio continuation; unchanged Bucks/Milton Keynes academic scope. No paid DataForSEO, no new allowance, no SDK turns, no outreach. Shared Decisions ledger and conservative USD15 overlay remain binding. Preserve old jobs, held and uncertain identities, receipts, caches and original deadline.",
+      "credentialCooldownPath": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts/state/tutor-qualification-20261017-free-12h/credential-wait.json"
+    },
+    {
+      "id": "tutor-qualification-20261017-free-12h-watch",
+      "name": "tutor-qualification-20261017-free-12h-watch",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.tutor-qualification-20261017-free-12h-watch",
+      "schedule": "authorised window ending 2026-10-17T21:03:13Z, checks every 30 minutes",
+      "requiresOpServiceAccount": false,
+      "opServiceAccountSource": null,
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
+        "command": [
+          "bash",
+          ".worktrees/tutor-studio-free-20261017/agent-loops/tutor-lead-pathways/install-qualification.sh",
+          "watch",
+          "tutor-qualification-20261017-free-12h",
+          "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts"
+        ]
+      },
+      "notes": "Free Studio continuation; unchanged Bucks/Milton Keynes academic scope. No paid DataForSEO, no new allowance, no SDK turns, no outreach. Shared Decisions ledger and conservative USD15 overlay remain binding. Preserve old jobs, held and uncertain identities, receipts, caches and original deadline."
+    },
+    {
+      "id": "tutor-studio-20261017-free-12h-review",
+      "name": "Studio tutor continuation agent inspection reminders",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.tutor-studio-20261017-free-12h-review",
+      "schedule": "every 30 minutes until deadline plus final review grace",
+      "requiresOpServiceAccount": false,
+      "opServiceAccountSource": null,
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
+        "command": [
+          "bash",
+          ".worktrees/tutor-studio-free-20261017/agent-loops/tutor-lead-pathways/install-studio-review.sh",
+          "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts"
+        ]
+      },
+      "notes": "Snapshots and reminders target the existing native Studio Codex agent only. Delivery receipts do not count as actual agent inspections. No new agent or SDK turn."
     }
   ]
 }

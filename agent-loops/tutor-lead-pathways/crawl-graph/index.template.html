@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>Discovery Atlas | Outbound System</title>
+  <style>/*__STYLES__*/</style>
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar" aria-label="Graph controls">
+      <a class="wordmark" href="#"><span class="brand-icon">◈</span> OUTBOUND SYSTEM</a>
+      <div class="heading"><span class="eyebrow">TUTOR DISCOVERY / BUCKS + MK</span><h1>Discovery atlas<span>.</span></h1><p>The paths behind the research.</p></div>
+      <div class="snapshot"><span class="status-dot"></span> Saved crawl snapshot <span id="snapshot-date"></span></div>
+      <div class="summary-grid">
+        <div><strong id="total-domains">-</strong><span>observed domains</span></div>
+        <div><strong id="total-links">-</strong><span>domain connections</span></div>
+        <div><strong id="total-fetched">-</strong><span>domains fetched</span></div>
+        <div><strong id="total-pages">-</strong><span>unique pages fetched</span></div>
+      </div>
+      <label class="search-label" for="search">FIND A DOMAIN OR TUTOR <kbd>/</kbd></label>
+      <div class="search-wrap"><span>⌕</span><input id="search" type="search" placeholder="Try Inclusive Minds…" autocomplete="off" spellcheck="false" aria-controls="search-results"><button id="clear-search" aria-label="Clear search" hidden>×</button></div>
+      <div id="search-results" class="search-results" role="region" aria-label="Search results" hidden></div>
+      <div class="section-label">EXPLORE</div>
+      <div class="view-buttons" role="group" aria-label="Graph view">
+        <button data-view="atlas" class="active" aria-pressed="true"><span>◉</span><span>Crawl atlas<small>Recorded connections</small></span><span class="view-arrow">↗</span></button>
+        <button data-view="research" aria-pressed="false"><span>✧</span><span>Research neighbourhood<small>Decisions profiles + their links</small></span><span class="view-arrow">↗</span></button>
+      </div>
+      <div class="filter-heading"><span class="section-label">LAYERS</span><button id="reset-filters" class="text-button">Reset</button></div>
+      <div class="layers">
+        <label><input type="checkbox" id="show-crawled" checked><i style="--swatch:#7b9cff"></i><span>Fetched domains</span><b id="count-crawled"></b></label>
+        <label><input type="checkbox" id="show-research" checked><i style="--swatch:#65efce"></i><span>Research evidence</span><b id="count-research"></b></label>
+        <label><input type="checkbox" id="show-held" checked><i style="--swatch:#e8af68"></i><span>Held / failed only</span><b id="count-held"></b></label>
+        <label><input type="checkbox" id="show-discovered" checked><i style="--swatch:#647695"></i><span>Discovered, not fetched</span><b id="count-discovered"></b></label>
+      </div>
+      <div class="options">
+        <label><input type="checkbox" id="show-isolated"><span>Include unlinked seeds</span></label>
+        <label><input type="checkbox" id="hide-utilities" checked><span>Hide common utility domains</span></label>
+        <label><input type="checkbox" id="tutor-only"><span>Tutor signals only</span></label>
+      </div>
+      <div class="research-note"><span class="note-icon">✧</span><div><strong><span id="qualified-count">-</span> Decisions-qualified profiles</strong><p>Research evidence can sit on a directory. A coloured domain is not a verified tutor or permission to contact.</p></div></div>
+      <div class="sidebar-footer"><span>LOCAL FILE · NO NETWORK REQUIRED</span><button id="about-button" class="text-button">About the data ↗</button></div>
+    </aside>
+    <main id="viewport" aria-label="Interactive 3D crawl graph">
+      <div id="scene"></div>
+      <div class="scene-title"><span class="eyebrow">DOMAIN NETWORK</span><h2 id="view-title">Follow the crawl.</h2><p id="view-description">Recorded links between observed websites.</p></div>
+      <div class="toolbar" role="group" aria-label="Camera controls">
+        <div class="dimension-toggle"><button id="mode-3d" class="active" aria-pressed="true">3D</button><button id="mode-2d" aria-pressed="false">2D</button></div>
+        <button id="fit" title="Fit visible graph (F)">⌖ <span>Fit</span></button>
+        <button id="rotate" aria-pressed="false" title="Toggle slow rotation">↻ <span>Rotate</span></button>
+        <button id="export-png" title="Save the visible graph as a PNG">↓ <span>Image</span></button>
+      </div>
+      <div id="graph-labels" aria-hidden="true"></div>
+      <div id="tooltip" role="status" hidden></div>
+      <div id="loading"><span class="loading-orbit"></span><strong>Tracing the connections</strong><span>Preparing your saved crawl…</span></div>
+      <div id="empty" hidden><strong>No domains in this view</strong><p>Adjust the layers or search for a domain.</p><button id="empty-reset">Reset filters</button></div>
+      <div id="webgl-error" hidden><strong>3D rendering is unavailable</strong><p>Open this file in a browser with WebGL enabled. You can still search and inspect the saved domains.</p></div>
+      <div class="scene-bottom"><div class="visible-stat"><span class="status-dot"></span><span id="visible-count" aria-live="polite">Preparing graph</span></div><div class="interaction-hint">Drag to orbit <span>·</span> Scroll to zoom <span>·</span> Click to inspect</div><button id="export-data" class="text-button">Export graph JSON ↗</button></div>
+      <div class="orientation" aria-hidden="true"><span class="axis-y">Y</span><span class="axis-z">Z</span><span class="axis-x">X</span><i></i></div>
+      <section id="inspector" class="inspector" aria-label="Domain inspector">
+        <div class="inspector-top"><span class="eyebrow">DOMAIN INSPECTOR</span><button id="close-inspector" class="icon-button" aria-label="Clear selection">×</button></div>
+        <div id="inspector-content"></div>
+      </section>
+    </main>
+  </div>
+  <dialog id="about-dialog"><button id="close-about" class="icon-button" aria-label="Close about dialog">×</button><span class="eyebrow">DATA & PROVENANCE</span><h2>A map of evidence.</h2><div id="about-content"></div></dialog>
+  <script id="graph-data" type="application/json">/*__DATA__*/</script>
+  <script>/*__SCRIPT__*/</script>
+</body>
+</html>

@@ -200,7 +200,6 @@ def ensure_op_service_account(task: dict[str, Any]) -> None:
     # reading secrets or submitting provider work after the cooldown.
     if task.get('opServiceAccountSource') == 'profile-or-keychain' and task.get('credentialCooldownPath'):
         import datetime
-        from pathlib import Path
         cooldown = Path(task['credentialCooldownPath'])
         if cooldown.exists():
             if cooldown.is_symlink():

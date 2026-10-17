@@ -1,0 +1,23 @@
+{
+  "id": "smart-cub-marketing-successor-render-20261017",
+  "name": "Smart Cub separate successor marketing render",
+  "enabled": true,
+  "machine": "mac-studio",
+  "launchdLabel": "com.jud.smart-cub-marketing-successor-render-20261017",
+  "schedule": "manual one-shot; RunAtLoad=false, KeepAlive=false",
+  "requiresOpServiceAccount": false,
+  "install": {
+    "kind": "command",
+    "workdir": "/Users/jamesphoenix/Desktop/projects/just-understanding-data/agent-scripts",
+    "command": [
+      "bash",
+      "agent-loops/smart-cub-marketing-successor-render-20261017/install-launchd.sh"
+    ]
+  },
+  "notes": "PREPARATION PROPOSAL ONLY. Actual new family binding/config and root release required. Four p9+t29 pilot outputs first, explicit root pilot QA release before bulk. Separate new checkpoint/gates preserve old paused jobs. Standard normalIO/nice10;2rendersx4workers or1marketing model child/shared USD100 guard, no automatic uncertainty retry or quality pass.",
+  "schedulingPolicy": {
+    "processType": "Standard",
+    "lowPriorityIO": false,
+    "nice": 10
+  }
+}

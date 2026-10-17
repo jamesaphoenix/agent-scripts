@@ -1689,6 +1689,26 @@
       "notes": "Authorised 16-hour tutor-only graph continuation. Zero new allowance; shared settled and reserved Decisions headroom applies. No paid DataForSEO, SDK turns, Anthropic key or outreach. Preserve prior state and holds."
     },
     {
+      "id": "tutor-free-context-20261017-tutor-graph-16h",
+      "name": "tutor-free-context-20261017-tutor-graph-16h",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.tutor-free-context-20261017-tutor-graph-16h",
+      "schedule": "every 5 minutes until 2026-10-18T09:46:36Z",
+      "requiresOpServiceAccount": false,
+      "opServiceAccountSource": null,
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
+        "command": [
+          "bash",
+          ".worktrees/tutor-graph-16h-20261017/agent-loops/tutor-lead-pathways/install-free-context-feeder.sh",
+          "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts"
+        ]
+      },
+      "notes": "Public owned-site Go context only. No key, provider request, qualification or graph promotion. Preserve all existing URL holds and fixed deadline."
+    },
+    {
       "id": "tutor-studio-20261017-tutor-graph-16h-review",
       "name": "tutor-studio-20261017-tutor-graph-16h-review",
       "enabled": true,

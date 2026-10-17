@@ -12,6 +12,37 @@ from qualify_inventory import create_database
 
 
 class QualificationFollowonTests(unittest.TestCase):
+    def test_studio_free_window_preserves_states_and_reviewed_supplement(self):
+        with tempfile.TemporaryDirectory() as directory:
+            base=Path(directory); parent=base/'previous'; parent.mkdir(); child=base/'next'
+            with sqlite3.connect(parent/'decisions.sqlite') as db:
+                db.execute('CREATE TABLE decision_config(id INTEGER PRIMARY KEY,value TEXT)')
+                db.execute('INSERT INTO decision_config VALUES(1,?)',('sealed configuration',))
+            (parent/'discovery-scope.json').write_text('{}')
+            inventory=base/'inventory.json'; inventory.write_text('[{"status":"research"}]')
+            (parent/'job.json').write_text(json.dumps({'scope':str(parent/'discovery-scope.json'),
+                'input':str(inventory),'towns':['Amersham']}))
+            (parent/'status.json').write_text('{"phase":"complete","decisions":{}}')
+            db=create_database(parent/'candidates.sqlite')
+            with db:
+                db.execute("INSERT INTO candidates(key,candidate,state,error) VALUES('hold','{}','fetch_held','403')")
+                db.execute("INSERT INTO candidates(key,candidate,state) VALUES('negative','{}','excluded_irrelevant')")
+            db.close()
+            (parent/'exports').mkdir()
+            (parent/'exports/audited-subject-contacts.json').write_text('[{"name":"Ros"}]')
+            start=datetime.datetime.fromisoformat('2026-10-17T09:03:13+00:00'); auth=base/'authorization.json'
+            auth.write_text(json.dumps({'instruction':'Could you continue this work on my Mac Studio? Please using herdr?',
+                'requestedAt':start.isoformat(),'deadline':(start+datetime.timedelta(hours=12)).isoformat(),
+                'newMoneyAuthorizedCents':0,'maximumRemainingSpendNano':3803813200,
+                'paidDataForSeoSearchesAllowed':False,'maximumSdkTurns':0,
+                'anthropicApiKeyAllowed':False,'outreachAllowed':False,
+                'scopeSha256':'626d1ea33c5d87366917a34f22f3fc8deed5fde3b6227503afa2ffc79d10f5c6'}))
+            prepare(parent,child,inventory,auth,base/'profiles')
+            with sqlite3.connect(child/'candidates.sqlite') as copied:
+                self.assertEqual(copied.execute("SELECT state,error FROM candidates WHERE key='hold'").fetchone(),('fetch_held','403'))
+                self.assertEqual(copied.execute("SELECT state FROM candidates WHERE key='negative'").fetchone()[0],'excluded_irrelevant')
+            self.assertEqual(json.loads((child/'exports/audited-subject-contacts.json').read_text()),[{'name':'Ros'}])
+
     def test_new_window_preserves_parent_ledger_fetch_holds_and_uncertain_decisions(self):
         with tempfile.TemporaryDirectory() as directory:
             base=Path(directory);parent=base/'previous';parent.mkdir();child=base/'new-pass'

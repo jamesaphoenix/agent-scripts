@@ -7,7 +7,7 @@ MODE="${1:?Choose run or watch}"
 STAGE="${2:?Choose a prepared stage}"
 [[ "$MODE" == run || "$MODE" == watch ]] || exit 2
 [[ "$STAGE" =~ ^tutor-qualification-[a-z0-9-]+$ ]] || exit 2
-python3 - "$SCRIPT_DIR" "$ROOT_DIR" "$STAGE" "$MODE" <<'PY'
+/opt/homebrew/opt/python@3.14/bin/python3.14 - "$SCRIPT_DIR" "$ROOT_DIR" "$STAGE" "$MODE" <<'PY'
 import json,os,pathlib,plistlib,subprocess,sys
 scripts,root,stage,mode=sys.argv[1:];state=pathlib.Path(root)/'state'/stage
 job=json.loads((state/'job.json').read_text())

@@ -14,6 +14,25 @@ from discovery import atomic_json, file_hash, now_iso
 from qualification_context import cache_path
 
 ADDITIONAL_DISCOVERY_INSTRUCTION = 'My suggestion is have another $50 of budget and go find more tutors for the next 12 hours plz.'
+STUDIO_FREE_INSTRUCTION = 'Could you continue this work on my Mac Studio? Please using herdr?'
+
+
+def validate_studio_free(auth):
+    start = datetime.datetime.fromisoformat(auth['requestedAt'])
+    deadline = datetime.datetime.fromisoformat(auth['deadline'])
+    if (auth.get('instruction') != STUDIO_FREE_INSTRUCTION
+            or auth.get('requestedAt') != '2026-10-17T09:03:13+00:00'
+            or auth.get('deadline') != '2026-10-17T21:03:13+00:00'
+            or start.tzinfo is None or deadline - start != datetime.timedelta(hours=12)
+            or auth.get('newMoneyAuthorizedCents') != 0
+            or auth.get('maximumRemainingSpendNano') != 3803813200
+            or auth.get('paidDataForSeoSearchesAllowed') is not False
+            or auth.get('maximumSdkTurns') != 0
+            or auth.get('anthropicApiKeyAllowed') is not False
+            or auth.get('outreachAllowed') is not False
+            or auth.get('scopeSha256') != '626d1ea33c5d87366917a34f22f3fc8deed5fde3b6227503afa2ffc79d10f5c6'):
+        raise ValueError('Invalid free Studio continuation authorization')
+    return start, deadline
 
 
 def prepare(previous, output, candidates, authorization, profile_root):
@@ -25,6 +44,10 @@ def prepare(previous, output, candidates, authorization, profile_root):
     deadline = datetime.datetime.fromisoformat(auth['deadline'])
     approved = auth.get('instruction') == 'Yes, start the new pass'
     hours = 12
+    preserve_states = auth.get('instruction') == STUDIO_FREE_INSTRUCTION
+    if preserve_states:
+        validate_studio_free(auth)
+        approved = True
     if auth.get('instruction') == ADDITIONAL_DISCOVERY_INSTRUCTION:
         from incremental_discovery import validate_authorization
         validate_authorization(auth)
@@ -58,9 +81,10 @@ def prepare(previous, output, candidates, authorization, profile_root):
             with closing(sqlite3.connect((previous/'candidates.sqlite').as_uri()+'?mode=ro',uri=True)) as source:
                 with closing(sqlite3.connect(temporary/'candidates.sqlite')) as target:
                     source.backup(target)
-                    with target:
-                        target.execute("UPDATE candidates SET state='pending',error=NULL WHERE state IN "
-                                       "('uncertain','subject_review','locality_review','needs_owned_page_review','fetch_held')")
+                    if not preserve_states:
+                        with target:
+                            target.execute("UPDATE candidates SET state='pending',error=NULL WHERE state IN "
+                                           "('uncertain','subject_review','locality_review','needs_owned_page_review','fetch_held')")
             job = dict(parent, input=str(output/'input.json'),scope=str(output/'discovery-scope.json'),
                 inputSha256=file_hash(temporary/'input.json'),scopeSha256=file_hash(temporary/'discovery-scope.json'),
                 deadlineUnix=deadline.timestamp(),authorizedDeadline=deadline.isoformat(),startedAt=start.isoformat(),
@@ -75,11 +99,17 @@ def prepare(previous, output, candidates, authorization, profile_root):
                                'inputSha256':file_hash(Path(parent['input']))},
                 previousDecisions=status['decisions'])
             atomic_json(temporary/'job.json',job)
+            if preserve_states:
+                reviewed = previous/'exports/audited-subject-contacts.json'
+                if reviewed.exists():
+                    (temporary/'exports').mkdir(mode=0o700)
+                    shutil.copy2(reviewed, temporary/'exports/audited-subject-contacts.json')
             atomic_json(temporary/'status.json',{'phase':'prepared','observedAt':now_iso(),'ownerPid':0,
                 'deadline':deadline.isoformat(),'decisions':status['decisions'],'inputRows':len(rows)})
             atomic_json(temporary/'preparation.json',{'observedAt':now_iso(),'inputRows':len(rows),
                 'sourceInventorySha256':hashlib.sha256(raw).hexdigest(),'sharedCache':job['sharedCache'],
-                'parentJobPreserved':True,'newPaidAllowanceCreated':False,'paidCalls':0})
+                'parentJobPreserved':True,'candidateStatesPreserved':preserve_states,
+                'newPaidAllowanceCreated':False,'paidCalls':0})
             temporary.rename(output)
         except BaseException:
             shutil.rmtree(temporary)

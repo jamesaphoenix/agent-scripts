@@ -85,6 +85,19 @@ class FreeContextFeederTests(unittest.TestCase):
         self.assertIsNone(row[0])
         self.assertIn('left its original owner', row[1])
 
+    def test_valid_saved_page_is_reused_without_go_request(self):
+        url = 'https://saved-tutor.example.com/'
+        self.seed([url])
+        cached = {url: {'url': url, 'text': 'Previously saved Aylesbury maths tutor page',
+                        'replaySource': {'checkpoint': '/prior/crawl.json', 'sha256': 'c' * 64}}}
+        with patch.object(feeder, 'page_index', return_value=cached), patch.object(feeder, 'fetch') as fetch:
+            report = feeder.run(self.runtime)
+        fetch.assert_not_called()
+        self.assertEqual(report['states'], {'reused': 1})
+        with closing(sqlite3.connect(self.control / 'free-context/pages.sqlite')) as db:
+            proof = json.loads(db.execute('SELECT replay_proof FROM pages').fetchone()[0])
+        self.assertEqual(proof, cached[url]['replaySource'])
+
 
 if __name__ == '__main__':
     unittest.main()

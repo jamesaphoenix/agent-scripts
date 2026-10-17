@@ -11,6 +11,7 @@ import time
 from discovery import atomic_json, file_hash, now_iso, source_host, website_key
 from focused_frontier import admitted, profile_key
 from focused_run import fetch
+from candidate_review import page_index
 from qualification_context import PRIVATE_ROUTE
 from urllib.parse import urlsplit
 
@@ -39,7 +40,9 @@ def open_ledger(path):
     db.execute('''CREATE TABLE IF NOT EXISTS pages (
         url TEXT PRIMARY KEY, owner TEXT NOT NULL, source_sha256 TEXT NOT NULL,
         state TEXT NOT NULL, observed_at TEXT NOT NULL, text_sha256 TEXT,
-        checkpoint_sha256 TEXT, error TEXT)''')
+        checkpoint_sha256 TEXT, error TEXT, replay_proof TEXT)''')
+    if 'replay_proof' not in {row[1] for row in db.execute('PRAGMA table_info(pages)')}:
+        db.execute('ALTER TABLE pages ADD COLUMN replay_proof TEXT')
     db.commit()
     return db
 
@@ -99,10 +102,14 @@ def run(runtime, max_pages=4):
     try:
         added, rejected = admit_batches(seeds, db, job)
         done = 0
-        for url, owner in db.execute("SELECT url,owner FROM pages WHERE state='pending' ORDER BY observed_at,url").fetchall():
+        pending = db.execute("SELECT url,owner FROM pages WHERE state='pending' ORDER BY observed_at,url").fetchall()
+        saved = (page_index([Path(p) for p in job.get('frontiers', [])],
+                            [Path(p) for p in job.get('crawlRoots', [])],
+                            [qual, *[Path(p) for p in job.get('fetchRoots', [])]]) if pending else {})
+        for url, owner in pending:
             if done >= max_pages or time.time() >= job['deadlineUnix']:
                 break
-            if db.execute("SELECT count(*) FROM pages WHERE owner=? AND state IN ('submitting','succeeded','held')", (owner,)).fetchone()[0] >= 3:
+            if db.execute("SELECT count(*) FROM pages WHERE owner=? AND state IN ('submitting','succeeded','reused','held')", (owner,)).fetchone()[0] >= 3:
                 with db:
                     db.execute("UPDATE pages SET state='held',error='Three-page owner allowance reached' WHERE url=?", (url,))
                 continue
@@ -113,6 +120,14 @@ def run(runtime, max_pages=4):
                         with db:
                             db.execute("UPDATE pages SET state='held',error='Prior qualification fetch hold' WHERE url=?", (url,))
                         continue
+            replay = saved.get(url)
+            if replay and website_key(replay.get('url')) == owner:
+                proof = replay['replaySource']
+                with db:
+                    db.execute("UPDATE pages SET state='reused',text_sha256=?,checkpoint_sha256=?,replay_proof=?,error=NULL WHERE url=?",
+                               (hashlib.sha256(replay['text'].encode()).hexdigest(), proof.get('sha256'),
+                                json.dumps(proof, sort_keys=True), url))
+                continue
             with db:
                 db.execute("UPDATE pages SET state='submitting',observed_at=? WHERE url=?", (now_iso(), url))
             try:

@@ -1031,7 +1031,8 @@
         "processType": "Standard",
         "lowPriorityIO": false,
         "nice": 10
-      }
+      },
+      "opServiceAccountSource": "profile-or-keychain"
     }
   ]
 }

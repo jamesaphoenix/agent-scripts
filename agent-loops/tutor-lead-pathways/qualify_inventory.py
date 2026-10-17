@@ -539,10 +539,11 @@ def watch(root, owner, monitor):
     if delay:
         report['action'] = 'credential_cooldown'
         atomic_json(root/'monitor.json', report)
-        # A thirty-minute launchd tick can precede a recorded cooldown by a
-        # few seconds. Finish that short wait here so the owner does not lose
-        # another full interval. Longer waits remain launchd's responsibility.
-        if delay > 50 or time.time() + delay + 1 >= job['deadlineUnix']:
+        # A thirty-minute launchd tick may precede a known account-quota
+        # reset by a few minutes. Finish only that bounded wait here so the
+        # owner need not lose another full interval. Longer waits remain
+        # launchd's responsibility.
+        if delay > 300 or time.time() + delay + 1 >= job['deadlineUnix']:
             return
         time.sleep(delay + 1)
         if (time.time() >= job['deadlineUnix'] or credential_delay(root)

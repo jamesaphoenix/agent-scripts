@@ -192,6 +192,19 @@ class QualificationFeederTests(unittest.TestCase):
         self.assertEqual(report['action'], 'credential_retry_after_cooldown')
         self.assertEqual(report['recoveries'], 0)
 
+    def test_watcher_bridges_known_account_quota_reset_within_five_minutes(self):
+        self.job['deadlineUnix'] = time.time() + 600
+        atomic_json(self.root / 'job.json', self.job)
+        atomic_json(self.root / 'status.json', {'phase': 'prepared'})
+        with patch('qualify_inventory.subprocess_status', return_value=False), \
+                patch('launch.credential_delay', side_effect=[210, 0]), \
+                patch('qualify_inventory.time.sleep') as sleep, \
+                patch('subprocess.run') as launch:
+            watch(self.root, 'owner', 'monitor')
+        sleep.assert_called_once_with(211)
+        self.assertEqual(launch.call_args.args[0][1], 'kickstart')
+        self.assertEqual(json.loads((self.root / 'monitor.json').read_text())['recoveries'], 0)
+
     def test_watcher_does_not_wait_past_deadline_for_credential_cooldown(self):
         self.job['deadlineUnix'] = time.time() + 2
         atomic_json(self.root / 'job.json', self.job)

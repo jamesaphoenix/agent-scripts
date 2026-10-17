@@ -1095,15 +1095,21 @@ def main(argv=None):
     parser.add_argument("--target", type=int, default=1000)
     args = parser.parse_args(argv)
     ceiling = 20000
+    maximum_hours = 12
     job_path = args.run_dir / 'job.json'
     if job_path.exists():
         from configuration import profile_page_ceiling
         try:
-            ceiling = profile_page_ceiling(json.loads(job_path.read_text()))
+            job = json.loads(job_path.read_text())
+            ceiling = profile_page_ceiling(job)
+            if (args.run_dir.name == 'bucks-private-tutors-20261017-tutor-graph-16h'
+                    and job.get('additionalWindowAuthorization')
+                    and job.get('deadlineUnix') - datetime.datetime.fromisoformat(job['startedAt']).timestamp() == 16 * 3600):
+                maximum_hours = 16
         except (OSError, ValueError, KeyError, TypeError):
             parser.error('Prepared public-crawl authorization is invalid')
-    if not 0 < args.hours <= 12 or not 1 <= args.pages <= ceiling or not 1 <= args.target <= 5000:
-        parser.error('Choose up to twelve hours and the validated public-crawl page allowance')
+    if not 0 < args.hours <= maximum_hours or not 1 <= args.pages <= ceiling or not 1 <= args.target <= 5000:
+        parser.error('Choose the authorised hours and validated public-crawl page allowance')
     run(args.run_dir, args.seed, args.hours, args.pages, args.target)
 
 

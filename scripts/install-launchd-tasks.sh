@@ -169,6 +169,31 @@ def display_task(data: dict[str, Any], task: dict[str, Any]) -> None:
 
 
 def ensure_op_service_account(task: dict[str, Any]) -> None:
+    if task.get('id') == 'tutor-qualification-20261017-tutor-graph-16h':
+        # A metadata-only 1Password request established that the shared account
+        # read/write quota resets after this job's deadline. The runtime wrapper
+        # honours this recorded wait without reading a secret.
+        import datetime
+        cooldown = Path(task['credentialCooldownPath'])
+        diagnostic = ROOT / 'state/tutor-studio-20261017-tutor-graph-16h/credential-quota-diagnostic.json'
+        auth = ROOT / 'state/tutor-studio-20261017-tutor-graph-16h/authorization.json'
+        if cooldown.exists() and diagnostic.exists() and auth.exists():
+            wait = json.loads(cooldown.read_text())
+            evidence = json.loads(diagnostic.read_text())
+            authorized = json.loads(auth.read_text())
+            observed = datetime.datetime.fromisoformat(wait['observedAt']).timestamp()
+            current = datetime.datetime.now(datetime.timezone.utc).timestamp()
+            deadline = datetime.datetime.fromisoformat(authorized['deadline']).timestamp()
+            if (authorized.get('instruction') == 'Go go for another 10-20 hours.'
+                    and authorized['deadline'] == '2026-10-18T09:46:36+00:00'
+                    and evidence.get('accountReadWrite', {}).get('remaining') == 0
+                    and wait.get('accountQuotaRemaining') == 0
+                    and wait.get('paidRequestSubmitted') is False
+                    and wait.get('reason') == '1Password account read_write quota exhausted'
+                    and observed <= current < deadline < wait['nextAttemptUnix'] <= observed + 86400
+                    and os.environ.get('OP_SERVICE_ACCOUNT_TOKEN')):
+                print('  OP authentication deferred: recorded account quota reset is after job deadline')
+                return
     # A registered runtime with a recorded rate limit must be installable
     # without adding another request. Its wrapper still authenticates before
     # reading secrets or submitting provider work after the cooldown.

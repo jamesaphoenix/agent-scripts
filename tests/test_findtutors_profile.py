@@ -4,10 +4,11 @@ from pathlib import Path
 import sys
 import tempfile
 import unittest
+from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).parents[1] / 'agent-loops/tutor-lead-pathways'))
 from directory_profiles import profile_record, profile_locality_status
-from directory_profiles import Document
+from directory_profiles import Document, PageCache, replay_cached_profiles
 from findtutors_profile import advert_person_id
 from qualification_context import profile_context_index
 from discovery import atomic_json
@@ -50,6 +51,29 @@ class FindTutorsProfileTests(unittest.TestCase):
         self.assertEqual(profile_locality_status(row), 'advertised_bucks_locality')
         self.assertIsNone(profile_record(html(description=description.replace('Jane Example', 'Other Person')), URL))
         self.assertIsNone(profile_record(html(description=description).replace('Classes of Maths, classes of 11 Plus', ''), URL))
+
+    def test_generic_profile_replays_hashed_cache_without_fetching_or_resetting_frontier(self):
+        description = 'Jane Example, private teacher from Buckingham, Dadford offers classes through FindTutors'
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            state = {'seen': [URL], 'queue': ['https://www.findtutors.co.uk/tutors-buckingham/'],
+                     'records': [], 'attempts': 19, 'errors': []}
+            raw = html(description=description, locations='Buckingham · Winslow').encode()
+            cache = PageCache(root)
+            page = cache.body_path(URL)
+            page.parent.mkdir(exist_ok=True)
+            page.write_bytes(raw)
+            atomic_json(root / 'receipts' / (cache.key(URL) + '.json'),
+                        {'url': URL, 'status': 200, 'sha256': hashlib.sha256(raw).hexdigest(),
+                         'observedAt': '2026-10-17', 'contentType': 'text/html'})
+            with mock.patch.object(PageCache, 'download', side_effect=AssertionError('No fetch')):
+                result = replay_cached_profiles(root, state, 2000, clock=lambda: 1000, platform='findtutors')
+            self.assertEqual(result['recoveredRecords'], 1)
+            self.assertEqual(state['records'][0]['name'], 'Jane Example')
+            self.assertEqual(state['attempts'], 19)
+            self.assertEqual(state['queue'], ['https://www.findtutors.co.uk/tutors-buckingham/'])
+            self.assertEqual(replay_cached_profiles(root, state, 2000, clock=lambda: 1000,
+                                                   platform='findtutors')['recoveredRecords'], 1)
 
     def test_foreign_canonical_ambiguous_ids_and_conflicting_own_names_are_rejected(self):
         for body in (html().replace(URL, URL.replace('jane-example', 'other-person')),

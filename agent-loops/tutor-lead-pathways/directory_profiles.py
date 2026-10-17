@@ -907,6 +907,7 @@ def write_profile_exports(root, state, phase='running'):
 def replay_cached_profiles(root, state, deadline, clock=time.time, platform='tutorhunt'):
     """Recover pages missed by an older layout parser, without fetching or resetting counters."""
     sources = {'tutorhunt': ('tutorhunt-profile-name-v2', 'https://www.tutorhunt.com/users/'),
+               'findtutors': ('findtutors-generic-profile-v1', 'https://www.findtutors.co.uk/tutor/'),
                'teachtutti': ('teachtutti-own-profile-v1', 'https://www.teachtutti.co.uk/tutor/'),
                'tta': ('tta-public-fields-v1', 'https://thetutorsassociation.wildapricot.org/Sys/PublicProfile/'),
                'apprentus': ('apprentus-own-advert-v2', 'https://www.apprentus.co.uk/private-lessons/')}
@@ -991,6 +992,7 @@ def run(root, seeds, hours, page_limit, target):
         scope = load_scope(Path(job['seedSourceRun'])) if job.get('seedSourceRun') else None
         state['discoveryScopeSha256'] = hashlib.sha256((Path(job['seedSourceRun']) / 'discovery-scope.json').read_bytes()).hexdigest() if scope else None
         replay_cached_profiles(root, state, job['deadlineUnix'])
+        replay_cached_profiles(root, state, job['deadlineUnix'], platform='findtutors')
         replay_cached_profiles(root, state, job['deadlineUnix'], platform='tta')
         replay_cached_profiles(root, state, job['deadlineUnix'], platform='teachtutti')
         replay_cached_profiles(root, state, job['deadlineUnix'], platform='apprentus')

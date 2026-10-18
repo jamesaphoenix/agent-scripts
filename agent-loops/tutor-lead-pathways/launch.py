@@ -64,6 +64,15 @@ def cached_classification_key(root, read_key):
                 raise RuntimeError('Credential cache is empty')
             return value
         checked_quota(root)
+        attempt = scratch / 'read-attempt.json'
+        try:
+            attempt_fd = os.open(attempt, os.O_CREAT | os.O_EXCL | os.O_WRONLY | os.O_NOFOLLOW, 0o600)
+        except FileExistsError:
+            raise RuntimeError('Credential read already attempted without a valid task cache; no retry') from None
+        with os.fdopen(attempt_fd, 'w') as stream:
+            json.dump({'attemptedAt': now_iso(), 'secretReference': 'op://api-keys/OpenAI/api_key'}, stream)
+            stream.flush()
+            os.fsync(stream.fileno())
         value = read_key()
         output = os.open(cache, os.O_CREAT | os.O_EXCL | os.O_WRONLY | os.O_NOFOLLOW, 0o600)
         try:

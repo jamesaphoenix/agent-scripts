@@ -15,6 +15,21 @@ from discovery import atomic_json
 
 
 class CredentialCooldownTests(unittest.TestCase):
+    def test_current_task_does_not_repeat_a_failed_non_rate_limited_secret_read(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / launch.CURRENT_CLASSIFICATION_STAGE
+            root.mkdir()
+            atomic_json(root / 'job.json', {'deadlineUnix': 1792361214})
+            atomic_json(root / 'credential-quota-check.json', {
+                'observedAt': '2026-10-18T17:41:17Z', 'status': 'available', 'accountReadWriteRemaining': 962})
+            reply = subprocess.CompletedProcess([], 1, '', 'Authentication failed')
+            with patch.object(launch.subprocess, 'run', return_value=reply) as read:
+                for _ in range(2):
+                    with self.assertRaises(RuntimeError):
+                        launch.runner_environment({'OP_SERVICE_ACCOUNT_TOKEN': 'test'}, root, classification=True)
+            self.assertEqual(read.call_count, 1)
+            self.assertFalse((root / 'credential-scratch/openai-api-key').exists())
+
     def test_new_window_requires_post_reset_quota_check_then_caches_one_secret_read(self):
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp)/launch.CURRENT_CLASSIFICATION_STAGE

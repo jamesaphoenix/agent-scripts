@@ -209,6 +209,13 @@ def ensure_op_service_account(task: dict[str, Any]) -> None:
     subprocess.run([str(script), "--ensure"], check=True)
 
 
+def launchd_target(task: dict[str, Any]) -> str:
+    domain = task.get("launchdDomain", "gui")
+    if domain not in ("gui", "user"):
+        raise SystemExit("launchdDomain must be gui or user for the current uid")
+    return f"{domain}/{os.getuid()}"
+
+
 def install_plist(task: dict[str, Any], dry_run: bool) -> None:
     install = task["install"]
     source = ROOT / install["plistPath"]
@@ -217,18 +224,21 @@ def install_plist(task: dict[str, Any], dry_run: bool) -> None:
     dest_dir = Path.home() / "Library" / "LaunchAgents"
     dest = dest_dir / source.name
     label = task.get("launchdLabel")
-    uid = os.getuid()
+    target = launchd_target(task)
     print(f"  copy plist: {source} -> {dest}")
-    print(f"  bootstrap: gui/{uid} {dest}")
+    print(f"  bootstrap: {target} {dest}")
     if dry_run:
         return
     dest_dir.mkdir(parents=True, exist_ok=True)
     shutil.copy2(source, dest)
     if label:
-        subprocess.run(["launchctl", "bootout", f"gui/{uid}/{label}"], check=False, stderr=subprocess.DEVNULL)
-    subprocess.run(["launchctl", "bootstrap", f"gui/{uid}", str(dest)], check=True)
+        if task.get("launchdDomain") == "user":
+            # A registered label moves from its original GUI domain; never touch another uid or label.
+            subprocess.run(["launchctl", "bootout", f"gui/{os.getuid()}/{label}"], check=False, stderr=subprocess.DEVNULL)
+        subprocess.run(["launchctl", "bootout", f"{target}/{label}"], check=False, stderr=subprocess.DEVNULL)
+    subprocess.run(["launchctl", "bootstrap", target, str(dest)], check=True)
     if install.get("kickstart", False) and label:
-        subprocess.run(["launchctl", "kickstart", f"gui/{uid}/{label}"], check=True)
+        subprocess.run(["launchctl", "kickstart", f"{target}/{label}"], check=True)
 
 
 def install_command(task: dict[str, Any], dry_run: bool) -> None:
@@ -284,7 +294,7 @@ def status_task(task: dict[str, Any], loaded: dict[str, tuple[str, str]]) -> Non
     plist = Path.home() / "Library" / "LaunchAgents" / f"{label}.plist"
     print(f"  plist: {'installed' if plist.exists() else 'missing'} ({plist})")
     print_result = subprocess.run(
-        ["launchctl", "print", f"gui/{uid}/{label}"],
+        ["launchctl", "print", f"{launchd_target(task)}/{label}"],
         capture_output=True,
         check=False,
         text=True,

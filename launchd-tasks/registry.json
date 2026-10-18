@@ -40,7 +40,8 @@
         "plistPath": "agent-loops/jud-video-continuation/com.jud.video-continuation-20261018.plist",
         "kickstart": false
       },
-      "notes": "James explicitly asked Codex to take over Opus. Preserve the run-2 GBP50 ElevenLabs-only ledger, all 51 pairs, checkpoints, voices, emotional prompting and request stitching. No Anthropic API key, Gemini or music generation. One runtime credential read. No restart after uncertain paid outcome. Preserve originals and exact-byte inspection gate. Retain outputs, ledgers and review evidence; remove task scratch after verified archive."
+      "notes": "James explicitly asked Codex to take over Opus. Preserve the run-2 GBP50 ElevenLabs-only ledger, all 51 pairs, checkpoints, voices, emotional prompting and request stitching. No Anthropic API key, Gemini or music generation. One runtime credential read. No restart after uncertain paid outcome. Preserve originals and exact-byte inspection gate. Retain outputs, ledgers and review evidence; remove task scratch after verified archive. Uses the current-user launchd domain so it inherits the valid SSH-set service token in memory. The stale GUI/keychain token is not used.",
+      "launchdDomain": "user"
     },
     {
       "id": "tutor-qualification-20261014-context-12h-watch",

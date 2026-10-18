@@ -5,9 +5,6 @@ export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:${PA
 root_dir="${1:?Runtime repository root required}"
 python_bin="${2:?Pinned Python interpreter required}"
 shift 2
-# The local profile contains the current headless token. A keychain cache can
-# lag after rotation; prefer the profile before falling back to that cache.
-source ~/.zprofile >/dev/null 2>&1 || true
 source "$root_dir/lib/op-service-account-env.sh"
 agent_scripts_export_op_service_account --required
 unset ANTHROPIC_API_KEY OPENAI_API_KEY CODEX_API_KEY DATAFORSEO_LOGIN DATAFORSEO_PASSWORD

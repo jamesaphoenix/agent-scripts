@@ -951,7 +951,8 @@ def replay_cached_profiles(root, state, deadline, clock=time.time, platform='tut
                'findtutors': ('findtutors-generic-profile-v1', 'https://www.findtutors.co.uk/tutor/'),
                'teachtutti': ('teachtutti-own-profile-v1', 'https://www.teachtutti.co.uk/tutor/'),
                'tta': ('tta-public-fields-v1', 'https://thetutorsassociation.wildapricot.org/Sys/PublicProfile/'),
-               'apprentus': ('apprentus-own-advert-v2', 'https://www.apprentus.co.uk/private-lessons/')}
+               'apprentus': ('apprentus-own-advert-v2', 'https://www.apprentus.co.uk/private-lessons/'),
+               'teacherstoyourhome': ('ttyh-town-only-v1', 'https://www.teacherstoyourhome.com/uk/tutor-near-me/')}
     if platform not in sources:
         raise ValueError('Unsupported cached profile replay source')
     version, prefix = sources[platform]
@@ -1037,6 +1038,7 @@ def run(root, seeds, hours, page_limit, target):
         replay_cached_profiles(root, state, job['deadlineUnix'], platform='tta')
         replay_cached_profiles(root, state, job['deadlineUnix'], platform='teachtutti')
         replay_cached_profiles(root, state, job['deadlineUnix'], platform='apprentus')
+        replay_cached_profiles(root, state, job['deadlineUnix'], platform='teacherstoyourhome')
         cache, robots = PageCache(root), {}
         while state["attempts"] < job["pageLimit"] and time.time() < job["deadlineUnix"]:
             try:

@@ -1,9 +1,13 @@
 import sys
 import unittest
+import hashlib
+import tempfile
+from unittest import mock
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parents[1] / 'agent-loops/tutor-lead-pathways'))
-from directory_profiles import admitted_url, exclusion_reason, profile_locality_status, profile_record
+from directory_profiles import PageCache, admitted_url, exclusion_reason, profile_locality_status, profile_record, replay_cached_profiles
+from discovery import atomic_json
 
 
 class TeachersToYourHomeProfileTests(unittest.TestCase):
@@ -60,6 +64,30 @@ class TeachersToYourHomeProfileTests(unittest.TestCase):
               <div><h2>About me</h2><p>I provide primary tutoring.</p></div>
               <div><h2>Subjects offered</h2><table><tr><td>Primary (Key Stage 2)</td></tr></table></div>'''
             self.assertIsNone(profile_record(page, self.URL))
+
+    def test_town_only_profile_replays_verified_cache_without_fetch(self):
+        url = 'https://www.teacherstoyourhome.com/uk/tutor-near-me/31265'
+        raw = b'''<h1>Dr Bipanjit R</h1><h2>Tutor in Chalfont St Giles</h2>
+          <div><h2>About me</h2><p>I teach A-level biology.</p></div>
+          <div><h2>Subjects offered</h2><table><tr><td>Biology (A-Level)</td></tr></table></div>'''
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            state = {'seen': [url], 'queue': [], 'records': [], 'attempts': 7, 'errors': []}
+            cache = PageCache(root)
+            page = cache.body_path(url)
+            page.parent.mkdir(exist_ok=True)
+            page.write_bytes(raw)
+            atomic_json(root / 'receipts' / (cache.key(url) + '.json'),
+                        {'url': url, 'status': 200, 'sha256': hashlib.sha256(raw).hexdigest(),
+                         'observedAt': '2026-10-18', 'contentType': 'text/html'})
+            with mock.patch.object(PageCache, 'download', side_effect=AssertionError('No fetch')):
+                report = replay_cached_profiles(root, state, 2000, clock=lambda: 1000,
+                                                platform='teacherstoyourhome')
+            self.assertEqual(report['recoveredRecords'], 1)
+            self.assertEqual(state['records'][0]['name'], 'Bipanjit R')
+            self.assertEqual(state['attempts'], 7)
+            self.assertEqual(replay_cached_profiles(root, state, 2000, clock=lambda: 1000,
+                                                   platform='teacherstoyourhome')['recoveredRecords'], 1)
 
 
 if __name__ == '__main__':

@@ -129,7 +129,8 @@ def main():
         print(json.dumps(report), flush=True)
         # Keep offline transfers pending until the original deadline, even if rendering completes first.
         if args.once or time.time() >= END or (status['phase']=='complete' and report['phase']=='synced'
-                                               and (run/'FINAL-LOCAL-WITNESS.json').exists()):
+                                               and (run/'FINAL-LOCAL-WITNESS.json').exists()
+                                               and (run/'FINAL-LOCAL-REPORT.md').exists()):
             break
         time.sleep(45)
 

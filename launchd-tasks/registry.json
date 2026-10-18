@@ -42,6 +42,21 @@
       "notes": "James explicitly asked Codex to take over Opus and continue on Studio through Herdr. Finite controller in the persistent Studio Herdr shell, independent of this MacBook and SSH. Preserve run-2 GBP50 ElevenLabs-only ledger, all 51 pairs, checkpoints, voices, emotional prompting and request stitching. One read of each required secret into process memory. No Anthropic API key, Gemini or new music. No automatic uncertain paid retry. Original deadlines: paid stop 21:00 UTC, delivery stop 22:00 UTC on 18 October. The GUI launchd job was removed because its credential context was stale; Herdr has the verified valid login environment."
     },
     {
+      "id": "jud-video-export-sync-20261018",
+      "name": "Return archived JUD film exports to the MacBook",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": null,
+      "schedule": "finite file sync, ends after successful completed run or 18 October 22:00 UTC",
+      "requiresOpServiceAccount": false,
+      "opServiceAccountSource": null,
+      "install": {
+        "kind": "external",
+        "managedBy": "Mac Studio Herdr server, session default, workspace wJ, pane wJ:p2"
+      },
+      "notes": "Hash-verifies archived pairs before rsync, verifies destination hashes, writes a Desktop index and durable pending status if the MacBook is offline. No rendering, provider calls, secret reads or deletions. Does not own the render controller lifetime."
+    },
+    {
       "id": "tutor-qualification-20261014-context-12h-watch",
       "name": "Qualify saved Bucks candidates using the shared USD10 ledger checks",
       "enabled": true,

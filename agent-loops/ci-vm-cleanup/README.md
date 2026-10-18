@@ -1,7 +1,8 @@
 # CI VM janitor
 
 Reclaims disk inside the Colima `ci` VM and returns it to the host, and reaps
-orphaned ephemeral CI containers on the host Docker daemon.
+orphaned ephemeral CI containers on the host Docker daemon. The nightly job
+also removes stale per-commit renderer and media-runtime images.
 
 ## Why this is separate from `docker-cleanup`
 
@@ -12,8 +13,9 @@ The Mac Studio runs **two** Docker daemons:
 | Docker Desktop (host) | prod + staging compose stacks | `docker-cleanup` (03:30) |
 | Colima `ci` VM | self-hosted GitHub Actions runners | **this loop** (04:10) |
 
-`docker-cleanup` only ever talks to the host daemon. Nothing cleaned the CI
-VM, and by 2026-09-08 it held 398 orphaned anonymous volumes (36GB) while its
+The host `docker-cleanup` job targets Docker Desktop. This CI loop invokes
+the same janitor with an explicit `colima-ci` context and matching builder.
+Before this loop existed, nothing cleaned the CI VM, and by 2026-09-08 it held 398 orphaned anonymous volumes (36GB) while its
 sparse datadisk had grown to 108GB on the host, helping push the boot volume
 to 98% full.
 
@@ -36,8 +38,13 @@ datadisk size before and after to measure actual sparse-file reduction.
 - **All volumes by default.** Anonymous-volume pruning requires explicit
   `CI_VM_CLEANUP_PRUNE_ANONYMOUS_VOLUMES=1`. Named volumes are always preserved.
 - **Running containers**, in the VM or on the host.
-- **The base image cache.** Image pruning is dangling-only; a full
-  `image prune -a` would just convert disk cost into pull time on every run.
+- **Tagged base images.** Only `octospark-renderer` and
+  `octospark-media-runtime` repositories are eligible for tagged-image cleanup.
+- **Recent renderer/runtime images.** Both creation and local tagging timestamps
+  must be at least 24 hours old. Missing timestamps retain the image.
+- **Images referenced by any CI container, running or stopped.** The shared
+  janitor inventories references before mutation and aborts if inventory fails.
+  It rechecks image age immediately before removal and never forces removal.
 - **Any container younger than `CI_VM_CLEANUP_ORPHAN_MIN_AGE_HOURS`** (3h),
   or whose creating shell PID is still alive.
 
@@ -57,10 +64,12 @@ failure mode.
 ## Install
 
 ```bash
-bash agent-loops/ci-vm-cleanup/install-launchd.sh
+bash scripts/install-launchd-tasks.sh --task ci-vm-cleanup
 ```
 
-Runs daily at 04:10 local, after the 03:30 host janitor.
+Install on Mac Studio only. Runs daily at 04:10 local, after the 03:30 host
+janitor. The `com.jud.ci-vm-cleanup` LaunchAgent writes status and logs under
+`state/ci-vm-cleanup/`; it needs no credentials.
 
 ## Manual use
 
@@ -75,4 +84,6 @@ Touch `state/ci-vm-cleanup/disabled` to skip a run without uninstalling.
 
 Build cache defaults to a 24-hour age filter and a 10 GB storage budget. The
 installed buildx CLI is probed for its supported budget flag. Cache-prune
-failures fail the job; guest trim still returns reclaimed blocks to macOS.
+failures fail the job. Successful cleanup runs guest trim to return reclaimed
+blocks to macOS. Dry runs perform inventory and print proposed mutations
+without deleting images or issuing TRIM.

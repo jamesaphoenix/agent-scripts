@@ -33,7 +33,6 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Shared with docker-cleanup deliberately: one owner, no drift.
 source "$SCRIPT_DIR/../docker-cleanup/lib/lock.sh"
 source "$SCRIPT_DIR/../docker-cleanup/lib/timeout.sh"
-source "$SCRIPT_DIR/../docker-cleanup/lib/cache-storage-flag.sh"
 
 DRY_RUN="${DRY_RUN:-0}"
 COLIMA_PROFILE="${CI_VM_CLEANUP_PROFILE:-ci}"
@@ -236,15 +235,23 @@ prune_ci_vm() {
     echo "-- all volumes preserved --"
   fi
 
-  # Dangling images only. A full `image prune -a` would evict the base
-  # image cache every CI run depends on and just move the cost to network.
-  echo "-- dangling images --"
-  run_or_print vm_exec docker image prune -f 2>&1 | tail -2 || true
-
-  echo "-- build cache older than $BUILDER_CACHE_UNTIL --"
-  local storage_flag
-  storage_flag="$(builder_storage_flag vm_exec docker)"
-  run_or_print vm_exec docker buildx prune --builder default -af --filter "until=$BUILDER_CACHE_UNTIL" "$storage_flag" "$BUILDER_KEEP_STORAGE" 2>&1 | tail -1
+  # Share the container-reference and local-tag-age protections with the
+  # host janitor. Pin this subprocess to the CI engine; never change the
+  # saved CLI context or inherit a builder for the production daemon.
+  local ci_context="colima-$COLIMA_PROFILE"
+  if [[ "$COLIMA_PROFILE" == "default" ]]; then
+    ci_context="colima"
+  fi
+  echo "-- stale renderer/runtime images and build cache ($ci_context) --"
+  DRY_RUN="$DRY_RUN" \
+    DOCKER_CLEANUP_CONTEXT="$ci_context" \
+    DOCKER_CLEANUP_BUILDER_NAME="$ci_context" \
+    DOCKER_CLEANUP_IMAGE_PATTERNS="octospark-renderer octospark-media-runtime" \
+    DOCKER_CLEANUP_IMAGE_MIN_AGE_HOURS=24 \
+    DOCKER_CLEANUP_PRUNE_STOPPED_CONTAINERS=0 \
+    BUILDER_CACHE_UNTIL="$BUILDER_CACHE_UNTIL" \
+    BUILDER_KEEP_STORAGE="$BUILDER_KEEP_STORAGE" \
+    bash "$SCRIPT_DIR/../docker-cleanup/cleanup-local-docker.sh"
 
   echo "-- after --"
   vm_exec df -h /var/lib/docker | tail -1 || true

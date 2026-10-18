@@ -42,6 +42,25 @@ class TeachersToYourHomeProfileTests(unittest.TestCase):
         self.assertIsNone(profile_record(page, self.URL))
         self.assertIsNone(profile_record('<h1>Miss Kathryn O</h1>', self.URL))
 
+    def test_exact_town_only_headers_within_existing_geography(self):
+        for town, expected in (
+            ('Chalfont St Giles', 'Chalfont St Giles, Buckinghamshire'),
+            ('Chalfont St Peter', 'Chalfont St Peter, Buckinghamshire'),
+            ('Newton Leys', 'Milton Keynes'),
+        ):
+            with self.subTest(town=town):
+                page = f'''<h1>Ms Lauren H</h1><h2>Tutor in {town}</h2>
+                  <div><h2>About me</h2><p>I provide primary tutoring.</p></div>
+                  <div><h2>Subjects offered</h2><table><tr><td>Primary (Key Stage 2)</td></tr></table></div>'''
+                row = profile_record(page, self.URL)
+                self.assertEqual(row['localityClaim'], expected)
+                self.assertEqual(profile_locality_status(row), 'advertised_bucks_locality')
+        for heading in ('Tutor in Oxford', 'Tutor in Newton Leys, Bedfordshire'):
+            page = f'''<h1>Ms Lauren H</h1><h2>{heading}</h2>
+              <div><h2>About me</h2><p>I provide primary tutoring.</p></div>
+              <div><h2>Subjects offered</h2><table><tr><td>Primary (Key Stage 2)</td></tr></table></div>'''
+            self.assertIsNone(profile_record(page, self.URL))
+
 
 if __name__ == '__main__':
     unittest.main()

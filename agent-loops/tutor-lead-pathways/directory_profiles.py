@@ -526,9 +526,21 @@ def profile_record(text, url):
         if not re.fullmatch(r"/uk/tutor-near-me/[1-9][0-9]{0,7}", p.path):
             return None
         names = [n.text().strip() for n in document.walk() if n.tag == "h1" and n.text().strip()]
-        locations = [re.fullmatch(r"Tutor in\s+(.+?)\s*,\s*Buckinghamshire", n.text().strip())
-                     for n in document.walk() if n.tag == "h2"]
-        locations = [match.group(1).strip() for match in locations if match]
+        # These exact town-only headers are within the existing Bucks/MK scope.
+        # Newton Leys is listed by Milton Keynes City Council; the Chalfonts
+        # are listed by Buckinghamshire Council. Do not infer other towns here.
+        town_only = {
+            "Tutor in Chalfont St Giles": "Chalfont St Giles, Buckinghamshire",
+            "Tutor in Chalfont St Peter": "Chalfont St Peter, Buckinghamshire",
+            "Tutor in Newton Leys": "Milton Keynes",
+        }
+        locations = []
+        for heading in (n.text().strip() for n in document.walk() if n.tag == "h2"):
+            county = re.fullmatch(r"Tutor in\s+(.+?)\s*,\s*Buckinghamshire", heading)
+            if county:
+                locations.append(county.group(1).strip() + ", Buckinghamshire")
+            elif heading in town_only:
+                locations.append(town_only[heading])
         section = named_section(document, "Subjects offered")
         about = named_section(document, "About me")
         subjects = []
@@ -545,7 +557,7 @@ def profile_record(text, url):
         if not name:
             return None
         row = public_person(p.hostname, p.path.rsplit("/", 1)[-1], name.group(1),
-                            locations[0] + ", Buckinghamshire", list(dict.fromkeys(subjects)), url)
+                            locations[0], list(dict.fromkeys(subjects)), url)
         row["ownedProfileFields"] = True
         return annotate_advert(row, names[0], about.text().removeprefix("About me "))
     elif p.hostname == "www.childcare.co.uk":

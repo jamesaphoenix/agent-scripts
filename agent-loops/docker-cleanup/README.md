@@ -22,7 +22,7 @@ never names anything.
 
 **Mac Studio (launchd):**
 ```bash
-bash agent-loops/docker-cleanup/install-launchd.sh
+bash scripts/install-launchd-tasks.sh --task host-docker-cleanup
 ```
 Runs daily at 03:30 local. See `install-launchd.sh` for the artifact-dir
 defaults (every CI runner slot x product combination it can find).
@@ -70,3 +70,21 @@ agent-loops/docker-cleanup/cleanup-local-docker.sh              # actually clean
 
 Registry-driven installs respect the standard opt-out convention: touch
 `state/docker-cleanup/disabled` to skip a run without uninstalling.
+
+## Native renderer and media-runtime images
+
+The Studio installer protects both current native compute release proofs under
+`~/.local/state/octospark-compute/release-staging.json` and `release-prod.json`.
+Native workers may be idle without any container referencing their image, so
+container inventory alone is insufficient. `DOCKER_CLEANUP_NATIVE_PIN_FILES`
+accepts colon-separated proof files; every file must contain valid digest-pinned
+`rendererImage` and `mediaImage` values. Missing or malformed proofs abort cleanup
+before mutation. With these protections configured, old `tx-agent-kit/renderer`
+and `tx-agent-kit/media-runtime` images join the eligible repositories.
+
+The current image digests and their local image IDs are retained, including tag
+aliases. The latest 20 release artifacts in each configured runner directory also
+protect rollback images, including keys such as `RENDERER_IMAGE_AMD64`. Images
+still require 24 hours since both creation and local tagging. Native cleanup is
+disabled when no proof files are configured; the separate Colima job continues
+to target its local CI renderer/runtime repositories.

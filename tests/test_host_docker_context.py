@@ -11,7 +11,7 @@ SCRIPT = Path(__file__).resolve().parents[1] / 'agent-loops/docker-cleanup/clean
 
 
 class HostDockerContextTests(unittest.TestCase):
-    def run_janitor(self, override=None, image=None, image_after=None, inventory_failure=None, digest=None, protected=False):
+    def run_janitor(self, override=None, image=None, image_after=None, inventory_failure=None, digest=None, protected=False, repository=None, native_pins=None, pin_id=None, artifact=None, pin_inspect_failure=False):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             docker = root / 'docker'
@@ -42,7 +42,10 @@ elif args[:2] == ['buildx', 'prune']:
 elif args[:2] == ['image', 'ls'] and os.environ.get('CONTEXT_TEST_IMAGE'):
     digest = os.environ.get('CONTEXT_TEST_DIGEST', '<none>')
     tag = '<none>' if digest != '<none>' else 'candidate'
-    print('registry/trace-learn/api\\t' + tag + '\\t' + digest + '\\tsha256:fixture')
+    print(os.environ.get('CONTEXT_TEST_REPOSITORY', 'registry/trace-learn/api') + '\\t' + tag + '\\t' + digest + '\\tsha256:fixture')
+elif args[:2] == ['image', 'inspect'] and '--format' in args:
+    if os.environ.get('CONTEXT_TEST_PIN_INSPECT_FAILURE'): sys.exit(1)
+    print(os.environ.get('CONTEXT_TEST_PIN_ID', 'sha256:fixture'))
 elif args[:2] == ['image', 'inspect'] and os.environ.get('CONTEXT_TEST_IMAGE'):
     with open(os.environ['CONTEXT_TEST_CALLS']) as calls:
         inspected = sum(json.loads(line)['args'][:2] == ['image', 'inspect'] for line in calls)
@@ -60,7 +63,27 @@ else:
             env.update(PATH=str(root) + os.pathsep + env['PATH'],
                        CONTEXT_TEST_CALLS=str(log), KEEP_DEPLOY_ARTIFACTS='0',
                        DOCKER_CLEANUP_LOCK_DIR=str(root / 'lock'),
-                       DOCKER_CONTEXT='desktop-linux')
+                       DOCKER_CONTEXT='desktop-linux', DOCKER_CLEANUP_NATIVE_PIN_FILES='',
+                       DOCKER_CLEANUP_ARTIFACT_DIRS='')
+            if repository:
+                env['CONTEXT_TEST_REPOSITORY'] = repository
+            if pin_id:
+                env['CONTEXT_TEST_PIN_ID'] = pin_id
+            if pin_inspect_failure:
+                env['CONTEXT_TEST_PIN_INSPECT_FAILURE'] = '1'
+            if native_pins is not None:
+                paths = []
+                for index, pin in enumerate(native_pins):
+                    path = root / ('release-' + str(index) + '.json')
+                    paths.append(str(path))
+                    if pin is not None:
+                        path.write_text(json.dumps(pin) if isinstance(pin, dict) else pin)
+                env['DOCKER_CLEANUP_NATIVE_PIN_FILES'] = ':'.join(paths)
+            if artifact:
+                artifact_dir = root / 'artifacts'
+                artifact_dir.mkdir()
+                (artifact_dir / 'images-keep.env').write_text(artifact)
+                env.update(KEEP_DEPLOY_ARTIFACTS='20', DOCKER_CLEANUP_ARTIFACT_DIRS=str(artifact_dir))
             for key in ('DOCKER_CLEANUP_CONTEXT', 'DOCKER_CLEANUP_BUILDER_NAME', 'DRY_RUN'):
                 env.pop(key, None)
             env.pop('CONTEXT_TEST_INVENTORY_FAILURE', None)
@@ -163,6 +186,57 @@ else:
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertGreaterEqual(sum(call['args'][:2] == ['image', 'inspect'] for call in calls), 2)
         self.assertFalse(any(call['args'][:2] == ['image', 'rm'] for call in calls))
+
+    def native_fixture(self):
+        return {'rendererImage': 'registry/tx-agent-kit/renderer@sha256:' + 'b' * 64,
+                'mediaImage': 'registry/tx-agent-kit/media-runtime@sha256:' + 'd' * 64}
+
+    def test_native_release_pins_protect_idle_image_tag_aliases(self):
+        old = '2020-01-01T00:00:00Z'
+        result, calls = self.run_janitor(repository='registry/tx-agent-kit/renderer',
+            image={'Created': old, 'Metadata': {'LastTagTime': old}},
+            native_pins=[self.native_fixture()])
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse(any(c['args'][:2] == ['image', 'rm'] for c in calls))
+
+    def test_unreferenced_old_native_image_is_removed_with_valid_pins(self):
+        old = '2020-01-01T00:00:00Z'
+        result, calls = self.run_janitor(repository='registry/tx-agent-kit/renderer',
+            image={'Created': old, 'Metadata': {'LastTagTime': old}},
+            native_pins=[self.native_fixture()], pin_id='sha256:current')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertTrue(any(c['args'] == ['image', 'rm', 'registry/tx-agent-kit/renderer:candidate'] for c in calls))
+
+    def test_native_cleanup_is_disabled_without_current_release_pins(self):
+        old = '2020-01-01T00:00:00Z'
+        result, calls = self.run_janitor(repository='registry/tx-agent-kit/renderer',
+            image={'Created': old, 'Metadata': {'LastTagTime': old}})
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse(any(c['args'][:2] == ['image', 'rm'] for c in calls))
+
+    def test_missing_or_invalid_native_proof_aborts_before_mutation(self):
+        for pin in (None, 'invalid json', {}, {'rendererImage': 'invalid', 'mediaImage': 'invalid'}):
+            with self.subTest(pin=pin):
+                result, calls = self.run_janitor(native_pins=[self.native_fixture(), pin])
+                self.assertNotEqual(result.returncode, 0)
+                self.assertFalse(any(c['args'][:2] in (['image', 'rm'], ['image', 'prune'],
+                    ['network', 'prune'], ['buildx', 'prune']) for c in calls))
+
+    def test_unverifiable_current_native_image_aborts_before_mutation(self):
+        result, calls = self.run_janitor(native_pins=[self.native_fixture()], pin_inspect_failure=True)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertFalse(any(c['args'][:2] in (['image', 'rm'], ['image', 'prune'],
+            ['network', 'prune'], ['buildx', 'prune']) for c in calls))
+
+    def test_architecture_suffix_in_rollback_artifact_is_protected(self):
+        old = '2020-01-01T00:00:00Z'
+        digest = 'sha256:' + 'c' * 64
+        result, calls = self.run_janitor(repository='registry/tx-agent-kit/renderer',
+            digest=digest, image={'Created': old, 'Metadata': {'LastTagTime': old}},
+            native_pins=[self.native_fixture()], pin_id='sha256:current',
+            artifact='RENDERER_IMAGE_AMD64=registry/tx-agent-kit/renderer@' + digest + '\n')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse(any(c['args'][:2] == ['image', 'rm'] for c in calls))
 
     def test_os_python_can_age_nanosecond_docker_timestamps(self):
         interpreter = Path('/usr/bin/python3')

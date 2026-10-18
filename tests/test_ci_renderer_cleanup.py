@@ -59,6 +59,7 @@ elif '--help' in args: print('--max-used-space')
                        CI_VM_CLEANUP_LOCK_DIR=str(root / 'ci-lock'),
                        DOCKER_CLEANUP_LOCK_DIR=str(root / 'image-lock'),
                        DOCKER_CLEANUP_DISABLE_FILE='', DOCKER_CONTEXT='desktop-linux',
+                       DOCKER_CLEANUP_NATIVE_PIN_FILES=str(root / 'host-pins-not-in-ci.json'),
                        CI_VM_CLEANUP_PRUNE_ANONYMOUS_VOLUMES='0',
                        DRY_RUN='1' if dry_run else '0',
                        RENDERER_TEST_INVENTORY_FAILURE='1' if inventory_failure else '')

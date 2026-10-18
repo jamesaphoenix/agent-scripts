@@ -245,6 +245,7 @@ prune_ci_vm() {
   echo "-- stale renderer/runtime images and build cache ($ci_context) --"
   DRY_RUN="$DRY_RUN" \
     DOCKER_CLEANUP_CONTEXT="$ci_context" \
+    DOCKER_CLEANUP_NATIVE_PIN_FILES="" \
     DOCKER_CLEANUP_BUILDER_NAME="$ci_context" \
     DOCKER_CLEANUP_IMAGE_PATTERNS="octospark-renderer octospark-media-runtime" \
     DOCKER_CLEANUP_IMAGE_MIN_AGE_HOURS=24 \

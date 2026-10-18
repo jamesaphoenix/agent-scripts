@@ -21,7 +21,7 @@ from discovery import tls_context
 from configuration import loaded_source_sha
 from lead_scope import load_scope, query_priority, services_text
 
-HOSTS = {"www.findtutors.co.uk", "tutorperch.com", "www.childcare.co.uk", "tutordex.net", "tutorextra.co.uk", "www.uktutors.com", "www.tutorhunt.com", "www.tuitionlist.co.uk", "www.teachtutti.co.uk", "www.apprentus.co.uk", "thetutorsassociation.wildapricot.org"}
+HOSTS = {"www.findtutors.co.uk", "tutorperch.com", "www.childcare.co.uk", "tutordex.net", "tutorextra.co.uk", "www.uktutors.com", "www.tutorhunt.com", "www.tuitionlist.co.uk", "www.teachtutti.co.uk", "www.apprentus.co.uk", "thetutorsassociation.wildapricot.org", "www.teacherstoyourhome.com"}
 from universitytutor import HOSTS as UNIVERSITY_HOSTS
 HOSTS |= UNIVERSITY_HOSTS
 AGENT = "TutorResearch/1.0"
@@ -136,6 +136,9 @@ def admitted_url(value):
             allowed = (profile or p.path == "/robots.txt" or bool(CHILDCARE_DIRECTORY_PATH.fullmatch(p.path))
                        or bool(town and local_listing_town(town[1])))
             p = p._replace(path=re.sub('%2b', '+', p.path, flags=re.I))
+        elif p.hostname == "www.teacherstoyourhome.com":
+            profile = bool(re.fullmatch(r"/uk/tutor-near-me/[1-9][0-9]{0,7}", p.path))
+            allowed = profile or p.path == "/robots.txt"
         elif p.hostname == "tutorperch.com":
             profile = bool(re.fullmatch(r"/t/[a-z0-9]+(?:-[a-z0-9]+)+/?", p.path))
             allowed = profile or p.path in ("/find/results", "/robots.txt")
@@ -519,6 +522,32 @@ def profile_record(text, url):
         title = document.first(lambda n: n.tag == "h1")
         row["institution"] = bool(title and re.search(r"\b(?:education company|tuition centre|learning centre)\b", title.text(), re.I))
         return annotate_advert(row, title.text() if title else "")
+    elif p.hostname == "www.teacherstoyourhome.com":
+        if not re.fullmatch(r"/uk/tutor-near-me/[1-9][0-9]{0,7}", p.path):
+            return None
+        names = [n.text().strip() for n in document.walk() if n.tag == "h1" and n.text().strip()]
+        locations = [re.fullmatch(r"Tutor in\s+(.+?)\s*,\s*Buckinghamshire", n.text().strip())
+                     for n in document.walk() if n.tag == "h2"]
+        locations = [match.group(1).strip() for match in locations if match]
+        section = named_section(document, "Subjects offered")
+        about = named_section(document, "About me")
+        subjects = []
+        if section:
+            for tr in section.walk():
+                if tr.tag != "tr":
+                    continue
+                cells = [child for child in tr.children if isinstance(child, Node) and child.tag == "td"]
+                if cells and cells[0].text().strip():
+                    subjects.append(cells[0].text().strip())
+        if len(names) != 1 or len(locations) != 1 or not subjects or not about:
+            return None
+        name = re.fullmatch(r"(?:Mr|Mrs|Miss|Ms|Dr)\s+([A-Za-z][A-Za-z' -]{1,70})", names[0])
+        if not name:
+            return None
+        row = public_person(p.hostname, p.path.rsplit("/", 1)[-1], name.group(1),
+                            locations[0] + ", Buckinghamshire", list(dict.fromkeys(subjects)), url)
+        row["ownedProfileFields"] = True
+        return annotate_advert(row, names[0], about.text().removeprefix("About me "))
     elif p.hostname == "www.childcare.co.uk":
         if not re.fullmatch(r"/profile/\d+", p.path):
             return None

@@ -102,7 +102,7 @@ def runner_environment(environment, state_root=None, classification=False):
         if not token:
             raise RuntimeError("1Password service account token is unavailable")
         # Reuse the host's proven launchd/TCC isolation and process-group deadline.
-        command = 'source "$1"; OP_CALL_TIMEOUT_SECONDS=20; trap op_cli_cleanup_isolated_home EXIT; run_op read "$2"'
+        command = 'source "$1"; OP_CALL_TIMEOUT_SECONDS=20; trap op_cli_cleanup_isolated_home EXIT; op_with_deadline read "$2"'
         result = subprocess.run(["/bin/bash", "-c", command, "tutor-credential", str(OP_HELPER), reference],
                                 env=credential_environment, capture_output=True, text=True, timeout=50)
         if result.returncode or not result.stdout.strip():

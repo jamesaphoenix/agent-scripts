@@ -1,5 +1,6 @@
 import json
 import os
+import shlex
 from pathlib import Path
 import subprocess
 import sys
@@ -15,6 +16,27 @@ from discovery import atomic_json
 
 
 class CredentialCooldownTests(unittest.TestCase):
+    def test_timeout_exit_does_not_trigger_a_second_cli_read_inside_the_shell_helper(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            root = base / launch.CURRENT_CLASSIFICATION_STAGE
+            root.mkdir()
+            atomic_json(root / 'job.json', {'deadlineUnix': 1792361214})
+            atomic_json(root / 'credential-quota-check.json', {
+                'observedAt': '2026-10-18T17:41:17Z', 'status': 'available', 'accountReadWriteRemaining': 962})
+            bin_dir = base / 'bin'
+            bin_dir.mkdir()
+            counter = base / 'attempts'
+            fake_op = bin_dir / 'op'
+            fake_op.write_text('#!/bin/sh\nprintf "%s\\n" attempt >> ' + shlex.quote(str(counter)) + '\nexit 142\n')
+            fake_op.chmod(0o700)
+            environment = {'OP_SERVICE_ACCOUNT_TOKEN': 'test', 'TMPDIR': tmp,
+                           'PATH': str(bin_dir) + os.pathsep + os.defpath}
+            for _ in range(2):
+                with self.assertRaises(RuntimeError):
+                    launch.runner_environment(environment, root, classification=True)
+            self.assertEqual(counter.read_text().splitlines(), ['attempt'])
+
     def test_current_task_does_not_repeat_a_failed_non_rate_limited_secret_read(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp) / launch.CURRENT_CLASSIFICATION_STAGE

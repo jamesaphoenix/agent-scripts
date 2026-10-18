@@ -42,6 +42,9 @@ class FreeContextFeederTests(unittest.TestCase):
                'crawlerSha256': hashlib.sha256(b'pinned').hexdigest(),
                'blockedUrls': ['http://www.held.example.com/']}
         (self.qual / 'job.json').write_text(json.dumps(job))
+        clock = patch.object(feeder.time, 'time', return_value=job['deadlineUnix'] - 60)
+        clock.start()
+        self.addCleanup(clock.stop)
         self.seeds = self.control / 'free-context/seed-batches'
         self.seeds.mkdir(parents=True)
 

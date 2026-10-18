@@ -14,6 +14,10 @@ LABEL="${DOCKER_CLEANUP_LAUNCHD_LABEL:-com.jud.host-docker-cleanup}"
 START_HOUR="${DOCKER_CLEANUP_START_HOUR:-3}"
 START_MINUTE="${DOCKER_CLEANUP_START_MINUTE:-30}"
 STATE_DIR="${DOCKER_CLEANUP_STATE_DIR:-$ROOT_DIR/state/docker-cleanup}"
+# Both environments share this physical compute host. Missing or malformed
+# proofs fail the janitor closed, preserving idle native workers' images.
+NATIVE_STATE="$HOME/.local/state/octospark-compute"
+NATIVE_PIN_FILES="${DOCKER_CLEANUP_NATIVE_PIN_FILES:-$NATIVE_STATE/release-staging.json:$NATIVE_STATE/release-prod.json}"
 PLIST_DIR="$HOME/Library/LaunchAgents"
 PLIST_PATH="$PLIST_DIR/${LABEL}.plist"
 
@@ -82,6 +86,8 @@ cat >"$PLIST_PATH" <<PLIST
   <dict>
     <key>PATH</key>
     <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    <key>DOCKER_CLEANUP_NATIVE_PIN_FILES</key>
+    <string>${NATIVE_PIN_FILES}</string>
     <key>DOCKER_CLEANUP_ARTIFACT_DIRS</key>
     <string>${DOCKER_CLEANUP_ARTIFACT_DIRS}</string>
     <key>DOCKER_CLEANUP_DISABLE_FILE</key>

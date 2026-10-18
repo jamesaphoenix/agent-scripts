@@ -38,6 +38,9 @@ DOCKER_CLEANUP_COMMAND_TIMEOUT_SECONDS="${DOCKER_CLEANUP_COMMAND_TIMEOUT_SECONDS
 # the janitor has no way to know a tag is a recent rollback target once its
 # container has been replaced.
 DOCKER_CLEANUP_ARTIFACT_DIRS="${DOCKER_CLEANUP_ARTIFACT_DIRS:-}"
+# Native compute can be idle with no container referencing its current images.
+# Opt in only with an explicit complete set of current release proof files.
+DOCKER_CLEANUP_NATIVE_PIN_FILES="${DOCKER_CLEANUP_NATIVE_PIN_FILES:-}"
 # Image repositories eligible for reclamation, space-separated glob patterns.
 # Deliberately broad: every sibling product's per-SHA api/worker tags
 # accumulate on the same daemon, and protection comes from what is actually
@@ -92,6 +95,7 @@ LOCK_ACQUIRED=1
 
 add_protected_image() {
   local image_ref="$1"
+  local require_local_id="${2:-0}"
   local image_id=""
 
   if [[ -z "$image_ref" || "$image_ref" == "<none>" ]]; then
@@ -99,8 +103,14 @@ add_protected_image() {
   fi
 
   printf '%s\n' "$image_ref" >> "$PROTECTED_IMAGES"
-  image_id="$(run_with_timeout "$DOCKER_CLEANUP_INSPECT_TIMEOUT_SECONDS" \
-    docker image inspect "$image_ref" --format '{{.Id}}' 2>/dev/null || true)"
+  if ! image_id="$(run_with_timeout "$DOCKER_CLEANUP_INSPECT_TIMEOUT_SECONDS" \
+    docker image inspect "$image_ref" --format '{{.Id}}' 2>/dev/null)"; then
+    image_id=""
+  fi
+  if [[ "$require_local_id" == "1" && -z "$image_id" ]]; then
+    echo "Cannot inspect current native image; refusing Docker cleanup."
+    return 1
+  fi
   if [[ -n "$image_id" ]]; then
     printf '%s\n' "$image_id" >> "$PROTECTED_IMAGES"
   fi
@@ -215,7 +225,22 @@ protect_artifact_images() {
 # to defer to.
 load_image_artifact() {
   local artifact_file="$1"
-  grep -E '^[A-Z_]+=.+$' "$artifact_file" 2>/dev/null || true
+  grep -E '^[A-Z_][A-Z0-9_]*=.+$' "$artifact_file" 2>/dev/null || true
+}
+
+protect_native_images() {
+  if [[ -z "$DOCKER_CLEANUP_NATIVE_PIN_FILES" ]]; then
+    return 0
+  fi
+  local pins image_ref
+  if ! pins="$(python3 "$SCRIPT_DIR/lib/native-image-pins.py" "$DOCKER_CLEANUP_NATIVE_PIN_FILES")"; then
+    echo "Cannot inventory native release pins; refusing Docker cleanup."
+    return 1
+  fi
+  while IFS= read -r image_ref; do
+    add_protected_image "$image_ref" 1 || return 1
+  done <<< "$pins"
+  DOCKER_CLEANUP_IMAGE_PATTERNS="$DOCKER_CLEANUP_IMAGE_PATTERNS *tx-agent-kit*/renderer *tx-agent-kit*/media-runtime"
 }
 
 is_reclaimable_repository() {
@@ -272,6 +297,7 @@ collect_candidate_images() {
 echo "Collecting images referenced by containers on this host..."
 protect_referenced_container_images
 protect_artifact_images
+protect_native_images
 sort -u "$PROTECTED_IMAGES" -o "$PROTECTED_IMAGES"
 echo "Protected $(grep -c . "$PROTECTED_IMAGES" || true) image refs/ids."
 

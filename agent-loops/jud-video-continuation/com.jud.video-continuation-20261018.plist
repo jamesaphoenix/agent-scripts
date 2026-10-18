@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>KeepAlive</key>
+	<false/>
+	<key>Label</key>
+	<string>com.jud.video-continuation-20261018</string>
+	<key>ProcessType</key>
+	<string>Background</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/bin/bash</string>
+		<string>/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts/.worktrees/jud-video-continuation-20261018/agent-loops/jud-video-continuation/run.sh</string>
+	</array>
+	<key>RunAtLoad</key>
+	<true/>
+	<key>StandardErrorPath</key>
+	<string>/Users/jamesphoenix/agent-runtime/just-understanding-data/video-redesign-run-20261017/controller.stderr.log</string>
+	<key>StandardOutPath</key>
+	<string>/Users/jamesphoenix/agent-runtime/just-understanding-data/video-redesign-run-20261017/controller.stdout.log</string>
+	<key>WorkingDirectory</key>
+	<string>/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts/.worktrees/jud-video-continuation-20261018</string>
+</dict>
+</plist>

@@ -26,6 +26,23 @@
   },
   "tasks": [
     {
+      "id": "jud-video-continuation-20261018",
+      "name": "Finish the authorised JUD video regeneration run",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.video-continuation-20261018",
+      "schedule": "finite continuation, no paid requests after 18 October 21:00 UTC, delivery deadline 22:00 UTC",
+      "requiresOpServiceAccount": true,
+      "opServiceAccountSource": "profile-or-keychain",
+      "credentialCooldownPath": "/Users/jamesphoenix/agent-runtime/just-understanding-data/video-redesign-run-20261017/credential-cooldown.json",
+      "install": {
+        "kind": "plist",
+        "plistPath": "agent-loops/jud-video-continuation/com.jud.video-continuation-20261018.plist",
+        "kickstart": false
+      },
+      "notes": "James explicitly asked Codex to take over Opus. Preserve the run-2 GBP50 ElevenLabs-only ledger, all 51 pairs, checkpoints, voices, emotional prompting and request stitching. No Anthropic API key, Gemini or music generation. One runtime credential read. No restart after uncertain paid outcome. Preserve originals and exact-byte inspection gate. Retain outputs, ledgers and review evidence; remove task scratch after verified archive."
+    },
+    {
       "id": "tutor-qualification-20261014-context-12h-watch",
       "name": "Qualify saved Bucks candidates using the shared USD10 ledger checks",
       "enabled": true,

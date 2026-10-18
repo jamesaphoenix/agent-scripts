@@ -62,7 +62,8 @@ def collect(run, verified):
             files.append(str(acceptance.relative_to(run)))
     for name in ['regeneration-manifest-v1.json', 'CONTINUATION-STATUS.json',
                  'COMPLETE-ARCHIVE.json', 'COMPLETE-ARCHIVE-LOCATION.json',
-                 'ledger/run2-budget-final.sqlite']:
+                 'ledger/run2-budget-final.sqlite', 'FINAL-LOCAL-WITNESS.json',
+                 'FINAL-LOCAL-REPORT.md', 'LOCAL-REPAIR-STATUS.json', 'TAKEOVER-CLEANUP.json']:
         if (run / name).exists():
             files.append(name)
     return movies, files
@@ -127,7 +128,8 @@ def main():
         atomic(run/'EXPORT-SYNC-STATUS.json', report)
         print(json.dumps(report), flush=True)
         # Keep offline transfers pending until the original deadline, even if rendering completes first.
-        if args.once or time.time() >= END or (status['phase']=='complete' and report['phase']=='synced'):
+        if args.once or time.time() >= END or (status['phase']=='complete' and report['phase']=='synced'
+                                               and (run/'FINAL-LOCAL-WITNESS.json').exists()):
             break
         time.sleep(45)
 

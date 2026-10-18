@@ -1751,6 +1751,26 @@
       "notes": "Authorised 10-hour Bucks/Milton Keynes tutor continuation. Zero new allowance; shared settled and reserved Decisions headroom applies. No paid DataForSEO, SDK turns, Anthropic key or outreach. Preserve prior state and holds."
     },
     {
+      "id": "tutor-web-research-20261018-15h-review",
+      "name": "tutor-web-research-20261018-15h-review",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.tutor-web-research-20261018-15h-review",
+      "schedule": "actual agent reviews every 30 minutes until 2026-10-19T09:44:34Z, then final cleanup review",
+      "requiresOpServiceAccount": false,
+      "opServiceAccountSource": null,
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
+        "command": [
+          "bash",
+          ".worktrees/tutor-discovery-10h-20261018/agent-loops/tutor-lead-pathways/install-tutor-web-review.sh",
+          "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts"
+        ]
+      },
+      "notes": "New fifteen-hour native free web research pass targeting 1000 additional relevant tutor identities. Replaces the prior agent reminder without extending existing crawler/qualification owners beyond 22:06:54Z. No new paid allowance, SDK turns, Anthropic key, outreach or agents. Delivery receipts are not actual reviews."
+    },
+    {
       "id": "bucks-private-tutors-20261018-free-10h-watch",
       "name": "bucks-private-tutors-20261018-free-10h-watch",
       "enabled": true,
@@ -1841,7 +1861,7 @@
     {
       "id": "tutor-studio-20261018-free-10h-review",
       "name": "tutor-studio-20261018-free-10h-review",
-      "enabled": true,
+      "enabled": false,
       "machine": "mac-studio",
       "launchdLabel": "com.jud.tutor-studio-20261018-free-10h-review",
       "schedule": "every 30 minutes until deadline plus final review grace",

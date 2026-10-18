@@ -1,4 +1,5 @@
 import json
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -14,6 +15,42 @@ from discovery import atomic_json
 
 
 class CredentialCooldownTests(unittest.TestCase):
+    def test_new_window_requires_post_reset_quota_check_then_caches_one_secret_read(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp)/launch.CURRENT_CLASSIFICATION_STAGE
+            root.mkdir()
+            atomic_json(root/'job.json', {'deadlineUnix': 1792361214})
+            reply=subprocess.CompletedProcess([],0,'test-key\n','')
+            with patch.object(launch.subprocess,'run',return_value=reply) as read:
+                with self.assertRaises(launch.CredentialRateLimited):
+                    launch.runner_environment({'OP_SERVICE_ACCOUNT_TOKEN':'test'},root,classification=True)
+                read.assert_not_called()
+                atomic_json(root/'credential-quota-check.json', {
+                    'observedAt':'2026-10-18T15:22:20Z','status':'available','accountReadWriteRemaining':1})
+                first=launch.runner_environment({'OP_SERVICE_ACCOUNT_TOKEN':'test'},root,classification=True)
+                second=launch.runner_environment({},root,classification=True)
+            self.assertEqual(first['OPENAI_API_KEY'],'test-key')
+            self.assertEqual(second['OPENAI_API_KEY'],'test-key')
+            self.assertEqual(read.call_count,1)
+            self.assertEqual(os.stat(root/'credential-scratch').st_mode & 0o777,0o700)
+            self.assertEqual(os.stat(root/'credential-scratch/openai-api-key').st_mode & 0o777,0o600)
+
+    def test_new_window_rate_limit_stops_secret_retries_until_deadline(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp)/launch.CURRENT_CLASSIFICATION_STAGE
+            root.mkdir()
+            atomic_json(root/'job.json', {'deadlineUnix': 1792361214})
+            atomic_json(root/'credential-quota-check.json', {
+                'observedAt':'2026-10-18T15:22:20Z','status':'available','accountReadWriteRemaining':1})
+            reply=subprocess.CompletedProcess([],1,'','Too many requests. Client rate-limited.')
+            with patch.object(launch.subprocess,'run',return_value=reply) as read:
+                with self.assertRaises(launch.CredentialRateLimited):
+                    launch.runner_environment({'OP_SERVICE_ACCOUNT_TOKEN':'test'},root,classification=True)
+                with self.assertRaises(launch.CredentialRateLimited):
+                    launch.runner_environment({'OP_SERVICE_ACCOUNT_TOKEN':'test'},root,classification=True)
+            self.assertEqual(read.call_count,1)
+            self.assertEqual(json.loads((root/'credential-wait.json').read_text())['nextAttemptUnix'],1792361214)
+
     def test_rate_limit_records_wait_and_next_attempt_does_not_read_secrets(self):
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp)

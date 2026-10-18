@@ -71,6 +71,15 @@ def profile_page_ceiling(job):
         if (job.get('parentStage', {}).get('runDir') != str(parent.resolve())
                 or job.get('parentStage', {}).get('jobSha256') != hashlib.sha256((parent/'job.json').read_bytes()).hexdigest()):
             raise ValueError('Tutor graph public crawl parent changed')
+    elif authorization.get('instruction') == 'Can you go again for anohter 8-10 hours.':
+        from discovery_10h_window import validate, verify_files, PROFILE
+        start, deadline = validate(authorization)
+        verify_files(path)
+        parent = Path(authorization['previousProfileRoot'])
+        if (job.get('parentStage', {}).get('runDir') != str(parent.resolve())
+                or job.get('parentStage', {}).get('jobSha256') != hashlib.sha256((parent/'job.json').read_bytes()).hexdigest()
+                or Path(job.get('seedSourceRun', '')).resolve() != Path(authorization['previousQualificationRoot']).resolve()):
+            raise ValueError('Ten-hour public crawl parent changed')
     else:
         start, deadline, _ = campaign_window({'hours': 12,
             'authorizedStartedAt': authorization['requestedAt'],

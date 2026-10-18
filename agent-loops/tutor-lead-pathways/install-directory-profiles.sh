@@ -33,14 +33,21 @@ if job_path.exists():
  hours=(job["deadlineUnix"]-datetime.datetime.fromisoformat(job["startedAt"]).timestamp())/3600
  pages,target=job["pageLimit"],job["target"]
  graph_stage=stage.endswith('tutor-graph-16h')
+ discovery_stage=stage=='bucks-private-tutors-20261018-free-10h'
  if graph_stage:
   from prepare_qualification_followon import validate_tutor_graph
   auth=json.loads(pathlib.Path(job['additionalWindowAuthorization']).read_text())
   validate_tutor_graph(auth)
   assert stage=='bucks-private-tutors-20261017-tutor-graph-16h'
+ if discovery_stage:
+  from discovery_10h_window import validate, verify_files
+  auth_path=pathlib.Path(job['additionalWindowAuthorization'])
+  validate(json.loads(auth_path.read_text()))
+  verify_files(auth_path)
  # Earlier prepared jobs used two clock reads, differing by microseconds.
- assert 0<hours<=(16 if graph_stage else 12)+1/3600000 and 1<=pages<=profile_page_ceiling(job) and 1<=target<=5000
- hours=min(hours,16 if graph_stage else 12)
+ maximum=10 if discovery_stage else 16 if graph_stage else 12
+ assert 0<hours<=maximum+1/3600000 and 1<=pages<=profile_page_ceiling(job) and 1<=target<=5000
+ hours=min(hours,maximum)
 value={"Label":label,"ProgramArguments":[sys.executable,scripts+"/directory_profiles.py",
        "--run-dir",state,"--hours",str(hours),"--pages",str(pages),"--target",str(target),
        "--seed","https://www.findtutors.co.uk/buckinghamshire-tutors/",

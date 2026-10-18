@@ -169,6 +169,25 @@ def display_task(data: dict[str, Any], task: dict[str, Any]) -> None:
 
 
 def ensure_op_service_account(task: dict[str, Any]) -> None:
+    if task.get('id') == 'tutor-qualification-20261018-free-10h':
+        import datetime
+        from pathlib import Path
+        cooldown = Path(task['credentialCooldownPath'])
+        auth_path = ROOT / 'state/tutor-studio-20261018-free-10h/authorization.json'
+        if cooldown.exists() and auth_path.exists():
+            wait = json.loads(cooldown.read_text())
+            auth = json.loads(auth_path.read_text())
+            current = datetime.datetime.now(datetime.timezone.utc).timestamp()
+            if (auth.get('deadline') == '2026-10-18T22:06:54+00:00'
+                    and auth.get('instruction') == 'Can you go again for anohter 8-10 hours.'
+                    and wait.get('paidRequestSubmitted') is False
+                    and wait.get('reason') == '1Password account read_write quota exhausted'
+                    and wait.get('accountQuotaRemaining') == 0
+                    and current < wait['nextAttemptUnix']):
+                if not os.environ.get('OP_SERVICE_ACCOUNT_TOKEN'):
+                    raise SystemExit('Deferred runtime authentication requires the existing profile token')
+                print('  OP authentication deferred until recorded account-quota reset')
+                return
     if task.get('id') == 'tutor-qualification-20261017-tutor-graph-16h':
         # A metadata-only 1Password request established that the shared account
         # read/write quota resets after this job's deadline. The runtime wrapper

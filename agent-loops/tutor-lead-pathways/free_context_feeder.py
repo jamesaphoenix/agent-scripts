@@ -80,17 +80,26 @@ def admit_batches(seed_dir, db, job):
     return admitted_count, rejected
 
 
-def run(runtime, max_pages=4):
+def run(runtime, max_pages=4, qualification_stage=STAGE):
     runtime = Path(runtime).resolve()
-    control = runtime / 'state/tutor-studio-20261017-tutor-graph-16h'
-    qual = runtime / 'state' / STAGE
-    from prepare_qualification_followon import validate_tutor_graph
+    new_window = qualification_stage == 'tutor-qualification-20261018-free-10h'
+    if not new_window and qualification_stage != STAGE:
+        raise ValueError('Unknown free-context stage')
+    control = runtime / ('state/tutor-studio-20261018-free-10h' if new_window else 'state/tutor-studio-20261017-tutor-graph-16h')
+    qual = runtime / 'state' / qualification_stage
     auth = json.loads((control / 'authorization.json').read_text())
-    validate_tutor_graph(auth)
+    if new_window:
+        from discovery_10h_window import validate, verify_files
+        validate(auth)
+        verify_files(control / 'authorization.json')
+    else:
+        from prepare_qualification_followon import validate_tutor_graph
+        validate_tutor_graph(auth)
     job = json.loads((qual / 'job.json').read_text())
     if Path(job['sourceDir']).resolve() != Path(__file__).resolve().parent:
         raise ValueError('The prepared source directory changed')
-    if job['authorizedDeadline'] != '2026-10-18T09:46:36+00:00' or int(job['deadlineUnix']) != 1792316796:
+    expected_deadline = '2026-10-18T22:06:54+00:00' if new_window else '2026-10-18T09:46:36+00:00'
+    if job['authorizedDeadline'] != expected_deadline or job['deadlineUnix'] != __import__('datetime').datetime.fromisoformat(expected_deadline).timestamp():
         raise ValueError('The fixed deadline changed')
     if file_hash(job['crawler']) != job['crawlerSha256']:
         raise ValueError('The pinned Go crawler changed')
@@ -145,7 +154,7 @@ def run(runtime, max_pages=4):
                     db.execute("UPDATE pages SET state='held',error=? WHERE url=?", (type(error).__name__ + ': ' + str(error)[:180], url))
             done += 1
         counts = dict(db.execute('SELECT state,count(*) FROM pages GROUP BY state'))
-        report = {'observedAt': now_iso(), 'deadline': DEADLINE, 'newlyQueued': added,
+        report = {'observedAt': now_iso(), 'deadline': expected_deadline, 'newlyQueued': added,
                   'rejectedInputs': rejected, 'attemptsThisRun': done, 'states': counts,
                   'qualification': 'pending_only', 'providerCalls': 0, 'paidCostUsd': 0}
         atomic_json(stage / 'status.json', report)
@@ -157,5 +166,6 @@ def run(runtime, max_pages=4):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--runtime-root', required=True, type=Path)
+    parser.add_argument('--qualification-stage', default=STAGE)
     args = parser.parse_args()
-    print(json.dumps(run(args.runtime_root)))
+    print(json.dumps(run(args.runtime_root, qualification_stage=args.qualification_stage)))

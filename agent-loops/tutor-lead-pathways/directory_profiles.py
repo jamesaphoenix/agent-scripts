@@ -1108,6 +1108,10 @@ def main(argv=None):
                     and job.get('additionalWindowAuthorization')
                     and job.get('deadlineUnix') - datetime.datetime.fromisoformat(job['startedAt']).timestamp() == 16 * 3600):
                 maximum_hours = 16
+            elif (args.run_dir.name == 'bucks-private-tutors-20261018-free-10h'
+                    and job.get('additionalWindowAuthorization')
+                    and job.get('deadlineUnix') - datetime.datetime.fromisoformat(job['startedAt']).timestamp() == 10 * 3600):
+                maximum_hours = 10
         except (OSError, ValueError, KeyError, TypeError):
             parser.error('Prepared public-crawl authorization is invalid')
     if not 0 < args.hours <= maximum_hours or not 1 <= args.pages <= ceiling or not 1 <= args.target <= 5000:

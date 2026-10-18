@@ -1,6 +1,6 @@
 """Prepare an authorised context pass while retaining the shared paid ledger."""
 import argparse
-from contextlib import closing
+from contextlib import closing, nullcontext
 import datetime
 import fcntl
 import hashlib
@@ -71,6 +71,15 @@ def prepare(previous, output, candidates, authorization, profile_root):
     approved = auth.get('instruction') == 'Yes, start the new pass'
     hours = 12
     preserve_states = auth.get('instruction') == STUDIO_FREE_INSTRUCTION
+    discovery_10h = False
+    if auth.get('instruction') == 'Can you go again for anohter 8-10 hours.':
+        from discovery_10h_window import validate, verify_files, SOURCE
+        validate(auth)
+        verify_files(authorization)
+        if (str(previous) != auth['previousQualificationRoot']
+                or str(profile_root.resolve()) != auth['profileRoot']):
+            raise ValueError('Ten-hour qualification ancestry changed')
+        discovery_10h, preserve_states, approved, hours = True, True, True, 10
     if auth.get('instruction') == TUTOR_GRAPH_INSTRUCTION:
         validate_tutor_graph(auth)
         if (str(previous) != auth['previousQualificationRoot']
@@ -91,10 +100,11 @@ def prepare(previous, output, candidates, authorization, profile_root):
     if (not approved or start.tzinfo is None or deadline.tzinfo is None
             or deadline-start != datetime.timedelta(hours=hours)):
         raise ValueError('The new pass requires its explicit bounded window authorisation')
-    with (previous/'run.lock').open('a') as lock:
-        fcntl.flock(lock, fcntl.LOCK_EX|fcntl.LOCK_NB)
+    with (nullcontext() if discovery_10h else (previous/'run.lock').open('a')) as lock:
+        if not discovery_10h:
+            fcntl.flock(lock, fcntl.LOCK_EX|fcntl.LOCK_NB)
         status = json.loads((previous/'status.json').read_text())
-        if status['phase'] not in ('complete', 'deadline'):
+        if status['phase'] not in (('prepared',) if discovery_10h else ('complete', 'deadline')):
             raise ValueError('Previous qualification must be terminal')
         parent = json.loads((previous/'job.json').read_text())
         ledger = cache_path(previous, parent)
@@ -136,6 +146,17 @@ def prepare(previous, output, candidates, authorization, profile_root):
                 if reviewed.exists():
                     (temporary/'exports').mkdir(mode=0o700)
                     shutil.copy2(reviewed, temporary/'exports/audited-subject-contacts.json')
+            if discovery_10h:
+                accepted = previous/'exports/automated-qualification/accepted.json'
+                (temporary/'exports/automated-qualification').mkdir(parents=True, mode=0o700)
+                shutil.copy2(accepted, temporary/'exports/automated-qualification/accepted.json')
+                for folder in ('website-seeds', 'held-website-seeds'):
+                    if (previous/folder).exists():
+                        shutil.copytree(previous/folder, temporary/folder)
+                job['sourceDir'] = str(SOURCE)
+                job['continuationFinalManifest'] = str(Path(auth['previousControlRoot'])/'final-export-manifest.json')
+                job['continuationFinalManifestSha256'] = file_hash(Path(job['continuationFinalManifest']))
+                atomic_json(temporary/'job.json',job)
             atomic_json(temporary/'status.json',{'phase':'prepared','observedAt':now_iso(),'ownerPid':0,
                 'deadline':deadline.isoformat(),'decisions':status['decisions'],'inputRows':len(rows)})
             atomic_json(temporary/'preparation.json',{'observedAt':now_iso(),'inputRows':len(rows),

@@ -22,15 +22,22 @@ def digest(path):
 def prepare(parent, output, hours, new_pages, target, seed_batch=None, source_run_dir=None, requested_start=None,
             cumulative_ceiling=20000, allow_empty=False, tutor_graph_authorization=None):
     graph_auth = None
+    discovery_auth = False
     if tutor_graph_authorization:
-        from prepare_qualification_followon import validate_tutor_graph
         graph_auth = json.loads(tutor_graph_authorization.read_text())
-        start, deadline = validate_tutor_graph(graph_auth)
+        if graph_auth.get('instruction') == 'Can you go again for anohter 8-10 hours.':
+            from discovery_10h_window import validate, verify_files
+            start, deadline = validate(graph_auth)
+            verify_files(tutor_graph_authorization)
+            discovery_auth = True
+        else:
+            from prepare_qualification_followon import validate_tutor_graph
+            start, deadline = validate_tutor_graph(graph_auth)
         if (parent.resolve() != Path(graph_auth['previousProfileRoot']).resolve()
-                or requested_start != start or hours != 16
+                or requested_start != start or hours != (10 if discovery_auth else 16)
                 or cumulative_ceiling != 32000 or not source_run_dir):
-            raise ValueError('Tutor graph profile stage ancestry or window changed')
-    maximum_hours, maximum_pages = (16 if graph_auth else 12, 12000) if requested_start else (6, 5000)
+            raise ValueError('Authorised profile stage ancestry or window changed')
+    maximum_hours, maximum_pages = ((10 if discovery_auth else 16) if graph_auth else 12, 12000) if requested_start else (6, 5000)
     if not 0 < hours <= maximum_hours or not 1 <= new_pages <= maximum_pages or not 1 <= target <= 5000:
         raise ValueError("Choose bounded duration, additional attempts and target")
     if type(cumulative_ceiling) is not int or cumulative_ceiling not in (20000, 32000) or (cumulative_ceiling == 32000 and not requested_start):
@@ -155,6 +162,7 @@ if __name__ == "__main__":
     parser.add_argument("--cumulative-ceiling", type=int, default=20000)
     parser.add_argument("--allow-empty", action="store_true")
     parser.add_argument("--tutor-graph-authorization", type=Path)
+    parser.add_argument("--window-authorization", type=Path, dest="tutor_graph_authorization")
     args = parser.parse_args()
     start = datetime.datetime.fromisoformat(args.requested_start) if args.requested_start else None
     print(json.dumps(prepare(args.parent_dir, args.run_dir, args.hours, args.additional_pages, args.target,

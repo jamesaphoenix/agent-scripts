@@ -1727,6 +1727,136 @@
         ]
       },
       "notes": "Authorised 16-hour tutor-only graph continuation. Zero new allowance; shared settled and reserved Decisions headroom applies. No paid DataForSEO, SDK turns, Anthropic key or outreach. Preserve prior state and holds."
+    },
+    {
+      "id": "bucks-private-tutors-20261018-free-10h",
+      "name": "bucks-private-tutors-20261018-free-10h",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.bucks-private-tutors-20261018-free-10h",
+      "schedule": "authorised window ending 2026-10-18T22:06:54Z",
+      "requiresOpServiceAccount": false,
+      "opServiceAccountSource": null,
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
+        "command": [
+          "bash",
+          ".worktrees/tutor-discovery-10h-20261018/agent-loops/tutor-lead-pathways/install-directory-profiles.sh",
+          "run",
+          "bucks-private-tutors-20261018-free-10h",
+          "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts"
+        ]
+      },
+      "notes": "Authorised 10-hour Bucks/Milton Keynes tutor continuation. Zero new allowance; shared settled and reserved Decisions headroom applies. No paid DataForSEO, SDK turns, Anthropic key or outreach. Preserve prior state and holds."
+    },
+    {
+      "id": "bucks-private-tutors-20261018-free-10h-watch",
+      "name": "bucks-private-tutors-20261018-free-10h-watch",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.bucks-private-tutors-20261018-free-10h-watch",
+      "schedule": "authorised window ending 2026-10-18T22:06:54Z, checks every 30 minutes",
+      "requiresOpServiceAccount": false,
+      "opServiceAccountSource": null,
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
+        "command": [
+          "bash",
+          ".worktrees/tutor-discovery-10h-20261018/agent-loops/tutor-lead-pathways/install-directory-profiles.sh",
+          "watch",
+          "bucks-private-tutors-20261018-free-10h",
+          "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts"
+        ]
+      },
+      "notes": "Authorised 10-hour Bucks/Milton Keynes tutor continuation. Zero new allowance; shared settled and reserved Decisions headroom applies. No paid DataForSEO, SDK turns, Anthropic key or outreach. Preserve prior state and holds."
+    },
+    {
+      "id": "tutor-qualification-20261018-free-10h",
+      "name": "tutor-qualification-20261018-free-10h",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.tutor-qualification-20261018-free-10h",
+      "schedule": "authorised window ending 2026-10-18T22:06:54Z",
+      "requiresOpServiceAccount": true,
+      "opServiceAccountSource": "profile-or-keychain",
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
+        "command": [
+          "bash",
+          ".worktrees/tutor-discovery-10h-20261018/agent-loops/tutor-lead-pathways/install-qualification.sh",
+          "run",
+          "tutor-qualification-20261018-free-10h",
+          "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts"
+        ]
+      },
+      "notes": "Authorised 10-hour Bucks/Milton Keynes tutor continuation. Zero new allowance; shared settled and reserved Decisions headroom applies. No paid DataForSEO, SDK turns, Anthropic key or outreach. Preserve prior state and holds.",
+      "credentialCooldownPath": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts/state/tutor-qualification-20261018-free-10h/credential-wait.json"
+    },
+    {
+      "id": "tutor-qualification-20261018-free-10h-watch",
+      "name": "tutor-qualification-20261018-free-10h-watch",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.tutor-qualification-20261018-free-10h-watch",
+      "schedule": "authorised window ending 2026-10-18T22:06:54Z, checks every 30 minutes",
+      "requiresOpServiceAccount": false,
+      "opServiceAccountSource": null,
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
+        "command": [
+          "bash",
+          ".worktrees/tutor-discovery-10h-20261018/agent-loops/tutor-lead-pathways/install-qualification.sh",
+          "watch",
+          "tutor-qualification-20261018-free-10h",
+          "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts"
+        ]
+      },
+      "notes": "Authorised 10-hour Bucks/Milton Keynes tutor continuation. Zero new allowance; shared settled and reserved Decisions headroom applies. No paid DataForSEO, SDK turns, Anthropic key or outreach. Preserve prior state and holds."
+    },
+    {
+      "id": "tutor-free-context-20261018-free-10h",
+      "name": "tutor-free-context-20261018-free-10h",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.tutor-free-context-20261018-free-10h",
+      "schedule": "every 5 minutes until 2026-10-18T22:06:54Z",
+      "requiresOpServiceAccount": false,
+      "opServiceAccountSource": null,
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
+        "command": [
+          "bash",
+          ".worktrees/tutor-discovery-10h-20261018/agent-loops/tutor-lead-pathways/install-free-context-feeder.sh",
+          "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
+          "tutor-qualification-20261018-free-10h"
+        ]
+      },
+      "notes": "Public owned-site Go context only. No key, provider request, qualification or graph promotion. Preserve all existing URL holds and fixed deadline."
+    },
+    {
+      "id": "tutor-studio-20261018-free-10h-review",
+      "name": "tutor-studio-20261018-free-10h-review",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.tutor-studio-20261018-free-10h-review",
+      "schedule": "every 30 minutes until deadline plus final review grace",
+      "requiresOpServiceAccount": false,
+      "opServiceAccountSource": null,
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
+        "command": [
+          "bash",
+          ".worktrees/tutor-discovery-10h-20261018/agent-loops/tutor-lead-pathways/install-studio-discovery-review.sh",
+          "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts"
+        ]
+      },
+      "notes": "Authorised 10-hour Bucks/Milton Keynes tutor continuation. Zero new allowance; shared settled and reserved Decisions headroom applies. No paid DataForSEO, SDK turns, Anthropic key or outreach. Preserve prior state and holds."
     }
   ]
 }

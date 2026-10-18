@@ -173,7 +173,7 @@ def ensure_op_service_account(task: dict[str, Any]) -> None:
         import datetime
         from pathlib import Path
         cooldown = Path(task['credentialCooldownPath'])
-        auth_path = ROOT / 'state/tutor-studio-20261018-free-10h/authorization.json'
+        auth_path = cooldown.parent.parent / 'tutor-studio-20261018-free-10h/authorization.json'
         if cooldown.exists() and auth_path.exists():
             wait = json.loads(cooldown.read_text())
             auth = json.loads(auth_path.read_text())

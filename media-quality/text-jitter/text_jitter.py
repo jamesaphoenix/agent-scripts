@@ -73,7 +73,7 @@ def frames(path, info, start=0, end=None):
     count = last - first
     if count <= 0:
         raise ValueError('Empty or out-of-range scan interval')
-    cmd = ['ffmpeg', '-v', 'error', '-nostdin', '-ss', str(first / fps), '-i', str(path),
+    cmd = ['ffmpeg', '-v', 'error', '-nostdin', '-threads', '1', '-ss', str(first / fps), '-i', str(path),
            '-map', '0:v:0', '-an', '-sn', '-threads', '1', '-frames:v', str(count),
            '-fps_mode', 'passthrough', '-pix_fmt', 'gray', '-f', 'rawvideo', '-']
     size = info['width'] * info['height']
@@ -237,8 +237,6 @@ def analyse(path, info, config, start, end, settings):
             window_start = a
             while window_start < b:
                 window_end = min(b, window_start + 2)
-                if window_end - window_start < .65 and results:
-                    break
                 rows = list(frames(path, info, window_start, window_end))
                 result = measure(rows, region['box'], text=region.get('text', region['name']),
                                  **{**settings, **{k: region[k] for k in settings if k in region}})

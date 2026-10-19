@@ -88,6 +88,49 @@ class TrackingTests(unittest.TestCase):
             self.assertAlmostEqual(rows[-1][1], 44 / 30)
             self.assertEqual(jitter.measure(rows, self.box)['status'], 'finding')
 
+    def test_ocr_scan_finds_encoded_jitter_and_clears_static_control(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            for name, moving in [('steady', False), ('jitter', True)]:
+                path = root / (name + '.mp4')
+                images = [image((3 if i % 4 < 2 else -3) if moving else 0,
+                                rule=bool(i % 2)) for i in range(90)]
+                jitter.encode_fixture(path, images, 30)
+                report = jitter.scan(path, root / (name + '-report'), evidence_limit=0)
+                self.assertGreater(report['tracked_windows'], 0)
+                self.assertEqual(report['status'], 'needs_review' if moving else 'no_findings_in_tracked_regions')
+                self.assertTrue((root / (name + '-report') / 'index.html').is_file())
+
+    def test_unscorable_short_region_is_not_lost_after_a_clear_region(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            path = root / 'steady.mp4'
+            jitter.encode_fixture(path, [image() for _ in range(90)], 30)
+            regions = {'regions': [
+                {'name': 'long', 'start': 0, 'end': 1, 'box': self.box},
+                {'name': 'too-short', 'start': 2, 'end': 2.2, 'box': self.box}]}
+            report = jitter.scan(path, root / 'report', regions, evidence_limit=0)
+            self.assertEqual(report['status'], 'needs_review')
+            self.assertEqual(report['summary']['unscorable'], 1)
+
+    def test_batch_cli_accepts_delivery_manifest_and_reports_a_failure(self):
+        import json
+        import subprocess
+        import sys
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            path = root / 'jitter.mp4'
+            jitter.encode_fixture(path, [image(3 if i % 4 < 2 else -3) for i in range(60)], 30)
+            (root / 'manifest.json').write_text(json.dumps({'videos': [
+                {'id': 'fixture', 'aspect': 'wide', 'path': path.name}]}))
+            result = subprocess.run([sys.executable, str(pathlib.Path(jitter.__file__)),
+                                     '--manifest', str(root / 'manifest.json'), '--out', str(root / 'batch'),
+                                     '--evidence-limit', '0'], capture_output=True, text=True)
+            self.assertEqual(result.returncode, 1, result.stderr + result.stdout)
+            index = json.loads((root / 'batch/index.json').read_text())
+            self.assertTrue(index['complete'])
+            self.assertEqual(index['jobs'][0]['status'], 'needs_review')
+
 
 if __name__ == '__main__':
     unittest.main()

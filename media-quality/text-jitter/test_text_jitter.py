@@ -112,6 +112,7 @@ class TrackingTests(unittest.TestCase):
             report = jitter.scan(path, root / 'report', regions, evidence_limit=0)
             self.assertEqual(report['status'], 'needs_review')
             self.assertEqual(report['summary']['unscorable'], 1)
+            self.assertEqual(report['events'][0]['start'], 2)
 
     def test_batch_cli_accepts_delivery_manifest_and_reports_a_failure(self):
         import json
@@ -130,6 +131,23 @@ class TrackingTests(unittest.TestCase):
             index = json.loads((root / 'batch/index.json').read_text())
             self.assertTrue(index['complete'])
             self.assertEqual(index['jobs'][0]['status'], 'needs_review')
+
+    def test_scan_rejects_manifest_hash_mismatch(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            path = root / 'steady.mp4'
+            jitter.encode_fixture(path, [image() for _ in range(30)], 30)
+            with self.assertRaisesRegex(ValueError, 'SHA256'):
+                jitter.scan(path, root / 'report', expected_sha256='0' * 64)
+
+    def test_variable_nominal_and_average_rate_is_rejected(self):
+        import json
+        from unittest.mock import patch
+        data = {'streams': [{'width': 640, 'height': 240, 'r_frame_rate': '30/1',
+                              'avg_frame_rate': '28/1', 'duration': '2'}]}
+        with patch.object(jitter.subprocess, 'check_output', return_value=json.dumps(data)):
+            with self.assertRaisesRegex(ValueError, 'constant-frame-rate'):
+                jitter.probe('fixture.mp4')
 
 
 if __name__ == '__main__':

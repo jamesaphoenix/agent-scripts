@@ -125,7 +125,8 @@ def measure(rows, box, *, text='', max_range_px=1.5, max_step_px=1.5,
             search_px=24, min_score=.82, min_seconds=.65):
     """Track a fixed glyph template; never use moving dark-pixel bounding boxes."""
     rows = list(rows)
-    base = {'text': text, 'box': list(box), 'status': 'unscorable', 'samples': []}
+    base = {'text': text, 'box': list(box), 'status': 'unscorable', 'samples': [],
+            'start': rows[0][1] if rows else None, 'end': rows[-1][1] if rows else None}
     if len(rows) < 3 or rows[-1][1] - rows[0][1] < min_seconds:
         return {**base, 'reason': 'insufficient native-frame duration'}
     x, y, w, h = checked_box(box, rows[0][2].shape)
@@ -157,8 +158,11 @@ def measure(rows, box, *, text='', max_range_px=1.5, max_step_px=1.5,
     extent = float(np.linalg.norm(span))
     max_step = float(steps.max(initial=0))
     finding = extent > max_range_px or max_step > max_step_px
-    direction = np.sign(np.diff(xy, axis=0))
-    reversals = int(np.sum((direction[1:] * direction[:-1]) < 0))
+    velocity = np.diff(xy, axis=0)
+    reversals = 0
+    for axis in range(2):
+        meaningful = np.sign(velocity[np.abs(velocity[:, axis]) > .25, axis])
+        reversals += int(np.sum(meaningful[1:] * meaningful[:-1] < 0))
     return {**base, 'status': 'finding' if finding else 'clear', 'range_xy_px': span.tolist(),
             'range_px': extent, 'max_step_px': max_step,
             'classification': ('abrupt_shift' if max_step > max_step_px else
@@ -344,12 +348,14 @@ def report_html(report, out):
     (out / 'index.html').write_text(page)
 
 
-def scan(path, out, config=None, start=0, end=None, evidence_limit=12, **settings):
+def scan(path, out, config=None, start=0, end=None, evidence_limit=12, expected_sha256=None, **settings):
     path, out = Path(path).resolve(), Path(out).resolve()
     if out.exists() and any(out.iterdir()):
         raise ValueError('Output directory must be new or empty; retain previous reports')
     out.mkdir(parents=True, exist_ok=True)
     info, before = probe(path), digest(path)
+    if expected_sha256 is not None and before != expected_sha256:
+        raise ValueError('Source SHA256 differs from the requested delivery manifest')
     end = info['duration'] if end is None else min(end, info['duration'])
     settings = {'max_range_px': 1.5, 'max_step_px': 1.5, 'search_px': 24, 'min_score': .82, **settings}
     started = time.time()
@@ -359,6 +365,7 @@ def scan(path, out, config=None, start=0, end=None, evidence_limit=12, **setting
     status = 'needs_review' if events else 'no_findings_in_tracked_regions' if results else 'insufficient_coverage'
     report = {'schema': VERSION, 'video': str(path), 'source_sha256': before,
               'implementation_sha256': digest(__file__), 'config': config or {}, 'settings': settings,
+              'dependencies': {'opencv': cv2.__version__, 'numpy': np.__version__, 'python': sys.version.split()[0]},
               'info': info, 'scan_range': [start, end], 'status': status, 'summary': counts,
               'tracked_windows': len(results), 'events': events, 'all_measurements': results,
               'exclusions_applied': skipped, 'api_requests': 0,
@@ -369,6 +376,8 @@ def scan(path, out, config=None, start=0, end=None, evidence_limit=12, **setting
     report['evidence_events_omitted'] = max(0, len(events)-evidence_limit)
     report['elapsed_seconds'] = round(time.time()-started, 2)
     if digest(path) != before:
+        report['status'] = 'invalid_source_changed'
+        atomic_json(out / 'report.json', report)
         raise RuntimeError('Source changed during scan; report is invalid')
     atomic_json(out / 'report.json', report)
     report_html(report, out)
@@ -392,7 +401,8 @@ def main():
     a = p.parse_args()
     if bool(a.video) == bool(a.manifest):
         p.error('Choose one video or --manifest')
-    if min(a.range_px, a.step_px, a.search_px) <= 0 or a.start < 0 or a.evidence_limit < 0:
+    if min(a.range_px, a.step_px, a.search_px) <= 0 or a.start < 0 or a.evidence_limit < 0 or (
+            a.limit is not None and a.limit <= 0):
         p.error('Thresholds must be positive; start/evidence limit must be nonnegative')
     os.nice(10)
     config = json.loads(a.regions.read_text()) if a.regions else {}
@@ -416,7 +426,8 @@ def main():
     for i, job in enumerate(jobs):
         label = f'{i+1:04}'
         try:
-            r = scan(root / job['path'], a.out / label, job.get('config', config), **kwargs)
+            r = scan(root / job['path'], a.out / label, job.get('config', config),
+                     expected_sha256=job.get('sha256'), **kwargs)
             rows.append({'id': job.get('id', job['path']), 'aspect': job.get('aspect'),
                          'status': r['status'], 'summary': r['summary'], 'report': f'{label}/index.html'})
         except Exception as exc:

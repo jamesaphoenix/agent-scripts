@@ -30,6 +30,8 @@ python3 -m venv .venv-text-jitter
 
 Open the output `index.html`. It contains timestamped findings and short evidence clips. `report.json` contains frame numbers, displacement traces in native pixels, match confidence, input SHA256, configuration and implementation SHA256. Batch `index.json` checkpoints each completed video and distinguishes errors from findings. Reports never overwrite existing folders. Inputs are read only.
 
+Delivery-manifest SHA256 values are checked when supplied. Add the report path and hash to that exact output's visual-review evidence. A finding, lost tracking, source mismatch or missing coverage blocks an unattended text-stability pass; a reviewer must resolve it or document the intended movement. Run the strict p1 regression after layout edits as well as automatic discovery on affected complete exports. This helper does not publish, select or approve media.
+
 Exit codes: **0** means no findings in the text regions actually tracked, **1** means findings or unscorable tracking need review, **2** means a configuration/decode error or no usable text coverage. None is whole-video visual approval. The harness does not write the video-review ledger or select delivery files.
 
 ## How it works

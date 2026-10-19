@@ -1,0 +1,15 @@
+{
+  "description": "User-reported p1 tall text movement. Coordinates are native 1080x1920 pixels. Body and CTA media stay unchanged. Known affected original SHA256: 0a141d8fdb0503758628b17c973d41ac282aa1cb733cd1e89dda0c0627dd6395.",
+  "regions": [
+    {
+      "name": "Settled GL Assessment heading at 36-38 seconds",
+      "text": "Marked by GL Assessment. Then standardised.",
+      "box": [182, 190, 660, 215],
+      "start": 36,
+      "end": 37.7,
+      "max_range_px": 1.5,
+      "max_step_px": 1.5
+    }
+  ],
+  "exclusions": []
+}

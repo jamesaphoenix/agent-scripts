@@ -35,6 +35,11 @@ from their signed vendor APT repositories. Confirm `qemu-aarch64` is
 registered in `/proc/sys/fs/binfmt_misc/`, and confirm the Docker socket is
 `/var/run/docker.sock`.
 
+From a checked-out Octospark workspace with dependencies installed, run
+`sudo env PATH=/usr/local/bin:/usr/bin:/bin pnpm --filter @tx-agent-kit/web exec playwright install-deps chromium`
+once to install Chromium's Linux system libraries and fonts. Browser jobs then
+run `playwright install chromium` as `ci-runner` without sudo.
+
 Create the GitHub organisation runner group `a-series-ci` with access only to
 `octospark` and `smart-cub-learning`, and disable public repositories. From
 this checkout on A Series, run `sudo agent-loops/a-series-ci/install-runtime.sh`.

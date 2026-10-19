@@ -149,6 +149,32 @@ class TrackingTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'constant-frame-rate'):
                 jitter.probe('fixture.mp4')
 
+    def test_complete_332_frame_file_does_not_request_a_333rd_frame(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = pathlib.Path(tmp) / 'fractional-end.mp4'
+            jitter.encode_fixture(path, [image()] * 332, 30)
+            info = jitter.probe(path)
+            self.assertEqual(len(list(jitter.frames(path, info))), 332)
+
+    def test_frame_count_limits_video_when_only_container_duration_is_present(self):
+        import json
+        from unittest.mock import patch
+        data = {'streams': [{'width': 640, 'height': 240, 'r_frame_rate': '30/1',
+                              'avg_frame_rate': '30/1', 'nb_frames': '332'}],
+                'format': {'duration': '12.0'}}
+        with patch.object(jitter.subprocess, 'check_output', return_value=json.dumps(data)):
+            info = jitter.probe('fixture.mp4')
+        self.assertAlmostEqual(info['duration'], 332 / 30)
+        self.assertEqual(info['frame_count'], 332)
+
+    def test_genuinely_missing_frame_still_fails_decode(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = pathlib.Path(tmp) / 'short.mp4'
+            jitter.encode_fixture(path, [image()] * 30, 30)
+            info = {**jitter.probe(path), 'duration': 31 / 30, 'frame_count': 31}
+            with self.assertRaisesRegex(ValueError, 'Truncated decode'):
+                list(jitter.frames(path, info))
+
 
 if __name__ == '__main__':
     unittest.main()

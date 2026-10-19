@@ -58,6 +58,8 @@ An exclusion only applies if its interval and optional rectangle fully contain t
 
 Limitations: discovery can miss text that OCR cannot recognise, very short captions, changed lines and movement outside the search radius. Constant-frame-rate media are required; nominal and average frame rates and available frame counts are checked. For arbitrary external video, verify CFR or normalise a separate review copy first. Camera movement also moves text and will be flagged. Text scaling/deformation can cause an unscorable result rather than a precise displacement. Colour, legibility, teaching correctness, audio and lip-sync require their other checks.
 
+When a video frame count is available, it bounds the complete scan exactly. Rounded decimal durations and audio extending past the final video frame must not invent an extra frame. Genuine early decode termination still fails. Reports retain the reported stream/container durations and the video frame count.
+
 Decoding is streamed; only approximately 1.5-2 seconds of grey frames are held. Runs are sequential, use one OpenCV/FFmpeg worker and nice 10, and evidence creation stops below 50 GiB free. At most 12 evidence clips per video are written by default; omitted clip counts are explicit, and all numeric findings remain in JSON. Configure `--evidence-limit 0` for measurement-only batch scans. Keep reports and final exports; remove only task-owned intermediate fixtures when no longer needed.
 
 ## Regression tests

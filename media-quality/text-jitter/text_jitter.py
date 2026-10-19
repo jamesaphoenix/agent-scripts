@@ -58,10 +58,20 @@ def probe(path):
     fps, avg = rate(s['r_frame_rate']), rate(s['avg_frame_rate'])
     if fps <= 0 or abs(fps - avg) > .001:
         raise ValueError('This harness requires constant-frame-rate input; normalise a separate copy first')
-    duration = float(s.get('duration') or data['format']['duration'])
-    if s.get('nb_frames') and abs(int(s['nb_frames']) / fps - duration) > max(.1, 2 / fps):
+    stream_duration = float(s['duration']) if s.get('duration') not in (None, 'N/A') else None
+    container_duration = float(data.get('format', {}).get('duration') or stream_duration or 0)
+    count_text = str(s.get('nb_frames', ''))
+    frame_count = int(count_text) if count_text.isdigit() and int(count_text) > 0 else None
+    if frame_count is not None and stream_duration is not None and abs(
+            frame_count / fps - stream_duration) > max(.1, 2 / fps):
         raise ValueError('Video frame count and duration disagree')
+    # ffprobe rounds e.g. 332/30 to 11.066667s. Multiplying that by 30 and
+    # taking ceil invents a 333rd frame. A container may also outlast its video
+    # because of audio padding. Verified video frame count is the exact cap.
+    duration = frame_count / fps if frame_count is not None else stream_duration or container_duration
     return {'width': int(s['width']), 'height': int(s['height']), 'fps': fps, 'duration': duration,
+            'frame_count': frame_count, 'reported_stream_duration': stream_duration,
+            'reported_container_duration': container_duration,
             'timing': 'native frame index / nominal CFR, r_frame_rate equals avg_frame_rate'}
 
 
@@ -70,6 +80,8 @@ def frames(path, info, start=0, end=None):
     fps = info['fps']
     first = max(0, math.ceil(start * fps - 1e-7))
     last = math.ceil(min(end if end is not None else info['duration'], info['duration']) * fps - 1e-7)
+    if info.get('frame_count') is not None:
+        last = min(last, info['frame_count'])
     count = last - first
     if count <= 0:
         raise ValueError('Empty or out-of-range scan interval')

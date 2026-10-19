@@ -25,7 +25,8 @@ def main():
     args=parser.parse_args()
     if args.minimum_free_gib<0 or args.expected_growth_gib<0:parser.error('Budgets must be nonnegative')
     try:
-        free=int(subprocess.check_output(['df','-k','/System/Volumes/Data'],text=True,timeout=10).splitlines()[-1].split()[3])*1024
+        disk_path = '/System/Volumes/Data' if sys.platform == 'darwin' else '/'
+        free=int(subprocess.check_output(['df','-k',disk_path],text=True,timeout=10).splitlines()[-1].split()[3])*1024
         slots=worker_slots(subprocess.check_output(['ps','-U',getpass.getuser(),'-o','comm='],text=True,timeout=10).splitlines()) if args.ci else 1
     except (OSError,ValueError,subprocess.SubprocessError) as error:
         print('Disk budget unavailable; new work refused:',type(error).__name__,file=sys.stderr);return 75

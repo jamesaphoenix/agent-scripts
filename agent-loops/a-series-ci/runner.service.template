@@ -1,0 +1,20 @@
+[Unit]
+Description=JUD GitHub Actions A Series runner @SLOT@
+After=network-online.target docker.service tailscaled.service
+Wants=network-online.target
+Requires=docker.service
+
+[Service]
+Type=simple
+User=ci-runner
+Group=ci-runner
+SupplementaryGroups=docker
+WorkingDirectory=/home/ci-runner/actions-runner-@SLOT@
+ExecStart=/home/ci-runner/actions-runner-@SLOT@/run.sh
+Restart=always
+RestartSec=10
+KillMode=process
+TimeoutStopSec=5min
+
+[Install]
+WantedBy=multi-user.target

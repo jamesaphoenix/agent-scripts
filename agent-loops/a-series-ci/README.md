@@ -26,8 +26,11 @@ Series, set ownership to root and modes to 755, then restart the runners.
 ## Rebuild
 
 On a fresh Ubuntu 26.04 A Series host, install Docker Engine, Buildx,
-Compose, `qemu-user-binfmt`, Go, Node 22/Corepack, the 1Password CLI and
-Google Cloud CLI. The first five are Ubuntu packages; install the last two
+Compose, `qemu-user-binfmt`, Go, the 1Password CLI and Google Cloud CLI.
+Install the official Node 22 build with `sudo agent-loops/a-series-ci/install-node22.sh`.
+Ubuntu's Node 22 package on this host lacks TypeScript type stripping, which
+the auth worker tests need. The installer verifies Node's published SHA-256
+checksum and links Node/Corepack under `/usr/local/bin`. Install the CLIs
 from their signed vendor APT repositories. Confirm `qemu-aarch64` is
 registered in `/proc/sys/fs/binfmt_misc/`, and confirm the Docker socket is
 `/var/run/docker.sock`.

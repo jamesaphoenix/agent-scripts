@@ -1,0 +1,11 @@
+[Unit]
+Description=Daily A Series CI resource cleanup
+
+[Timer]
+OnCalendar=*-*-* 04:10:00
+Persistent=true
+RandomizedDelaySec=10min
+Unit=jud-ci-cleanup.service
+
+[Install]
+WantedBy=timers.target

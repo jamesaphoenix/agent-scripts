@@ -361,17 +361,25 @@ def run(base, state, manifest):
                 return statistics.median([r['avg_ts'] for r in raw if r['_source'].endswith('/'+label+'.stdout') and r['n_prompt']==prompt and r.get('n_gen')==gen] or [0])
             baseline_pp=rate('cpu-control',32768,0); baseline_tg=rate('cpu-control',0,128)
             eligible=[label for label in ('cpu-resident','gpu-table') if rate(label,32768,0)>baseline_pp*1.05 and rate(label,0,128)>=baseline_tg*.95]
+            placement=None
             if chosen and eligible:
                 best=max(eligible,key=lambda label:rate(label,32768,0))
                 placement=dict(chosen,name='resident-combined',cpu=best=='cpu-resident',lazy_mode='off')
-                execute(base,state,manifest,'custom','resident-combined',placement,seconds=720)
-            if time.time()+2*(1500+240) > epoch(manifest['hard_end']):
+            if rate('gpu-table',32768,0)>0:
+                execute(base,state,manifest,'custom','placement-proof',
+                    {'kind':'bench','name':'placement-proof','batch':2048,'ubatch':512,
+                     'lengths':'512','repetitions':1,'cpu':False,'verbose':True},seconds=180)
+            churn=int(manifest.get('pressure_churn_count',12))
+            ceiling=int(manifest.get('pressure_window_seconds',1500))
+            if time.time()+2*(ceiling+240) > epoch(manifest['hard_end']):
                 progress=load(state/'progress.json'); progress.setdefault('skipped',[]).append('cache pressure pair: insufficient original recovery-inclusive budget'); atomic(state/'progress.json',progress)
-                return
-            for cache in (8192,32768):
-                name=f'pressure-cache{cache}'
-                execute(base,state,manifest,'custom',name,
-                    {'kind':'server','name':name,'cache':cache,'probe_lengths':'32768','churn_count':12},seconds=1500)
+            else:
+                for cache in (8192,32768):
+                    name=f'pressure-cache{cache}'
+                    execute(base,state,manifest,'custom',name,
+                        {'kind':'server','name':name,'cache':cache,'probe_lengths':'32768','churn_count':churn},seconds=ceiling)
+            if placement:
+                execute(base,state,manifest,'custom','resident-combined',placement,seconds=720)
             return
         for session in ('cache32', 'batch-short', 'long2048', 'long4096', 'gpu', 'threads'):
             execute(base, state, manifest, session, session+'-01', seconds=840 if session in ('long2048','long4096','gpu') else 600)

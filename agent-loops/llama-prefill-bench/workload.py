@@ -61,6 +61,8 @@ def jobs(session):
             command[command.index("-r") + 1] = str(spec.get("repetitions", 5))
             if "depth" in spec:
                 command += ["-d", str(spec["depth"])]
+            if spec.get("verbose"):
+                command += ["-v"]
             return [("bench", spec["name"], command)]
         command = server(cache=spec.get("cache", 8192), checkpoint=spec.get("checkpoint", 8192),
                          threads=spec.get("threads"), cpu=spec.get("cpu", True))

@@ -197,6 +197,14 @@ def emit_hourly(base, state, manifest, force=False):
     now = time.time(); elapsed = now - epoch(manifest['authorised_at'])
     hour = int(elapsed // 3600)
     if not force and (hour < 1 or (state / 'hourly' / f'hour-{hour}.json').exists()):
+        # A coordinator loaded before a source refresh may already have emitted
+        # this hour's JSON. The independent watcher still preserves its results.
+        archive=state/'hourly'/f'hour-{hour}.RESULTS.md'
+        if hour>=1 and not archive.exists() and (base/'RESULTS.md').exists():
+            try:
+                with archive.open('x') as handle: handle.write((base/'RESULTS.md').read_text())
+            except FileExistsError:
+                pass
         return
     try:
         resource = window.resources()
@@ -209,6 +217,8 @@ def emit_hourly(base, state, manifest, force=False):
     atomic(state/'hourly'/report_name, value)
     atomic(state/'latest-check.json', value)
     report(base, state, manifest)
+    archive=(state/'hourly'/report_name).with_suffix('.RESULTS.md')
+    archive.write_text((base/'RESULTS.md').read_text())
     print('HOURLY', json.dumps(value), flush=True)
 
 

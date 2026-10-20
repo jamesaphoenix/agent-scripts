@@ -183,6 +183,9 @@ export default function subscriptionFailover(pi: ExtensionAPI) {
   });
 
   pi.on("before_agent_start", (event, ctx) => {
+    // pi >= 1.2 also fires this for runs started by pi.sendMessage(..., { triggerTurn: true });
+    // those carry no prompt, so they must not replace the prompt we would re-send.
+    if ((event as { messageType?: string }).messageType === "custom") return;
     if (ownResendPending) {
       ownResendPending = false;
       return;
@@ -246,10 +249,11 @@ export default function subscriptionFailover(pi: ExtensionAPI) {
     const text = resendText(original.text, p.from, p.cls.reason, toolActivity);
     ownResendPending = true;
     toolActivity = false;
+    // pi >= 1.2 counts a starting run as busy, so say how to queue if one is starting.
     if (original.images?.length) {
-      pi.sendUserMessage([{ type: "text", text }, ...original.images] as never);
+      pi.sendUserMessage([{ type: "text", text }, ...original.images] as never, { deliverAs: "followUp" });
     } else {
-      pi.sendUserMessage(text);
+      pi.sendUserMessage(text, { deliverAs: "followUp" });
     }
     return true;
   };

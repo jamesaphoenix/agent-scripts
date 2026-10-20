@@ -24,6 +24,7 @@ FIT_TARGET_MIB="${LLAMA_SERVE_FIT_TARGET_MIB:-12288}"
 SPEC_TYPE="${LLAMA_SERVE_SPEC_TYPE:-ngram-simple}"
 REASONING_BUDGET="${LLAMA_SERVE_REASONING_BUDGET:--1}"
 REASONING_EFFORT="${LLAMA_SERVE_REASONING_EFFORT:-default}"
+EXTRA_ARGS="${LLAMA_SERVE_EXTRA_ARGS:-}"
 PLIST_PATH="$PLIST_DIR/${LABEL}.plist"
 
 for n in "$PORT" "$PARALLEL" "$CTX_PER_SLOT"; do
@@ -86,6 +87,8 @@ cat >"$PLIST_PATH" <<PLIST
     <string>${REASONING_BUDGET}</string>
     <key>LLAMA_SERVE_REASONING_EFFORT</key>
     <string>${REASONING_EFFORT}</string>
+    <key>LLAMA_SERVE_EXTRA_ARGS</key>
+    <string>${EXTRA_ARGS}</string>
     <key>LLAMA_SERVE_DISABLE_FILE</key>
     <string>${STATE_DIR}/disabled</string>
   </dict>

@@ -453,6 +453,46 @@
         "managedBy": "Synology DSM: agent-loops/synology-retention/install-dsm.py"
       },
       "notes": "Retired Studio SSH job. NAS-local cleanup.sh now owns bounded release/image retention. Do not reinstall this LaunchAgent. See agent-loops/synology-retention/README.md."
+    },
+    {
+      "id": "llama-prefill-bench-20261020",
+      "name": "Finite overnight llama.cpp prefill benchmark matrix",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.llama-prefill-bench-20261020",
+      "schedule": "finite 4-6 hour run ending 2026-10-21 04:35:56 UTC including recovery",
+      "requiresOpServiceAccount": false,
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts/.worktrees/llama-prefill-overnight-20261020",
+        "command": [
+          "bash",
+          "agent-loops/llama-prefill-bench/install.sh",
+          "run",
+          "/Users/jamesphoenix/llama-prefill-bench-20261020/overnight.json"
+        ]
+      },
+      "notes": "James explicitly authorised overnight benchmarking at 2026-10-20T22:35:56Z, superseding per-pause approvals for this run. Six-hour immutable hard end includes recovery; no permanent serving changes, root, Docker changes, secrets or unrelated render cleanup. Stop below 20% pressure free, on any swap, below 100GB free disk, or failed recovery. Preserve source, raw evidence and checkpoints; remove finite task registrations after terminal health proof."
+    },
+    {
+      "id": "llama-prefill-bench-20261020-watch",
+      "name": "Finite overnight llama.cpp prefill recovery and hourly checks",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.llama-prefill-bench-20261020-watch",
+      "schedule": "every minute, reporting hourly, until immutable hard end",
+      "requiresOpServiceAccount": false,
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts/.worktrees/llama-prefill-overnight-20261020",
+        "command": [
+          "bash",
+          "agent-loops/llama-prefill-bench/install.sh",
+          "watch",
+          "/Users/jamesphoenix/llama-prefill-bench-20261020/overnight.json"
+        ]
+      },
+      "notes": "James explicitly authorised overnight benchmarking at 2026-10-20T22:35:56Z, superseding per-pause approvals for this run. Six-hour immutable hard end includes recovery; no permanent serving changes, root, Docker changes, secrets or unrelated render cleanup. Stop below 20% pressure free, on any swap, below 100GB free disk, or failed recovery. Preserve source, raw evidence and checkpoints; remove finite task registrations after terminal health proof."
     }
   ]
 }

@@ -85,7 +85,10 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--lengths", default="8192,32768")
+    parser.add_argument("--churn-count", type=int, default=2)
     args = parser.parse_args()
+    if not 2 <= args.churn_count <= 20:
+        parser.error("churn-count must be between 2 and 20")
     args.out.mkdir(parents=True, exist_ok=False)
     for length in map(int, args.lengths.split(",")):
         # Stable serialized coding-agent workload. No real source or user data.
@@ -95,7 +98,8 @@ def main():
             for i in range(5000)))
         suffix = tokens("\n<|im_end|>\n<|im_start|>assistant\n")
         prompts = {}
-        for name in ("A", "B", "C"):
+        names=["A"]+[chr(ord("B")+i) for i in range(args.churn_count)]
+        for name in names:
             header = tokens(f"Session {name} {length}\n<|im_start|>system\n"
                             "You are a coding agent. Tools: read_file(path), edit_file(path,old,new), "
                             "run_tests(target). Read files before editing.\n<|im_end|>\n"
@@ -115,8 +119,8 @@ def main():
         middle[position:position + len(replacement)] = replacement
         probe(args.out, stem + "-append-A", appended)
         probe(args.out, stem + "-middle-A", middle)
-        probe(args.out, stem + "-churn-B", prompts["B"])
-        probe(args.out, stem + "-churn-C", prompts["C"])
+        for name in names[1:]:
+            probe(args.out, stem + "-churn-"+name, prompts[name])
         probe(args.out, stem + "-return-A", appended)
         probe(args.out, stem + "-uncached-control", appended, cache=False)
 

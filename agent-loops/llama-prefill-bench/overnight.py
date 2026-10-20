@@ -327,7 +327,7 @@ def run(base, state, manifest):
     signal.signal(signal.SIGTERM, interrupted)
     signal.signal(signal.SIGINT, interrupted)
     try:
-        first = base/'results/cache8-01/restored.json'
+        first = Path(manifest.get('baseline_path', str(base/'results/cache8-01/restored.json')))
         while not first.exists():
             if time.time() > epoch(manifest['authorised_at']) + 1000:
                 raise RuntimeError('First baseline did not restore within its allowance')
@@ -338,6 +338,15 @@ def run(base, state, manifest):
         if not healthy(live()):
             raise RuntimeError('First baseline health/alias not confirmed')
         progress=load(state/'progress.json'); progress['completed']=['cache8-01']; atomic(state/'progress.json',progress)
+        if manifest.get('experiment')=='cache-pressure':
+            primary=load(Path(manifest['primary_progress']))
+            if not primary or primary.get('phase')!='complete' or primary.get('failure'):
+                raise RuntimeError('Cache pressure follow-on requires successful terminal primary study')
+            for cache in (8192,32768):
+                name=f'pressure-cache{cache}'
+                execute(base,state,manifest,'custom',name,
+                    {'kind':'server','name':name,'cache':cache,'probe_lengths':'32768','churn_count':12},seconds=1500)
+            return
         for session in ('cache32', 'batch-short', 'long2048', 'long4096', 'gpu', 'threads'):
             execute(base, state, manifest, session, session+'-01', seconds=840 if session in ('long2048','long4096','gpu') else 600)
         # Verify full production context if raw all-GPU allocation succeeded.

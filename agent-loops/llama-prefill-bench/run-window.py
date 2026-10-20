@@ -123,7 +123,7 @@ def main():
     # Budget includes shutdown and workload; allow an additional 3 minutes for restore.
     workload_seconds = 840 if args.session in ("long2048", "long4096", "gpu") else 600
     if os.environ.get("LLAMA_WINDOW_SECONDS"):
-        workload_seconds = max(60, min(900, int(os.environ["LLAMA_WINDOW_SECONDS"])))
+        workload_seconds = max(60, min(1800, int(os.environ["LLAMA_WINDOW_SECONDS"])))
     if os.environ.get("LLAMA_HARD_END"):
         hard_end = datetime.datetime.fromisoformat(os.environ["LLAMA_HARD_END"]).timestamp()
         workload_seconds = min(workload_seconds, int(hard_end - time.time() - 240))

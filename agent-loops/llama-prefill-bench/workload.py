@@ -89,6 +89,9 @@ def main():
     parser.add_argument("--out", type=Path, default=Path("results"))
     parser.add_argument("--execute", action="store_true")
     args = parser.parse_args()
+    spec = json.loads(Path(os.environ["LLAMA_BENCH_SPEC"]).read_text()) if args.session=="custom" else {}
+    probe_lengths=spec.get("probe_lengths", "8192" if args.session=="threads" else "8192,32768")
+    churn_count=str(spec.get("churn_count",2))
     for kind, label, command in jobs(args.session):
         print(shlex.join(command), flush=True)
         if kind == "structured":
@@ -97,7 +100,7 @@ def main():
         if kind == "server":
             print(shlex.join([sys.executable, str(ROOT / "cache-probe.py"),
                               "--out", str(args.out / (label + "-cache")),
-                              "--lengths", "8192" if args.session == "threads" else "8192,32768"]), flush=True)
+                              "--lengths", probe_lengths, "--churn-count", churn_count]), flush=True)
             print(shlex.join([sys.executable, str(ROOT / "chat-probe.py"),
                               "--out", str(args.out / (label + "-chat"))]), flush=True)
         if not args.execute:
@@ -132,7 +135,7 @@ def main():
                     continue
                 subprocess.run([sys.executable, str(ROOT / "cache-probe.py"),
                                 "--out", str(args.out / (label + "-cache")),
-                                "--lengths", "8192" if args.session == "threads" else "8192,32768"],
+                                "--lengths", probe_lengths, "--churn-count", churn_count],
                                check=True)
                 subprocess.run([sys.executable, str(ROOT / "chat-probe.py"),
                                 "--out", str(args.out / (label + "-chat"))], check=True)

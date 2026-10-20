@@ -493,6 +493,46 @@
         ]
       },
       "notes": "James explicitly authorised overnight benchmarking at 2026-10-20T22:35:56Z, superseding per-pause approvals for this run. Six-hour immutable hard end includes recovery; no permanent serving changes, root, Docker changes, secrets or unrelated render cleanup. Stop below 20% pressure free, on any swap, below 100GB free disk, or failed recovery. Preserve source, raw evidence and checkpoints; remove finite task registrations after terminal health proof."
+    },
+    {
+      "id": "llama-prefill-pressure-20261020",
+      "name": "Conditional cache capacity pressure comparison",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.llama-prefill-pressure-20261020",
+      "schedule": "finite 4-6 hour run ending 2026-10-21 04:35:56 UTC including recovery",
+      "requiresOpServiceAccount": false,
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts/.worktrees/llama-prefill-overnight-20261020",
+        "command": [
+          "bash",
+          "agent-loops/llama-prefill-bench/install.sh",
+          "run",
+          "/Users/jamesphoenix/llama-prefill-bench-20261020/cache-pressure/overnight.json"
+        ]
+      },
+      "notes": "Install only after the primary study is terminal, successful and healthy, with enough time for both pressure windows and recovery before the ORIGINAL 2026-10-21T04:35:56Z hard end. Same original six-hour budget; no extension. Twelve distinct 32K histories deliberately exceed 8 GiB retention. Same stop conditions and original serving plist. No permanent model changes, root, secrets, Docker changes or unrelated cleanup."
+    },
+    {
+      "id": "llama-prefill-pressure-20261020-watch",
+      "name": "Conditional cache capacity pressure watcher",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.llama-prefill-pressure-20261020-watch",
+      "schedule": "every minute, reporting hourly, until immutable hard end",
+      "requiresOpServiceAccount": false,
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts/.worktrees/llama-prefill-overnight-20261020",
+        "command": [
+          "bash",
+          "agent-loops/llama-prefill-bench/install.sh",
+          "watch",
+          "/Users/jamesphoenix/llama-prefill-bench-20261020/cache-pressure/overnight.json"
+        ]
+      },
+      "notes": "Install only after the primary study is terminal, successful and healthy, with enough time for both pressure windows and recovery before the ORIGINAL 2026-10-21T04:35:56Z hard end. Same original six-hour budget; no extension. Twelve distinct 32K histories deliberately exceed 8 GiB retention. Same stop conditions and original serving plist. No permanent model changes, root, secrets, Docker changes or unrelated cleanup."
     }
   ]
 }

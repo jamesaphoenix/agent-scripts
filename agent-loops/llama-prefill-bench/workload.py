@@ -26,6 +26,8 @@ def bench(batch, ubatch, lengths, cpu=True):
             "-b", batch, "-ub", ubatch, "-p", lengths, "-n", "128",
             "-r", "2", "-o", "jsonl", "--progress"]
     args += ["-ot", "per_layer_token_embd=CPU" if cpu else "per_layer_token_embd=MTL0"]
+    if not cpu:
+        args += ["-lzm", "off"]
     return list(map(str, args))
 
 
@@ -47,6 +49,7 @@ def server(cache=8192, checkpoint=8192, threads=None, cpu=True):
         args += ["--threads-batch", str(threads)]
     if not cpu:
         args[args.index("-ot") + 1] = "per_layer_token_embd=MTL0"
+        args += ["--lazy-mode", "off"]
     return args
 
 
@@ -63,13 +66,17 @@ def jobs(session):
                          threads=spec.get("threads"), cpu=spec.get("cpu", True))
         command[command.index("-b") + 1] = str(spec.get("batch", 2048))
         command[command.index("-ub") + 1] = str(spec.get("ubatch", 512))
+        if spec.get("lazy_mode")=="off" and "--lazy-mode" not in command:
+            command += ["--lazy-mode", "off"]
         return [("structured" if spec.get("structured") else "server", spec["name"], command)]
     if session == "batch-short":
         return [("bench", "short", bench("2048,4096", "512,1024,2048", "512,8192"))]
     if session.startswith("long"):
         return [("bench", session, bench(session[4:], "512,1024,2048", "32768"))]
     if session == "gpu":
+        resident=bench(2048,512,"512,8192,32768")+["-lzm","off"]
         return [("bench", "cpu-control", bench(2048, 512, "512,8192,32768")),
+                ("bench", "cpu-resident", resident),
                 ("bench", "gpu-table", bench(2048, 512, "512,8192,32768", cpu=False))]
     if session == "threads":
         return [("server", "tb12", server(threads=12)),

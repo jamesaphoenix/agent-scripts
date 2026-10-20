@@ -121,7 +121,7 @@
     {
       "id": "ci-vm-cleanup",
       "name": "CI VM janitor (stale renderer images, cache + fstrim, orphaned CI container reaper)",
-      "enabled": true,
+      "enabled": false,
       "machine": "mac-studio",
       "launchdLabel": "com.jud.ci-vm-cleanup",
       "schedule": "daily at 04:10 local",
@@ -212,7 +212,7 @@
     {
       "id": "colima-ci",
       "name": "Colima 'ci' profile keepalive for the GitHub Actions runners",
-      "enabled": true,
+      "enabled": false,
       "machine": "mac-studio",
       "launchdLabel": "com.jud.colima-ci",
       "schedule": "every 5 minutes: colima status --profile ci || colima start --profile ci",
@@ -325,7 +325,7 @@
     {
       "id": "ci-disk-budget",
       "name": "CI disk budget admission",
-      "enabled": true,
+      "enabled": false,
       "machine": "mac-studio",
       "launchdLabel": "actions.runner.Just-Understanding-Data-Ltd.mac-studio-runner",
       "extraLaunchdLabels": [

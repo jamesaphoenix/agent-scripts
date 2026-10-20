@@ -103,3 +103,42 @@ python3 agent-loops/cache-hygiene/render_frames.py \
 For an explicitly authorized one-time cleanup, `--age-days 0` removes old completed
 frame outputs without the seven-day retention period. Activity, media validation,
 file identity and source protections still apply.
+
+## Render-tmp job retention
+
+Each top-level child of `~/render-tmp` is one render job folder (`--render-tmp-root` overrides,
+repeatable). A job is active, and skipped entirely, when any file or directory in it was written
+in the last 48 hours, any process has an open file or cwd inside it, a process command line or
+container bind names it, a herdr agent (`herdr --session default agent list`) has its cwd inside
+it, it holds a top-level `KEEP` file, or an active sibling job symlinks into it (copied projects
+link `shared/node_modules`). A missing herdr binary or stopped herdr server counts as no agents;
+any other herdr failure refuses the whole render-tmp pass.
+
+For an inactive job, last write is the newest mtime/ctime in the tree:
+
+- After seven idle days, intermediates are removed: every job subtree except `delivery/`
+  directories (at any depth), directories holding a `KEEP` file, job-level files (manifests)
+  and job-level final-output, evidence and ledger folders (`out`, `final(s)`, `export(s)`,
+  `output(s)`, `evidence`, `ledger(s)`, `reports`, `receipts`). This covers `workflow/`,
+  frames, copied `node_modules` and their caches. Symlinks are unlinked, never followed.
+- `delivery/` is removed only after 30 idle days and only when its `r2-archive-receipt.json`
+  says `"store": "r2", "status": "verified"`, names a bucket, and lists every local file with
+  an object `key` and a sha256 that matches the file on disk. The receipt must come from an
+  archiver that read the objects back from R2; nothing here contacts R2 or infers an upload.
+  Without such a receipt delivery folders are only reported.
+
+## Remotion webpack caches
+
+`node_modules/.cache/webpack` directories under `~/render-tmp` and `~/agent-runtime`
+(`--webpack-cache-root` overrides) are bounded per cache name (for example
+`remotion-production-4.0.523`): a unit unused (newest pack mtime/atime) for three days is
+removed, then the remaining units are removed oldest first until they total at most 20 GiB.
+Caches inside active render jobs, inside busy projects, or used within the last hour are
+retained and do not count toward the cap. Webpack rebuilds a removed cache on the next bundle.
+
+Manual review, dry-run by default:
+
+```sh
+python3 agent-loops/cache-hygiene/render_tmp.py --state-dir /tmp/render-tmp-review
+# Report: /tmp/render-tmp-review/last-report.json (job_detail and rows give every decision and byte count).
+```

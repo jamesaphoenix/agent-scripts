@@ -146,6 +146,8 @@ def main():
     parser.add_argument('--projects-root',type=Path,action='append',help='Dependency scan root; repeat for runtime checkouts. Default Desktop/projects')
     parser.add_argument('--apply',action='store_true',help='Apply the audited cache-only plan; default is dry-run')
     parser.add_argument('--state-dir',type=Path,default=ROOT/'state/cache-hygiene')
+    parser.add_argument('--render-tmp-root',type=Path,action='append',help='Render job root; each child is one job folder. Default ~/render-tmp')
+    parser.add_argument('--webpack-cache-root',type=Path,action='append',help='Remotion webpack cache discovery root. Default ~/render-tmp and ~/agent-runtime')
     args=parser.parse_args()
     state=args.state_dir;state.mkdir(parents=True,exist_ok=True,mode=0o700)
     global_state=ROOT/'state/cache-hygiene';global_state.mkdir(parents=True,exist_ok=True,mode=0o700)
@@ -256,6 +258,16 @@ def main():
             report['render_frame_retention']={k:v for k,v in frame_report.items() if k!='directories'}
         except Exception as error:
             report['render_frame_retention']={'status':'retained_error','error':str(error)[:500]}
+        # Idle render-tmp jobs and Remotion webpack caches have their own retention contract.
+        progress('render-tmp-retention')
+        try:
+            import importlib.util
+            spec=importlib.util.spec_from_file_location('render_tmp_retention',HERE/'render_tmp.py')
+            renders=importlib.util.module_from_spec(spec);spec.loader.exec_module(renders)
+            tmp_report=renders.run(args.render_tmp_root or renders.JOB_ROOTS,args.webpack_cache_root or renders.CACHE_ROOTS,state/'render-tmp',apply=args.apply,snapshot_fn=snapshot)
+            report['render_tmp_retention']={k:v for k,v in tmp_report.items() if k not in ('job_detail','rows')}
+        except Exception as error:
+            report['render_tmp_retention']={'status':'retained_error','error':str(error)[:500]}
         report['free_bytes_after']=disk_free_bytes()
         report['disk_warning']=report['free_bytes_after']<150*2**30
         report['service_log_budget']=oversized_service_logs(handles)

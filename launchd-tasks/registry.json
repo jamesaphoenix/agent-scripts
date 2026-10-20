@@ -320,7 +320,7 @@
           "agent-loops/cache-hygiene/install-launchd.sh"
         ]
       },
-      "notes": "Generated-cache maintenance. Inactive Remotion bundles older than 24h, ignored outputs in idle worktrees older than 7d, deterministic mobile-readiness cache directory-index budget 4MiB / 7d expiry with writer/handle checks. Seven-day numbered Claude overlay / video-lab geometry PNG retention requires completed media or audit metadata, quiet directories and no active handles/renderers/container binds. Preserves source, sessions, original media, native verification frames, databases, volumes and recovery data. No email. MacBook manual commands only. Pause: state/cache-hygiene/disabled. Free-space warning below 150GiB."
+      "notes": "Generated-cache maintenance. Inactive Remotion bundles older than 24h, ignored outputs in idle worktrees older than 7d, deterministic mobile-readiness cache directory-index budget 4MiB / 7d expiry with writer/handle checks. Seven-day numbered Claude overlay / video-lab geometry PNG retention requires completed media or audit metadata, quiet directories and no active handles/renderers/container binds. Idle ~/render-tmp jobs (no write 48h, no handle/cwd/herdr agent/KEEP) lose intermediates after 7d; delivery/ only after 30d with a hash-matching R2 archive receipt, else reported. Remotion webpack caches: 3d unused expiry plus 20GiB cap, oldest first. Preserves source, sessions, original media, native verification frames, databases, volumes and recovery data. No email. MacBook manual commands only. Pause: state/cache-hygiene/disabled. Free-space warning below 150GiB."
     },
     {
       "id": "ci-disk-budget",

@@ -57,15 +57,16 @@ The Mac Studio CI runner admission hook, Colima CI keepalive, and CI VM janitor 
 | `ci-vm-cleanup` (disabled) | `com.jud.ci-vm-cleanup` | daily at 04:10 local | CI VM janitor (stale renderer images, cache + fstrim, orphaned CI container reaper) |
 | `cloudflared-tunnels` | `com.jamesphoenix.cloudflared.octospark-prod` | KeepAlive daemons (4 labels) | Cloudflare Tunnel ingress for octospark + trace-learn (prod + staging) |
 | `colima-ci` (disabled) | `com.jud.colima-ci` | every 5 minutes: colima status --profile ci || colima start --profile ci | Colima 'ci' profile keepalive for the GitHub Actions runners |
-| `ci-disk-budget` (disabled) | `actions.runner.Just-Understanding-Data-Ltd.mac-studio-runner` | before each new CI job through ACTIONS_RUNNER_HOOK_JOB_STARTED | CI disk budget admission |
 | `llama-server` | `com.jud.llama-server` | KeepAlive daemon, RunAtLoad, ThrottleInterval 30s | Local inference server (llama.cpp, coding agents) |
 | `playwright-cli-reaper-studio` | `com.jud.playwright-cli-reaper` | hourly plus RunAtLoad | Playwright CLI reaper (stale daemons + orphaned headless Chrome) |
-| `tracelearn-tutor-discovery-20261009` | `com.jud.tracelearn-tutor-discovery-20261009` | one finite run, RunAtLoad; restart failures with original deadline and budget | Finite Trace Learn independent tutor discovery, seven hours and USD100 cap |
-| `tracelearn-tutor-expansion-20261010` | `com.jud.tracelearn-tutor-expansion-20261010` | one finite run, RunAtLoad; restart failures with original deadline and budget | Expanded Bucks tutor discovery, seven hours, USD20 incremental ceiling |
-| `tracelearn-tutor-countywide-20261010` | `com.jud.tracelearn-tutor-countywide-20261010` | one finite ten-hour run, RunAtLoad; restart with original deadline and budget | County-wide independent Bucks tutor discovery, ten hours, USD20 incremental ceiling |
-| `tracelearn-tutor-watch-20261010` | `com.jud.tracelearn-tutor-watch-20261010` | every thirty minutes plus RunAtLoad, fixed eight-hour window | Eight-hour tutor discovery health checks and bounded recovery |
-| `tutor-lead-pathways-20261011` | `com.jud.tutor-lead-pathways-20261011` | finite six-hour run, RunAtLoad and original-checkpoint recovery | Six-hour Bucks tutor discovery through five pathways |
-| `tutor-lead-pathways-watch-20261011` | `com.jud.tutor-lead-pathways-watch-20261011` | every thirty minutes plus RunAtLoad until finite discovery completes | Half-hour health and usage checks for five tutor pathways |
+| `cache-hygiene` | `com.jud.cache-hygiene` | hourly, no RunAtLoad | Cache-only temp/worktree/mobile-readiness hygiene |
+| `ci-disk-budget` (disabled) | `actions.runner.Just-Understanding-Data-Ltd.mac-studio-runner` | before each new CI job through ACTIONS_RUNNER_HOOK_JOB_STARTED | CI disk budget admission |
+| `octospark-compute-render` | `com.jud.octospark-compute.render` | KeepAlive daemon with thirty second failure backoff | Native Octospark compute render |
+| `octospark-compute-media-staging` | `com.jud.octospark-compute.media-staging` | KeepAlive daemon with thirty second failure backoff | Native Octospark compute media-staging |
+| `octospark-compute-media-prod` | `com.jud.octospark-compute.media-prod` | KeepAlive daemon with thirty second failure backoff | Native Octospark compute media-prod |
+| `octospark-compute-qwen` | `com.jud.octospark-compute.qwen` | KeepAlive daemon with thirty second failure backoff | Native Octospark compute qwen |
+| `octospark-compute-fleet-watch` | `com.jud.octospark-compute.fleet-watch` | one long-running observer, checks every 60 seconds | Octospark and Trace Learn fleet health and delayed Studio cleanup |
+| `synology-release-retention` (disabled) | `com.jud.synology-retention` | retired: NAS-local DSM Task Scheduler runs hourly | Synology immutable release and image retention |
 
 ### MacBook Pro
 

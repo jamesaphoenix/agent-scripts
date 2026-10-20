@@ -25,8 +25,7 @@ def bench(batch, ubatch, lengths, cpu=True):
             "-ctk", "q8_0", "-ctv", "q8_0", "-t", "12",
             "-b", batch, "-ub", ubatch, "-p", lengths, "-n", "128",
             "-r", "2", "-o", "jsonl", "--progress"]
-    if cpu:
-        args += ["-ot", "per_layer_token_embd=CPU"]
+    args += ["-ot", "per_layer_token_embd=CPU" if cpu else "per_layer_token_embd=MTL0"]
     return list(map(str, args))
 
 
@@ -47,8 +46,7 @@ def server(cache=8192, checkpoint=8192, threads=None, cpu=True):
     if threads is not None:
         args += ["--threads-batch", str(threads)]
     if not cpu:
-        position = args.index("-ot")
-        del args[position:position + 2]
+        args[args.index("-ot") + 1] = "per_layer_token_embd=MTL0"
     return args
 
 

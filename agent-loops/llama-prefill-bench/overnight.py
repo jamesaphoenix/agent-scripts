@@ -352,6 +352,16 @@ def run(base, state, manifest):
             primary=load(Path(manifest['primary_progress']))
             if not primary or primary.get('phase')!='complete' or primary.get('failure'):
                 raise RuntimeError('Cache pressure follow-on requires successful terminal primary study')
+            # No override keeps this INPUT tensor on CPU in this llama.cpp build.
+            # Repeat the raw comparison with an explicit, verified MTL0 override.
+            execute(base,state,manifest,'gpu','explicit-placement-bench',seconds=840)
+            chosen=load(Path(manifest['primary_progress']).parent/'candidate.json')
+            if chosen and not load(base/'results/explicit-placement-bench/restored.json',{}).get('failure'):
+                placement=dict(chosen, name='explicit-gpu-combined', cpu=False)
+                execute(base,state,manifest,'custom','explicit-gpu-combined',placement,seconds=720)
+            if time.time()+2*(1500+240) > epoch(manifest['hard_end']):
+                progress=load(state/'progress.json'); progress.setdefault('skipped',[]).append('cache pressure pair: insufficient original recovery-inclusive budget'); atomic(state/'progress.json',progress)
+                return
             for cache in (8192,32768):
                 name=f'pressure-cache{cache}'
                 execute(base,state,manifest,'custom',name,

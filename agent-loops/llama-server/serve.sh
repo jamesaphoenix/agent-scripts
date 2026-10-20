@@ -78,6 +78,12 @@ SPEC_TYPE="${LLAMA_SERVE_SPEC_TYPE:-ngram-simple}"
 REASONING_BUDGET="${LLAMA_SERVE_REASONING_BUDGET:--1}"
 # default | low | medium | high | xhigh | max  ('minimal' 500s, avoid)
 REASONING_EFFORT="${LLAMA_SERVE_REASONING_EFFORT:-default}"
+# Model-specific llama-server flags, word-split as given. Qwen3.8-Flash-Next keeps
+# its large n-gram embedding table off the GPU (mmapped) and wants its own
+# sampling defaults; measured on this box with the table on CPU: pp8192 511 t/s,
+# tg128 39.7 t/s, versus 233 / 23.4 for Qwen3.8-27B Q4_K_M.
+#   -ot per_layer_token_embd=CPU --temp 1.0 --top-p 0.95 --top-k 20 --min-p 0
+EXTRA_ARGS="${LLAMA_SERVE_EXTRA_ARGS:-}"
 DISABLE_FILE="${LLAMA_SERVE_DISABLE_FILE:-}"
 
 if [[ -n "$DISABLE_FILE" && -e "$DISABLE_FILE" ]]; then
@@ -154,6 +160,11 @@ if [[ "$REASONING_EFFORT" != "default" ]]; then
   args+=(--reasoning-effort "$REASONING_EFFORT")
 fi
 
+if [[ -n "$EXTRA_ARGS" ]]; then
+  read -r -a extra_args <<<"$EXTRA_ARGS"
+  args+=("${extra_args[@]}")
+fi
+
 if [[ -n "${LLAMA_SERVE_API_KEY:-}" ]]; then
   args+=(--api-key "$LLAMA_SERVE_API_KEY")
 fi
@@ -162,4 +173,5 @@ echo "Starting llama-server"
 echo "  model:    $MODEL_PATH"
 echo "  bind:     http://$HOST:$PORT  (OpenAI-compatible at /v1)"
 echo "  slots:    $PARALLEL x ${CTX_PER_SLOT} ctx  (kv ${CACHE_TYPE_K}/${CACHE_TYPE_V}, fit margin ${FIT_TARGET_MIB}MiB, spec ${SPEC_TYPE}, reason ${REASONING_EFFORT}/${REASONING_BUDGET})"
+echo "  extra:    ${EXTRA_ARGS:-none}"
 exec llama-server "${args[@]}"

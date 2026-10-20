@@ -91,7 +91,10 @@ def main():
     args = parser.parse_args()
     for kind, label, command in jobs(args.session):
         print(shlex.join(command), flush=True)
-        if kind in ("server", "structured"):
+        if kind == "structured":
+            print(shlex.join([sys.executable, str(ROOT / "structured-probe.py"),
+                              "--out", str(args.out / (label + "-structured"))]), flush=True)
+        if kind == "server":
             print(shlex.join([sys.executable, str(ROOT / "cache-probe.py"),
                               "--out", str(args.out / (label + "-cache")),
                               "--lengths", "8192" if args.session == "threads" else "8192,32768"]), flush=True)

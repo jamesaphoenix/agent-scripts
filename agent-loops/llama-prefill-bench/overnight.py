@@ -143,6 +143,14 @@ def report(base, state, manifest):
         for line in path.read_text().splitlines():
             r = json.loads(line); t = r['timings']
             lines.append(f"| {path.parts[-4]} | {r['label']} | {t.get('prompt_n')} | {t.get('cache_n')} | {r['ttft_s']:.3f} | {r.get('first_visible_s')} | {t['predicted_per_second']:.1f} |")
+    lines += ['', '## Chat API pair measurements', '',
+        '| Window | Turn | prompt_n | cache_n | TTFT s | First visible s |',
+        '| --- | ---: | ---: | ---: | ---: | ---: |']
+    for path in sorted((base / 'results').glob('*/workload/*-chat/turn*.summary.json')):
+        r=load(path); t=r.get('timings') or {}
+        lines.append(f"| {path.parts[-4]} | {r['turn']} | {t.get('prompt_n')} | {t.get('cache_n')} | {r['ttft_s']:.3f} | {r.get('first_visible_s')} |")
+    lines += ['', 'A null first-visible value means no visible answer before the output limit. '
+        'Generated reasoning counts toward TTFT but does not prove a visible response.']
     lines += ['', '## Raw llama-bench results', '',
         'Each row links its output file. avg_ts is the mean of the requested internal repetitions; '
         'stddev_ts is preserved in raw JSONL. These single-sequence benchmark contexts do not '

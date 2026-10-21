@@ -17,3 +17,5 @@ The conditional follow-on uses a separate `cache-pressure` evidence directory an
 On terminal healthy completion, the watcher removes only its two finite task plists and stopped lock. Retain source awaiting review, immutable manifest, checkpoints, raw evidence, original hashes, reports and exports. Never remove active work or unrelated resources.
 
 Pre-deployment validation covered Python/shell syntax, registry ID uniqueness, recovery-budget and persistent-STOP checks that prevent process launch, and command generation. Actual normal pause/restoration is evidenced by completed windows. The independent crash-recovery path has not been deliberately fault-injected; report that limit honestly.
+
+This dated investigation completed successfully on 2026-10-21. All four finite registrations were removed after healthy restoration and their registry entries were disabled. Evidence and source remain for PR review. A future run needs fresh authorisation and a new manifest; the historical deadline is never extended.

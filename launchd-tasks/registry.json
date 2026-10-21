@@ -457,7 +457,7 @@
     {
       "id": "llama-prefill-bench-20261020",
       "name": "Finite overnight llama.cpp prefill benchmark matrix",
-      "enabled": true,
+      "enabled": false,
       "machine": "mac-studio",
       "launchdLabel": "com.jud.llama-prefill-bench-20261020",
       "schedule": "finite 4-6 hour run ending 2026-10-21 04:35:56 UTC including recovery",
@@ -472,12 +472,12 @@
           "/Users/jamesphoenix/llama-prefill-bench-20261020/overnight.json"
         ]
       },
-      "notes": "James explicitly authorised overnight benchmarking at 2026-10-20T22:35:56Z, superseding per-pause approvals for this run. Six-hour immutable hard end includes recovery; no permanent serving changes, root, Docker changes, secrets or unrelated render cleanup. Stop below 20% pressure free, on any swap, below 100GB free disk, or failed recovery. Preserve source, raw evidence and checkpoints; remove finite task registrations after terminal health proof."
+      "notes": "James explicitly authorised overnight benchmarking at 2026-10-20T22:35:56Z, superseding per-pause approvals for this run. Six-hour immutable hard end includes recovery; no permanent serving changes, root, Docker changes, secrets or unrelated render cleanup. Stop below 20% pressure free, on any swap, below 100GB free disk, or failed recovery. Preserve source, raw evidence and checkpoints; remove finite task registrations after terminal health proof. Completed successfully on 2026-10-21; finite registrations removed and entry disabled. Retain evidence and review source; a new run requires fresh authorisation and manifest."
     },
     {
       "id": "llama-prefill-bench-20261020-watch",
       "name": "Finite overnight llama.cpp prefill recovery and hourly checks",
-      "enabled": true,
+      "enabled": false,
       "machine": "mac-studio",
       "launchdLabel": "com.jud.llama-prefill-bench-20261020-watch",
       "schedule": "every minute, reporting hourly, until immutable hard end",
@@ -492,12 +492,12 @@
           "/Users/jamesphoenix/llama-prefill-bench-20261020/overnight.json"
         ]
       },
-      "notes": "James explicitly authorised overnight benchmarking at 2026-10-20T22:35:56Z, superseding per-pause approvals for this run. Six-hour immutable hard end includes recovery; no permanent serving changes, root, Docker changes, secrets or unrelated render cleanup. Stop below 20% pressure free, on any swap, below 100GB free disk, or failed recovery. Preserve source, raw evidence and checkpoints; remove finite task registrations after terminal health proof."
+      "notes": "James explicitly authorised overnight benchmarking at 2026-10-20T22:35:56Z, superseding per-pause approvals for this run. Six-hour immutable hard end includes recovery; no permanent serving changes, root, Docker changes, secrets or unrelated render cleanup. Stop below 20% pressure free, on any swap, below 100GB free disk, or failed recovery. Preserve source, raw evidence and checkpoints; remove finite task registrations after terminal health proof. Completed successfully on 2026-10-21; finite registrations removed and entry disabled. Retain evidence and review source; a new run requires fresh authorisation and manifest."
     },
     {
       "id": "llama-prefill-pressure-20261020",
       "name": "Conditional cache capacity pressure comparison",
-      "enabled": true,
+      "enabled": false,
       "machine": "mac-studio",
       "launchdLabel": "com.jud.llama-prefill-pressure-20261020",
       "schedule": "finite 4-6 hour run ending 2026-10-21 04:35:56 UTC including recovery",
@@ -512,12 +512,12 @@
           "/Users/jamesphoenix/llama-prefill-bench-20261020/cache-pressure/overnight.json"
         ]
       },
-      "notes": "Install only after the primary study is terminal, successful and healthy, with enough time for both pressure windows and recovery before the ORIGINAL 2026-10-21T04:35:56Z hard end. Same original six-hour budget; no extension. Capacity mode keeps A unchanged before six other 50K histories; verify actual 8 GiB eviction in the logs. Same stop conditions and original serving plist. No permanent model changes, root, secrets, Docker changes or unrelated cleanup."
+      "notes": "Install only after the primary study is terminal, successful and healthy, with enough time for both pressure windows and recovery before the ORIGINAL 2026-10-21T04:35:56Z hard end. Same original six-hour budget; no extension. Capacity mode keeps A unchanged before six other 50K histories; verify actual 8 GiB eviction in the logs. Same stop conditions and original serving plist. No permanent model changes, root, secrets, Docker changes or unrelated cleanup. Completed successfully on 2026-10-21; finite registrations removed and entry disabled. Retain evidence and review source; a new run requires fresh authorisation and manifest."
     },
     {
       "id": "llama-prefill-pressure-20261020-watch",
       "name": "Conditional cache capacity pressure watcher",
-      "enabled": true,
+      "enabled": false,
       "machine": "mac-studio",
       "launchdLabel": "com.jud.llama-prefill-pressure-20261020-watch",
       "schedule": "every minute, reporting hourly, until immutable hard end",
@@ -532,7 +532,7 @@
           "/Users/jamesphoenix/llama-prefill-bench-20261020/cache-pressure/overnight.json"
         ]
       },
-      "notes": "Install only after the primary study is terminal, successful and healthy, with enough time for both pressure windows and recovery before the ORIGINAL 2026-10-21T04:35:56Z hard end. Same original six-hour budget; no extension. Capacity mode keeps A unchanged before six other 50K histories; verify actual 8 GiB eviction in the logs. Same stop conditions and original serving plist. No permanent model changes, root, secrets, Docker changes or unrelated cleanup."
+      "notes": "Install only after the primary study is terminal, successful and healthy, with enough time for both pressure windows and recovery before the ORIGINAL 2026-10-21T04:35:56Z hard end. Same original six-hour budget; no extension. Capacity mode keeps A unchanged before six other 50K histories; verify actual 8 GiB eviction in the logs. Same stop conditions and original serving plist. No permanent model changes, root, secrets, Docker changes or unrelated cleanup. Completed successfully on 2026-10-21; finite registrations removed and entry disabled. Retain evidence and review source; a new run requires fresh authorisation and manifest."
     }
   ]
 }

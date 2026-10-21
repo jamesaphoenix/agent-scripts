@@ -3,6 +3,8 @@ import json
 import os
 from pathlib import Path
 import tempfile
+import shutil
+import subprocess
 import unittest
 from unittest.mock import patch
 
@@ -14,6 +16,21 @@ spec.loader.exec_module(runner)
 
 
 class RunnerTests(unittest.TestCase):
+    @unittest.skipUnless(shutil.which('node') and shutil.which('plutil'), 'requires macOS and Node')
+    def test_launchd_priority_allows_the_existing_renderer_to_select_nice_ten(self):
+        if os.getpriority(os.PRIO_PROCESS, 0) != 0:
+            self.skipTest('requires a normal-priority test parent')
+        plist = ROOT / 'launchd-tasks/plists/com.jud.smartcub-render-20261021.plist'
+        job = json.loads(subprocess.check_output(['plutil', '-convert', 'json', '-o', '-', str(plist)]))
+        # The frozen marketing helper adds nice 10; the existing Node renderer
+        # sets its absolute priority to 10. An inherited launchd nice 10 would
+        # make that an unauthorised priority increase from 20 back to 10.
+        result = subprocess.run(['nice', '-n', str(job.get('Nice', 0) + 10), 'node', '-e',
+            "const os=require('node:os');os.setPriority(0,10);console.log(os.getPriority(0))"],
+            capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout.strip(), '10')
+
     def test_provider_and_oauth_credentials_are_not_inherited(self):
         with patch.dict(os.environ, {'OPENAI_API_KEY': 'test', 'OP_SERVICE_ACCOUNT_TOKEN': 'test',
                                      'FAL_KEY': 'test', 'GEMINI_API_KEY': 'test'}):

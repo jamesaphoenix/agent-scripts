@@ -12,7 +12,6 @@
 <key>RunAtLoad</key><true/>
 <key>KeepAlive</key><dict><key>Crashed</key><true/></dict>
 <key>ThrottleInterval</key><integer>60</integer>
-<key>Nice</key><integer>10</integer>
 <key>StandardOutPath</key><string>/Users/jamesphoenix/render-tmp/smart-cub-refresh-20261016/workflow/cta-11plus-routing-20261021/standalone-runner/runner.log</string>
 <key>StandardErrorPath</key><string>/Users/jamesphoenix/render-tmp/smart-cub-refresh-20261016/workflow/cta-11plus-routing-20261021/standalone-runner/runner-error.log</string>
 </dict></plist>

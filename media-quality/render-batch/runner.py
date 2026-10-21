@@ -198,6 +198,8 @@ class Controller:
             raise RuntimeError('Current delivery pointer changed; refusing mixed baselines')
 
     def save(self, state):
+        if state == 'rendering_and_scanning' and any(r['state'] == 'failed' for r in self.state['jobs'].values()):
+            state = 'rendering_with_failed_steps'
         self.state.update(state=state, at=now())
         for label, file, key in [('marketing', 'marketing-render-progress.json', 'outputs'),
                                  ('teaching', 'teaching-join-progress.json', 'jobs'),

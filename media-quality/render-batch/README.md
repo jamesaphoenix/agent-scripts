@@ -11,6 +11,11 @@ workers before restarting. A failed rendering or verification step is recorded
 and stops without retrying a provider or claiming approval. Independent rendering
 continues if another producer fails. Frozen helper/source drift stops execution.
 
+The launchd coordinator keeps normal priority. The frozen marketing helper lowers
+Node to nice 10 itself; adding nice 10 to the coordinator would stack to nice 20
+and make Node's absolute priority request fail with EACCES. Media workers retain
+their own existing low-priority settings.
+
 The `rendered-videos/` folder contains all 586 selected candidates after production
 and technical checks finish. Existing approved media is reused only for exact
 unchanged outputs. The previous delivery pointer stays unchanged. The candidate

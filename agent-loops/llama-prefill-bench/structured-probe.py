@@ -58,7 +58,10 @@ def request(out, label, messages, cache=True):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--out", type=Path, required=True)
+    parser.add_argument("--churn-count",type=int,default=2)
+    parser.add_argument("--capacity",action="store_true",help="Keep A unchanged before churn to isolate retention capacity")
     args = parser.parse_args()
+    if not 2<=args.churn_count<=12: parser.error("churn count must be 2..12")
     args.out.mkdir(parents=True, exist_ok=False)
     messages = [{"role": "system", "content": "Session A. You are a coding agent. Read before editing."}]
     for block in range(8):
@@ -72,8 +75,8 @@ def main():
     request(args.out, "structured-append-A", appended)
     middle = copy.deepcopy(appended)
     middle[9]["content"] = middle[9]["content"].replace("enabled: true", "enabled: false", 1)
-    request(args.out, "structured-middle-A", middle)
-    for tag in ("B", "C"):
+    if not args.capacity: request(args.out, "structured-middle-A", middle)
+    for tag in [chr(ord("B")+i) for i in range(args.churn_count)]:
         unrelated = copy.deepcopy(messages)
         unrelated[0]["content"] = unrelated[0]["content"].replace("Session A", "Session " + tag)
         request(args.out, "structured-churn-" + tag, unrelated)

@@ -100,10 +100,12 @@ def main():
     probe_lengths=spec.get("probe_lengths", "8192" if args.session=="threads" else "8192,32768")
     churn_count=str(spec.get("churn_count",2))
     for kind, label, command in jobs(args.session):
+        structured_command=[sys.executable,str(ROOT/"structured-probe.py"),"--out",str(args.out/(label+"-structured")),
+                            "--churn-count",str(spec.get("structured_churn_count",spec.get("churn_count",2)))]
+        if spec.get("capacity"): structured_command+=["--capacity"]
         print(shlex.join(command), flush=True)
         if kind == "structured":
-            print(shlex.join([sys.executable, str(ROOT / "structured-probe.py"),
-                              "--out", str(args.out / (label + "-structured"))]), flush=True)
+            print(shlex.join(structured_command),flush=True)
         if kind == "server":
             print(shlex.join([sys.executable, str(ROOT / "cache-probe.py"),
                               "--out", str(args.out / (label + "-cache")),
@@ -137,8 +139,7 @@ def main():
                         raise RuntimeError("Temporary server health timeout")
                     time.sleep(1)
                 if kind == "structured":
-                    subprocess.run([sys.executable, str(ROOT / "structured-probe.py"),
-                                    "--out", str(args.out / (label + "-structured"))], check=True)
+                    subprocess.run(structured_command,check=True)
                     continue
                 subprocess.run([sys.executable, str(ROOT / "cache-probe.py"),
                                 "--out", str(args.out / (label + "-cache")),
@@ -146,6 +147,9 @@ def main():
                                check=True)
                 subprocess.run([sys.executable, str(ROOT / "chat-probe.py"),
                                 "--out", str(args.out / (label + "-chat"))], check=True)
+                if spec.get("also_structured"):
+                    print(shlex.join(structured_command),flush=True)
+                    subprocess.run(structured_command,check=True)
             finally:
                 process.send_signal(signal.SIGTERM)
                 try:

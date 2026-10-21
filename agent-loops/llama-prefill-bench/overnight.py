@@ -369,17 +369,30 @@ def run(base, state, manifest):
                 execute(base,state,manifest,'custom','placement-proof',
                     {'kind':'bench','name':'placement-proof','batch':2048,'ubatch':512,
                      'lengths':'512','repetitions':1,'cpu':False,'verbose':True},seconds=180)
-            churn=int(manifest.get('pressure_churn_count',12))
-            ceiling=int(manifest.get('pressure_window_seconds',1500))
+            churn=int(manifest.get('pressure_churn_count',4))
+            ceiling=int(manifest.get('pressure_window_seconds',900))
             if time.time()+2*(ceiling+240) > epoch(manifest['hard_end']):
                 progress=load(state/'progress.json'); progress.setdefault('skipped',[]).append('cache pressure pair: insufficient original recovery-inclusive budget'); atomic(state/'progress.json',progress)
             else:
                 for cache in (8192,32768):
                     name=f'pressure-cache{cache}'
                     execute(base,state,manifest,'custom',name,
-                        {'kind':'server','name':name,'cache':cache,'probe_lengths':'32768','churn_count':churn},seconds=ceiling)
+                        {'kind':'server','name':name,'cache':cache,'structured':True,'capacity':True,'churn_count':churn},seconds=ceiling)
+            # Capacity is measured without an intervening middle edit: otherwise
+            # the original A version might never be saved by the LCP heuristic.
+            old_path=base/'results/pressure-cache8192/workload/pressure-cache8192-structured/summary.jsonl'
+            new_path=base/'results/pressure-cache32768/workload/pressure-cache32768-structured/summary.jsonl'
+            def returned(path):
+                if not path.exists(): return None
+                return next((json.loads(line) for line in path.read_text().splitlines() if json.loads(line)['label']=='structured-return-A'),None)
+            old_return,new_return=returned(old_path),returned(new_path)
+            cache_choice=32768 if old_return and new_return and new_return['ttft_s']<old_return['ttft_s']*.5 and new_return['timings']['cache_n']>old_return['timings']['cache_n'] else 8192
+            if chosen and cache_choice!=chosen.get('cache',8192):
+                combined=dict(chosen,name='cpu-cache-combined',cache=cache_choice,cpu=True,also_structured=True)
+                execute(base,state,manifest,'custom','cpu-cache-combined',combined,seconds=1200)
             if placement:
-                execute(base,state,manifest,'custom','resident-combined',placement,seconds=720)
+                placement.update(cache=cache_choice,also_structured=True)
+                execute(base,state,manifest,'custom','resident-combined',placement,seconds=1200)
             return
         for session in ('cache32', 'batch-short', 'long2048', 'long4096', 'gpu', 'threads'):
             execute(base, state, manifest, session, session+'-01', seconds=840 if session in ('long2048','long4096','gpu') else 600)

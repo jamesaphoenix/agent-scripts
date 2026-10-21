@@ -112,6 +112,8 @@ def main():
                               "--lengths", probe_lengths, "--churn-count", churn_count]), flush=True)
             print(shlex.join([sys.executable, str(ROOT / "chat-probe.py"),
                               "--out", str(args.out / (label + "-chat"))]), flush=True)
+            if spec.get("also_structured"):
+                print(shlex.join(structured_command),flush=True)
         if not args.execute:
             continue
         if os.environ.get("LLAMA_BENCH_WINDOW_ACTIVE") != "1":
@@ -148,7 +150,6 @@ def main():
                 subprocess.run([sys.executable, str(ROOT / "chat-probe.py"),
                                 "--out", str(args.out / (label + "-chat"))], check=True)
                 if spec.get("also_structured"):
-                    print(shlex.join(structured_command),flush=True)
                     subprocess.run(structured_command,check=True)
             finally:
                 process.send_signal(signal.SIGTERM)

@@ -369,8 +369,8 @@ def run(base, state, manifest):
                 execute(base,state,manifest,'custom','placement-proof',
                     {'kind':'bench','name':'placement-proof','batch':2048,'ubatch':512,
                      'lengths':'512','repetitions':1,'cpu':False,'verbose':True},seconds=180)
-            churn=int(manifest.get('pressure_churn_count',4))
-            ceiling=int(manifest.get('pressure_window_seconds',900))
+            churn=int(manifest.get('pressure_churn_count',6))
+            ceiling=int(manifest.get('pressure_window_seconds',1200))
             if time.time()+2*(ceiling+240) > epoch(manifest['hard_end']):
                 progress=load(state/'progress.json'); progress.setdefault('skipped',[]).append('cache pressure pair: insufficient original recovery-inclusive budget'); atomic(state/'progress.json',progress)
             else:

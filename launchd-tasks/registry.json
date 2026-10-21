@@ -294,6 +294,20 @@
         ]
       },
       "notes": "Runs on both Macs (the one exception to one-machine-per-task): agents on either host leave detached playwright-cli daemons plus headless Chrome trees alive for hours. Kills orphaned Playwright browsers, daemons older than 3h with their whole process tree, and unreferenced temp profiles. 2026-09-27: 9 abandoned daemons, ~9h old, pinned 3 GPU helpers at ~18% CPU each on the MacBook."
+    },
+    {
+      "id": "smartcub-render-20261021",
+      "name": "Smart Cub finite render and scan batch without an agent",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.smartcub-render-20261021",
+      "schedule": "finite resumable batch; run at load and recover controller crashes",
+      "requiresOpServiceAccount": false,
+      "install": {
+        "kind": "plist",
+        "plistPath": "launchd-tasks/plists/com.jud.smartcub-render-20261021.plist"
+      },
+      "notes": "User explicitly requested a standalone render script and cancellation of the Smart Cub Codex/Herdr workspace on 21 October. Resume frozen local rendering, body preservation proofs, native scans and join verification for the 586 selected outputs. No agent, credentials, provider calls, new charges, editorial auto-approval, delivery activation or publication. Preserve active baseline, evidence, distribution restrictions and all budget holds."
     }
   ]
 }

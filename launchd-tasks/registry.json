@@ -512,7 +512,7 @@
           "/Users/jamesphoenix/llama-prefill-bench-20261020/cache-pressure/overnight.json"
         ]
       },
-      "notes": "Install only after the primary study is terminal, successful and healthy, with enough time for both pressure windows and recovery before the ORIGINAL 2026-10-21T04:35:56Z hard end. Same original six-hour budget; no extension. Twelve distinct 32K histories deliberately exceed 8 GiB retention. Same stop conditions and original serving plist. No permanent model changes, root, secrets, Docker changes or unrelated cleanup."
+      "notes": "Install only after the primary study is terminal, successful and healthy, with enough time for both pressure windows and recovery before the ORIGINAL 2026-10-21T04:35:56Z hard end. Same original six-hour budget; no extension. Capacity mode keeps A unchanged before six other 50K histories; verify actual 8 GiB eviction in the logs. Same stop conditions and original serving plist. No permanent model changes, root, secrets, Docker changes or unrelated cleanup."
     },
     {
       "id": "llama-prefill-pressure-20261020-watch",
@@ -532,7 +532,7 @@
           "/Users/jamesphoenix/llama-prefill-bench-20261020/cache-pressure/overnight.json"
         ]
       },
-      "notes": "Install only after the primary study is terminal, successful and healthy, with enough time for both pressure windows and recovery before the ORIGINAL 2026-10-21T04:35:56Z hard end. Same original six-hour budget; no extension. Twelve distinct 32K histories deliberately exceed 8 GiB retention. Same stop conditions and original serving plist. No permanent model changes, root, secrets, Docker changes or unrelated cleanup."
+      "notes": "Install only after the primary study is terminal, successful and healthy, with enough time for both pressure windows and recovery before the ORIGINAL 2026-10-21T04:35:56Z hard end. Same original six-hour budget; no extension. Capacity mode keeps A unchanged before six other 50K histories; verify actual 8 GiB eviction in the logs. Same stop conditions and original serving plist. No permanent model changes, root, secrets, Docker changes or unrelated cleanup."
     }
   ]
 }

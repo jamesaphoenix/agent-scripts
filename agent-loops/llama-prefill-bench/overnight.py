@@ -352,23 +352,7 @@ def run(base, state, manifest):
             primary=load(Path(manifest['primary_progress']))
             if not primary or primary.get('phase')!='complete' or primary.get('failure'):
                 raise RuntimeError('Cache pressure follow-on requires successful terminal primary study')
-            # No override keeps this INPUT tensor on CPU in this llama.cpp build.
-            # Repeat the raw comparison with an explicit, verified MTL0 override.
-            execute(base,state,manifest,'gpu','explicit-placement-bench',seconds=840)
             chosen=load(Path(manifest['primary_progress']).parent/'candidate.json')
-            raw=samples(base)
-            def rate(label,prompt,gen):
-                return statistics.median([r['avg_ts'] for r in raw if r['_source'].endswith('/'+label+'.stdout') and r['n_prompt']==prompt and r.get('n_gen')==gen] or [0])
-            baseline_pp=rate('cpu-control',32768,0); baseline_tg=rate('cpu-control',0,128)
-            eligible=[label for label in ('cpu-resident','gpu-table') if rate(label,32768,0)>baseline_pp*1.05 and rate(label,0,128)>=baseline_tg*.95]
-            placement=None
-            if chosen and eligible:
-                best=max(eligible,key=lambda label:rate(label,32768,0))
-                placement=dict(chosen,name='resident-combined',cpu=best=='cpu-resident',lazy_mode='off')
-            if rate('gpu-table',32768,0)>0:
-                execute(base,state,manifest,'custom','placement-proof',
-                    {'kind':'bench','name':'placement-proof','batch':2048,'ubatch':512,
-                     'lengths':'512','repetitions':1,'cpu':False,'verbose':True},seconds=180)
             churn=int(manifest.get('pressure_churn_count',6))
             ceiling=int(manifest.get('pressure_window_seconds',1200))
             if time.time()+2*(ceiling+240) > epoch(manifest['hard_end']):
@@ -390,6 +374,23 @@ def run(base, state, manifest):
             if chosen and cache_choice!=chosen.get('cache',8192):
                 combined=dict(chosen,name='cpu-cache-combined',cache=cache_choice,cpu=True,also_structured=True)
                 execute(base,state,manifest,'custom','cpu-cache-combined',combined,seconds=1200)
+            # Prioritise the cache-capacity question before resident placement,
+            # which may legitimately hit the host-wide memory stop condition.
+            # No override keeps this INPUT tensor on CPU in this build.
+            execute(base,state,manifest,'gpu','explicit-placement-bench',seconds=1260)
+            raw=samples(base)
+            def rate(label,prompt,gen):
+                return statistics.median([r['avg_ts'] for r in raw if r['_source'].endswith('/'+label+'.stdout') and r['n_prompt']==prompt and r.get('n_gen')==gen] or [0])
+            baseline_pp=rate('cpu-control',32768,0); baseline_tg=rate('cpu-control',0,128)
+            eligible=[label for label in ('cpu-resident','gpu-table') if rate(label,32768,0)>baseline_pp*1.05 and rate(label,0,128)>=baseline_tg*.95]
+            placement=None
+            if chosen and eligible:
+                best=max(eligible,key=lambda label:rate(label,32768,0))
+                placement=dict(chosen,name='resident-combined',cpu=best=='cpu-resident',lazy_mode='off')
+            if rate('gpu-table',32768,0)>0:
+                execute(base,state,manifest,'custom','placement-proof',
+                    {'kind':'bench','name':'placement-proof','batch':2048,'ubatch':512,
+                     'lengths':'512','repetitions':1,'cpu':False,'verbose':True},seconds=180)
             if placement:
                 placement.update(cache=cache_choice,also_structured=True)
                 execute(base,state,manifest,'custom','resident-combined',placement,seconds=1200)

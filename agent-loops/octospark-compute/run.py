@@ -9,7 +9,16 @@ role = sys.argv[1]
 state = Path(sys.argv[2]).resolve()
 config = json.loads((state / 'config.json').read_text())
 env = {k: v for k, v in os.environ.items() if not k.startswith('ANTHROPIC')}
-env['PATH'] = '/opt/homebrew/opt/node@22/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin'
+env['PATH'] = os.pathsep.join([
+    str(Path.home() / '.local/opt/node24/bin'),
+    '/opt/node24/bin',
+    '/opt/homebrew/bin',
+    '/usr/local/bin',
+    '/usr/bin',
+    '/bin',
+    '/usr/sbin',
+    '/sbin',
+])
 if role == 'fleet-watch':
     os.execvpe(config['python'], [config['python'], str(Path(__file__).with_name('watch.py'))], env)
 elif role == 'qwen':

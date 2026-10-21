@@ -56,7 +56,7 @@ cat >"$PLIST_PATH" <<PLIST
   <key>StandardErrorPath</key>
   <string>${STATE_DIR}/logs/llama-server.err.log</string>
   <key>ProcessType</key>
-  <string>Background</string>
+  <string>Interactive</string>
   <key>EnvironmentVariables</key>
   <dict>
     <key>PATH</key>

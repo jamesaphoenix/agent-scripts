@@ -1,7 +1,7 @@
 #!/bin/zsh
 set -euo pipefail
 umask 077
-export PATH="/opt/homebrew/bin:/opt/homebrew/opt/node@22/bin:/Users/jamesphoenix/.npm-global/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:${PATH:-}"
+export PATH="$HOME/.local/opt/node24/bin:/opt/homebrew/bin:$HOME/.npm-global/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:${PATH:-}"
 print -r -- 'Tutor discovery launcher: loading shared profile' >&2
 # Interactive-only profile commands can return nonzero in launchd shells.
 source ~/.zprofile >/dev/null 2>&1 || true

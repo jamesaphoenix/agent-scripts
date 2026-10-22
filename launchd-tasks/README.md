@@ -11,11 +11,11 @@ answers to. Tasks reference a machine by key, never by hostname.
 
 | Key | Name | User | Role |
 |---|---|---|---|
-| `mac-studio` | Mac Studio | `jamesphoenix` | Always-on runtime host: prod/staging compose stacks, CI runners, Temporal workers |
+| `mac-studio` | Mac Studio | `jamesphoenix` | Native render/media, local AI/ML, auto-fix and host maintenance |
 | `macbook-pro` | MacBook Pro | `jamesaphoenix` | Dev laptop and authoring machine; only laptop-hygiene jobs |
 
 Rule of thumb: anything that keeps a service alive belongs on the Studio. Anything that only
-cleans up after the laptop's own tools belongs on the MacBook. Nothing runs on both, except
+cleans up after the laptop's own tools belongs on the MacBook. Primary application stacks and tunnels run on the NAS; CI runs on A Series. Nothing runs on both Macs, except
 `playwright-cli-reaper`, which is registered once per machine because agents on either host leak
 Playwright browsers.
 
@@ -50,17 +50,17 @@ The Mac Studio CI runner admission hook, Colima CI keepalive, and CI VM janitor 
 | Task | launchd label | Schedule | Purpose |
 |---|---|---|---|
 | `freeagent-invoice-harvest` | `com.jud.invoice-harvest` | daily 06:30 local plus RunAtLoad | Daily FreeAgent invoice harvester |
-| `temporal-worker-tailscale-health` | `com.jud.temporal-worker-tailscale-health` | every 1 minute plus RunAtLoad | Temporal worker Tailscale health (all Temporal-backed apps) |
-| `ensure-dockerised-apps-online` | `com.jud.ensure-dockerised-apps-online` | RunAtLoad plus every 5 minutes | Ensure dockerised apps online (compose stacks boot recovery) |
+| `temporal-worker-tailscale-health` (disabled) | `com.jud.temporal-worker-tailscale-health` | retired 2026-10-22 | Temporal worker Tailscale health (all Temporal-backed apps) |
+| `ensure-dockerised-apps-online` (disabled) | `com.jud.ensure-dockerised-apps-online` | retired 2026-10-22 | Ensure dockerised apps online (compose stacks boot recovery) |
 | `octospark-auto-fix-runners` | `com.octospark.auto-fix-runner.staging` | KeepAlive daemons (staging + prod labels), ThrottleInterval 60s | Octospark Sentry auto-fix Temporal workers (staging + prod) |
 | `host-docker-cleanup` | `com.jud.host-docker-cleanup` | daily at 03:30 local | Host Docker janitor (release images + build cache) |
-| `ci-vm-cleanup` (disabled) | `com.jud.ci-vm-cleanup` | daily at 04:10 local | CI VM janitor (stale renderer images, cache + fstrim, orphaned CI container reaper) |
-| `cloudflared-tunnels` | `com.jamesphoenix.cloudflared.octospark-prod` | KeepAlive daemons (4 labels) | Cloudflare Tunnel ingress for octospark + trace-learn (prod + staging) |
-| `colima-ci` (disabled) | `com.jud.colima-ci` | every 5 minutes: colima status --profile ci || colima start --profile ci | Colima 'ci' profile keepalive for the GitHub Actions runners |
+| `ci-vm-cleanup` (disabled) | `com.jud.ci-vm-cleanup` | retired 2026-10-22 | CI VM janitor (stale renderer images, cache + fstrim, orphaned CI container reaper) |
+| `cloudflared-tunnels` (disabled) | `com.jamesphoenix.cloudflared.octospark-prod` | retired 2026-10-22 | Cloudflare Tunnel ingress for octospark + trace-learn (prod + staging) |
+| `colima-ci` (disabled) | `com.jud.colima-ci` | retired 2026-10-22 | Colima 'ci' profile keepalive for the GitHub Actions runners |
 | `llama-server` | `com.jud.llama-server` | KeepAlive daemon, RunAtLoad, ThrottleInterval 30s | Local inference server (llama.cpp, coding agents) |
 | `playwright-cli-reaper-studio` | `com.jud.playwright-cli-reaper` | hourly plus RunAtLoad | Playwright CLI reaper (stale daemons + orphaned headless Chrome) |
 | `cache-hygiene` | `com.jud.cache-hygiene` | hourly, no RunAtLoad | Cache-only temp/worktree/mobile-readiness hygiene |
-| `ci-disk-budget` (disabled) | `actions.runner.Just-Understanding-Data-Ltd.mac-studio-runner` | before each new CI job through ACTIONS_RUNNER_HOOK_JOB_STARTED | CI disk budget admission |
+| `ci-disk-budget` (disabled) | `actions.runner.Just-Understanding-Data-Ltd.mac-studio-runner` | retired 2026-10-22 | CI disk budget admission |
 | `octospark-compute-render` | `com.jud.octospark-compute.render` | KeepAlive daemon with thirty second failure backoff | Native Octospark compute render |
 | `octospark-compute-media-staging` | `com.jud.octospark-compute.media-staging` | KeepAlive daemon with thirty second failure backoff | Native Octospark compute media-staging |
 | `octospark-compute-media-prod` | `com.jud.octospark-compute.media-prod` | KeepAlive daemon with thirty second failure backoff | Native Octospark compute media-prod |

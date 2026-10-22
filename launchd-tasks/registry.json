@@ -44,34 +44,6 @@
       "notes": "Runs the FreeAgent invoice collector from the Mac Studio runtime copy. Was hourly until 2026-09-04; daily is enough for a quarterly VAT tool (harvest.py widens its window to cover any gap, cap 35d) and keeps the Gmail refresh token warm. Gmail re-consent: python3 scripts/oauth_listener.py in the collector repo (writes to 1Password api-keys item + refreshes keychain caches). Secrets are read from the login keychain (op token, agent_mail_*, jud_fa_*); see README 'Caching secrets on the Studio over SSH'."
     },
     {
-      "id": "temporal-worker-tailscale-health",
-      "name": "Temporal worker Tailscale health (all Temporal-backed apps)",
-      "enabled": false,
-      "machine": "mac-studio",
-      "launchdLabel": "com.jud.temporal-worker-tailscale-health",
-      "schedule": "retired 2026-10-22",
-      "requiresOpServiceAccount": false,
-      "install": {
-        "kind": "external",
-        "managedBy": "Retired installation; see README.md host retirement audit"
-      },
-      "notes": "Retired 22 October 2026 after NAS primary hosting and A Series CI migration. Do not reinstall. Historical evidence and reusable source retained; no application data or volumes removed."
-    },
-    {
-      "id": "ensure-dockerised-apps-online",
-      "name": "Ensure dockerised apps online (compose stacks boot recovery)",
-      "enabled": false,
-      "machine": "mac-studio",
-      "launchdLabel": "com.jud.ensure-dockerised-apps-online",
-      "schedule": "retired 2026-10-22",
-      "requiresOpServiceAccount": false,
-      "install": {
-        "kind": "external",
-        "managedBy": "Retired installation; see README.md host retirement audit"
-      },
-      "notes": "Retired 22 October 2026 after NAS primary hosting and A Series CI migration. Do not reinstall. Historical evidence and reusable source retained; no application data or volumes removed."
-    },
-    {
       "id": "octospark-auto-fix-runners",
       "name": "Octospark Sentry auto-fix Temporal workers (staging + prod)",
       "enabled": true,
@@ -109,20 +81,6 @@
         ]
       },
       "notes": "Host-level, cross-product (CI runners + octospark-prod-live + trace-learn share one Docker daemon here). Protects every image referenced by any container on the host (running or stopped, any compose project), then reclaims old release image tags + BuildKit cache. Moved here from octospark (scripts/deploy/install-mac-docker-cleanup-launchd.sh, removed) so there is one owner and no drift as sibling products land on the same host. The Hetzner standby box (100.81.18.118) shares a daemon with its own prod/staging stacks but has no launchd - it runs the same cleanup-local-docker.sh via install-cron.sh instead; see agent-loops/docker-cleanup/README.md. Maintenance opt-out: touch state/docker-cleanup/disabled. Cache budget: 10GB with 24h age filter and CLI flag detection. Stopped containers preserved unless explicitly enabled. First runner artifact path is actions-runner/_work. Native renderer/media-runtime cleanup protects both staging and production release proof digests and local image IDs, plus recent rollback artifacts. Missing or malformed configured native proofs abort before mutation. Requires 24h image creation and local tagging age."
-    },
-    {
-      "id": "ci-vm-cleanup",
-      "name": "CI VM janitor (stale renderer images, cache + fstrim, orphaned CI container reaper)",
-      "enabled": false,
-      "machine": "mac-studio",
-      "launchdLabel": "com.jud.ci-vm-cleanup",
-      "schedule": "retired 2026-10-22",
-      "requiresOpServiceAccount": false,
-      "install": {
-        "kind": "external",
-        "managedBy": "Retired installation; see README.md host retirement audit"
-      },
-      "notes": "Retired 22 October 2026 after NAS primary hosting and A Series CI migration. Do not reinstall. Historical evidence and reusable source retained; no application data or volumes removed."
     },
     {
       "id": "chrome-clone-pruner",
@@ -177,39 +135,6 @@
         ]
       },
       "notes": "MacBook Pro only. Removes dangling images, BuildKit cache older than 7d, and ANONYMOUS unattached volumes older than 30d. Never touches tagged images, any container, or NAMED volumes (those are listed in the log for manual review). Exits 0 quietly when Docker Desktop is not running. Do not install the Studio's docker-cleanup here: that one is tuned for a shared prod daemon."
-    },
-    {
-      "id": "cloudflared-tunnels",
-      "name": "Cloudflare Tunnel ingress for octospark + trace-learn (prod + staging)",
-      "enabled": false,
-      "machine": "mac-studio",
-      "launchdLabel": "com.jamesphoenix.cloudflared.octospark-prod",
-      "extraLaunchdLabels": [
-        "com.jamesphoenix.cloudflared.octospark-staging",
-        "com.jamesphoenix.cloudflared.tracelearn-prod",
-        "com.jamesphoenix.cloudflared.tracelearn-staging"
-      ],
-      "schedule": "retired 2026-10-22",
-      "requiresOpServiceAccount": false,
-      "install": {
-        "kind": "external",
-        "managedBy": "Retired installation; see README.md host retirement audit"
-      },
-      "notes": "Retired 22 October 2026 after NAS primary hosting and A Series CI migration. Do not reinstall. Historical evidence and reusable source retained; no application data or volumes removed."
-    },
-    {
-      "id": "colima-ci",
-      "name": "Colima 'ci' profile keepalive for the GitHub Actions runners",
-      "enabled": false,
-      "machine": "mac-studio",
-      "launchdLabel": "com.jud.colima-ci",
-      "schedule": "retired 2026-10-22",
-      "requiresOpServiceAccount": false,
-      "install": {
-        "kind": "external",
-        "managedBy": "Retired installation; see README.md host retirement audit"
-      },
-      "notes": "Retired 22 October 2026 after NAS primary hosting and A Series CI migration. Do not reinstall. Historical evidence and reusable source retained; no application data or volumes removed."
     },
     {
       "id": "worktree-janitor",
@@ -311,25 +236,6 @@
       "notes": "Generated-cache maintenance. Inactive Remotion bundles older than 24h, ignored outputs in idle worktrees older than 7d, deterministic mobile-readiness cache directory-index budget 4MiB / 7d expiry with writer/handle checks. Seven-day numbered Claude overlay / video-lab geometry PNG retention requires completed media or audit metadata, quiet directories and no active handles/renderers/container binds. Idle ~/render-tmp jobs (no write 48h, no handle/cwd/herdr agent/KEEP) lose intermediates after 7d; delivery/ only after 30d with a hash-matching R2 archive receipt, else reported. Remotion webpack caches: 3d unused expiry plus 20GiB cap, oldest first. Preserves source, sessions, original media, native verification frames, databases, volumes and recovery data. No email. MacBook manual commands only. Pause: state/cache-hygiene/disabled. Free-space warning below 150GiB."
     },
     {
-      "id": "ci-disk-budget",
-      "name": "CI disk budget admission",
-      "enabled": false,
-      "machine": "mac-studio",
-      "launchdLabel": "actions.runner.Just-Understanding-Data-Ltd.mac-studio-runner",
-      "extraLaunchdLabels": [
-        "actions.runner.Just-Understanding-Data-Ltd.mac-studio-runner-2",
-        "actions.runner.Just-Understanding-Data-Ltd.mac-studio-runner-3",
-        "actions.runner.Just-Understanding-Data-Ltd.mac-studio-runner-4"
-      ],
-      "schedule": "retired 2026-10-22",
-      "requiresOpServiceAccount": false,
-      "install": {
-        "kind": "external",
-        "managedBy": "Retired installation; see README.md host retirement audit"
-      },
-      "notes": "Retired 22 October 2026 after NAS primary hosting and A Series CI migration. Do not reinstall. Historical evidence and reusable source retained; no application data or volumes removed."
-    },
-    {
       "id": "octospark-compute-render",
       "name": "Native Octospark compute render",
       "enabled": true,
@@ -423,20 +329,6 @@
         ]
       },
       "notes": "A single locked native observer checks NAS releases, public APIs and native compute. After 48 continuous healthy hours on unchanged releases, removes only obsolete Studio observability and stopped migrated application containers. Keeps CI databases, Redis, Temporal, all volumes, images, unrelated jobs and reusable caches. No agent dispatch or workflow starts from health probes."
-    },
-    {
-      "id": "synology-release-retention",
-      "name": "Synology immutable release and image retention",
-      "enabled": false,
-      "machine": "mac-studio",
-      "launchdLabel": "com.jud.synology-retention",
-      "schedule": "retired: NAS-local DSM Task Scheduler runs hourly",
-      "requiresOpServiceAccount": false,
-      "install": {
-        "kind": "external",
-        "managedBy": "Synology DSM: agent-loops/synology-retention/install-dsm.py"
-      },
-      "notes": "Retired Studio SSH job. NAS-local cleanup.sh now owns bounded release/image retention. Do not reinstall this LaunchAgent. See agent-loops/synology-retention/README.md."
     }
   ]
 }

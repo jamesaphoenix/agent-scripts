@@ -48,10 +48,7 @@ would further reduce directory pressure; the hourly overflow rule limits the cur
 format without changing the product or deploying an application release.
 
 Before new large work, use `python3 agent-loops/cache-hygiene/disk-preflight.py -- pnpm build`.
-The default requires 100 GiB remaining plus a 20 GiB growth reservation. Studio CI's
-job-start hook reserves 20 GiB per active worker; low space refuses the new job and
-leaves existing jobs/services running. Register using the canonical installer:
-`scripts/install-launchd-tasks.sh --task ci-disk-budget`, then restart only idle runners.
+The default requires 100 GiB remaining plus a 20 GiB growth reservation.
 
 Manual and scheduled runs share one lock even when report directories differ.
 The global disabled marker also applies to custom report directories.

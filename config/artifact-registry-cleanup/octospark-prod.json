@@ -1,17 +1,22 @@
 [
   {
-    "name": "delete-untagged-after-14d",
+    "name": "delete-untagged-after-7d",
     "action": {"type": "Delete"},
-    "condition": {"tagState": "untagged", "olderThan": "14d"}
+    "condition": {"tagState": "untagged", "olderThan": "7d"}
   },
   {
-    "name": "delete-all-after-60d",
+    "name": "delete-all-after-21d",
     "action": {"type": "Delete"},
-    "condition": {"tagState": "any", "olderThan": "60d"}
+    "condition": {"tagState": "any", "olderThan": "21d"}
   },
   {
-    "name": "keep-latest-50-per-package",
+    "name": "keep-latest-3-per-package",
     "action": {"type": "Keep"},
-    "mostRecentVersions": {"keepCount": 50}
+    "mostRecentVersions": {"keepCount": 3}
+  },
+  {
+    "name": "keep-nas-retain-tags",
+    "action": {"type": "Keep"},
+    "condition": {"tagState": "tagged", "tagPrefixes": ["nas-retain-"]}
   }
 ]

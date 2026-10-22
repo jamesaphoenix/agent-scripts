@@ -1,8 +1,10 @@
 # agent-scripts
 
-Agent-oriented experiments, research loops, and ad hoc automation.
+Host automation, native compute services, CI support, and bounded agent research loops.
 
-- `agent-loops/` - reusable loops for autonomous agent research (ralph, reverse-ralph, auto-research)
+- `agent-loops/` - host maintenance, native compute, NAS retention, CI setup and reusable research loops
+- `launchd-tasks/` - Mac task registry and central installer documentation
+- `runner-hooks/` - platform-specific CI hooks and deployment SSH setup
 - `pi-extensions/` - global pi (pi.dev) extensions: Brave `web_search`/`web_fetch` and subscription failover, symlinked into `~/.pi/agent/extensions/` by `dotfiles/install.sh` (see `pi-extensions/README.md`)
 
 ## Engineering Loops
@@ -27,38 +29,137 @@ narrower downstream secrets instead.
 - Mac Studio VM sizing (Docker Desktop + Colima memory, restart consequences): `docs/mac-studio-vm-sizing.md`
 - Spotlight exclusions for the Studio's CI runner / VM disk / model trees (manual, needs sudo): `agent-loops/spotlight-exclusions/README.md`
 
-## Development And Deployment Model
+## Host responsibilities and retirement audit
 
-Treat the MacBook Pro copy of `agent-scripts` as the authoring source of truth. Write, test, and
-review hourly, daily, and weekly scripts on the MacBook first. The Mac Studio copy is a deployment
-and runtime target for unattended jobs, not a place to make durable edits.
+Read-only live inspection on **22 October 2026, approximately 14:48-14:50 UTC**, compared
+GitHub `main` at `b981a5a` with Mac Studio, Synology and A Series. These are retirement
+findings from the initial inspection. The retirement applied afterwards is recorded below.
 
-Recommended flow:
+| Host | Observed responsibility | Keep |
+|---|---|---|
+| MacBook Pro | Authoring checkout and laptop maintenance | Local hygiene, worktree maintenance, manual project sync and pi extensions |
+| Synology NAS | Octospark and Trace Learn prod/staging API and general workers, Redis, ML inference, four application tunnels, Solar ROI and OTEL | Application stacks, NAS tunnels and NAS-local release retention |
+| Mac Studio | Native rendering/media, Qwen gateway/backend, ML training/pollers/shared MLflow, auto-fix services | Native compute fleet, llama backend, cache and Docker hygiene, invoice harvest and browser reaper |
+| A Series | Four organisation CI runners (`a-series-1` through `-4`) | Linux runners, deployment SSH support and CI cleanup timer |
 
-1. Edit and test the loop on the MacBook Pro.
-2. Run the loop's dry-run or status command locally where available.
-3. Deploy the finished script to the Mac Studio runtime and visibility paths.
-4. Install or reload launchd jobs on the Mac Studio with `scripts/install-launchd-tasks.sh`.
-5. Inspect logs and status from the MacBook over SSH.
+The organisation runner API returned all four A Series runners online, one busy, and no
+Studio runners. Studio's default Docker engine contained eight containers: seven ML
+containers and `octospark-staging-native-cloudsql`. The NAS contained the four primary
+application environments and four corresponding tunnel containers. Container inventory is
+not an end-to-end feature test or a reboot/failover test.
 
-Deploy with:
+### Retirement decisions
 
-```bash
-scripts/deploy-to-mac-studio.sh --dry-run
-scripts/deploy-to-mac-studio.sh --live
+| Item | Recommendation | Evidence / condition |
+|---|---|---|
+| Studio `colima-ci`, `ci-vm-cleanup`, `ci-disk-budget` | Retire the old Studio installation; keep any reusable cleanup logic until callers are checked | Already disabled in main; Colima/CI plists archived with `disabled-20261020`; no Studio runners in the organisation fleet and no Colima Docker context in Studio's context list |
+| Studio `cloudflared-tunnels` | Finish retirement in the registry; archive the four old Studio plists | All four launchd labels are disabled and absent from the loaded list; NAS runs their replacement tunnels. Main still incorrectly enables this task. Keep NAS tunnels |
+| `temporal-worker-tailscale-health` | Retire this Docker-specific schedule, or replace it with explicit native-worker checks | Still runs every minute, but its live status has an empty `apps` array. All four application entries are disabled; the sole enabled dev entry has Temporal disabled. Its green result does not prove native worker polling |
+| `ensure-dockerised-apps-online` | Retire if the shared dev stack is no longer required; otherwise narrow and repair it | Only enabled entry is `trace-learn-dev`; no matching dev containers appeared in the default-engine inventory. Loaded job last exit was 75 and last successful wrapper summary was 20 October. Confirm the intended engine and lock state before removing it |
+| Historical tutor discovery/watch/recovery tasks | Keep retired schedules out of the active registry; archive campaign-specific code after caller checks | Main has removed the dated tutor entries; Studio's loaded list contains none. Old MacBook checkout still had them enabled, so do not deploy that checkout |
+| Completed Smart Cub one-off agents | Archive completed 16-17 October plists and task-owned runtime scripts after checking delivery/checkpoints | Studio has 31 `com.jud.smart*.plist` files, including a newer 21 October renderer. The loaded 16-17 October jobs shown were idle with exit 0; idle alone is not proof of complete delivery. Preserve exports, receipts and unmerged work; review the newer renderer separately |
+| `runner-hooks/job-completed.sh`, `job-completed-dryrun.sh`, `install-disk-preflight.sh` | Candidates for a legacy Mac-runner archive | Mac-specific cleanup and installer; Studio runners are gone. Check references in workflows, installer code and retained runner configurations before deleting source |
+| `runner-hooks/job-started.sh`, `job-completed-linux.sh`, `setup-deploy-ssh.sh`, `lib/ci-admission.py` | Keep pending A Series deployment reconciliation | Main provides Linux CI/admission support. Live `/opt/jud-ci/runner-hooks/` only listed deployment SSH files, so installation of the documented admission/completion hooks was not established |
+| `llama-server` | Keep | Live backend listens on `127.0.0.1:8082`; the Qwen admission service listens on Studio's Tailscale address at port 8080. These are complementary services |
+| Studio `host-docker-cleanup` and `cache-hygiene` | Keep | Docker still hosts active ML services; cleanup has a successful 22 October summary. Retain native-image protection and avoid reviving old primary-host assumptions |
+| Studio `com.jud.synology-retention` | Keep retired; do not reinstall | Main disables it and no live Studio label was found. NAS-local retention is the owner |
+
+### Drift to fix before installing or deploying
+
+- **Use current main.** The original MacBook checkout was at `d8911ea` (16 October), with
+  unrelated dirty files. Studio runtime's Git metadata reported `b878cf7` (30 March), although
+  newer runtime files were present. Deployment uses rsync excluding `.git`, so that SHA is
+  not a reliable manifest of the running scripts. Compare file hashes or record a deployment
+  manifest; a blanket sync from an old checkout could restore retired jobs.
+- **Reconcile the launchd registry.** Main still enables the old Studio tunnel group. Live
+  Trace Learn auto-fix runners/proxies and Smart Cub one-off jobs are absent from main's
+  central registry. Both Trace Learn auto-fix runner labels had last exit 1, while their proxy
+  processes were running. Investigate those failures before classifying the services as obsolete.
+- **Reconcile A Series source and runtime.** Main documents `/opt/jud-ci/agent-loops/a-series-ci/`
+  and `jud-actions-runner-N.service`; live units are
+  `actions.runner.Just-Understanding-Data-Ltd.a-series-N.service`. The live cleanup unit invokes
+  `/opt/jud-ci/cleanup/cleanup.sh`, scheduled at 04:15 plus up to 30 minutes of jitter, rather
+  than the documented 04:10 Python job. Its script skips active CI, prunes stopped containers
+  and dangling images older than seven days, and caps build cache at 20 GiB. This is different
+  from the checked-in Python cleanup policy. Runner `.env` hook settings were not readable in
+  this audit, so do not claim two-job admission is installed merely from source documentation.
+- **Keep NAS maintenance local.** `/volume1/docker/jud/maintenance/retention-last.json` showed
+  apply mode with no errors, nine removed releases and ten removed images on 22 October.
+  DSM scheduler inspection as `mydocker` did not expose the application task, so this audit
+  verifies the recent report, not independent scheduler ownership or reboot persistence.
+  See [NAS retention](agent-loops/synology-retention/README.md) for the intended DSM setup.
+
+Retire in this order: remove obsolete enabled registry entries, archive confirmed-complete
+one-off installations, reconcile A Series deployment, then archive source with no remaining
+callers. Preserve healthy rollback releases, budget ledgers, receipts, final exports and
+active/unmerged work. Do not remove Docker volumes based on this inventory.
+
+### Retirement applied on 22 October 2026
+
+At 14:55 UTC the approved Studio retirement disabled/unloaded obsolete labels and moved
+**38 plist files** out of `~/Library/LaunchAgents/`: 30 idle, successful 16-17 October Smart
+Cub one-offs, four disabled application tunnels, the Docker recovery and Temporal health
+jobs, and two previously disabled Colima/CI janitor plists. The newer 21 October renderer
+was preserved. One-off task source and checkpoints remain available; a zero exit is not
+proof that every requested deliverable was completed.
+
+Studio rollback archive and exact source/destination manifest:
+
+```text
+/Users/jamesphoenix/.local/state/agent-scripts-retired/2026-10-22/
+  manifest.json
+  LaunchAgents/
+  runtime/
+  desktop/
+  sync-result.json
 ```
 
-Use these Studio paths consistently:
+Six legacy tasks are disabled in the source registry and their installer entries are
+non-installing retirement records. The same changes were merged by task ID into Studio's
+runtime and Desktop registries, preserving unrelated entries. All historical Compose
+recovery targets are disabled in both copies and source. The three Mac-only runner hook
+files were removed from active `runner-hooks/`: source is retained under
+`archive/2026-10-22/mac-runner-hooks/`, and deployed copies are in the Studio rollback
+archive. Shared Linux hooks, CI admission code and reusable janitor/recovery source remain.
+
+Verification found every archived label absent from the loaded launchd list. Native
+render/media/Qwen/fleet-watch/llama processes retained their PIDs; Docker ML services
+remained running. All four A Series runner units and its cleanup timer remained active.
+NAS tunnels and primary containers were inspected without mutation; its Octospark staging
+container set changed between snapshots, so the post-change inventory does not establish
+that environment's health. Four installer unit tests passed. No volumes, application data,
+exports, budget ledgers or receipts were deleted, and no NAS/A Series configuration changed.
+
+The registry drift and A Series source/runtime discrepancies above remain follow-up work.
+The source retirement is recorded alongside the host audit in this repository.
+
+## Development And Deployment Model
+
+The MacBook Pro is the authoring source. Studio is a runtime target for native compute and
+host maintenance. Synology owns primary application hosting and its own maintenance; A Series
+owns CI. See [Mac tasks](launchd-tasks/README.md),
+[A Series CI](agent-loops/a-series-ci/README.md), and
+[NAS retention](agent-loops/synology-retention/README.md).
+
+Review changes from a current, clean checkout or isolated worktree, run the relevant dry-run
+or status command, then deploy only the required paths. Studio's conventional paths are:
 
 ```text
 /Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts/
 /Users/jamesphoenix/Desktop/projects/just-understanding-data/agent-scripts/
 ```
 
-The runtime path is for launchd execution. The Desktop path is for visibility and normal project
-sync. Do not rely on edits made on the Mac Studio Desktop copy, because the MacBook to Studio
-projects rsync may overwrite files with the same path. If emergency edits are made on the Studio,
-copy them back to the MacBook before the next project sync.
+The first is the launchd runtime; the second is a visibility/project-sync copy. Runtime fixes
+must return to the MacBook source before a later sync. The convenience deployment commands are:
+
+```bash
+scripts/deploy-to-mac-studio.sh --dry-run
+scripts/deploy-to-mac-studio.sh --live
+```
+
+The helper syncs the whole source tree to both Studio paths, excludes Git/state metadata,
+and does not delete remote files. It does not itself retire removed scripts or prove that
+launchd is using the new version. Inspect the diff and preserve runtime-only jobs before use.
 
 ## Shared 1Password Service Account
 
@@ -113,43 +214,18 @@ registered-but-missing and installed-but-unregistered agents; `--table` regenera
 tables in `launchd-tasks/README.md`. Studio jobs keep services alive; MacBook jobs only clean up
 after the laptop's own tools.
 
-Current loops:
+Current responsibilities:
 
-- `ensure-dockerised-apps-online` (Mac Studio, every 5 min): `docker start`s any stopped container
-  of every app in `config/docker-apps.json` (Octospark, Trace Learn, trace-learn dev stack) in dependency
-  order after a reboot or Docker Desktop restart. Not a deploy. Opt out with
-  `state/ensure-dockerised-apps-online/disabled[.<app-id>]`.
-
-- `temporal-worker-tailscale-health` (Mac Studio, every 1 min): checks every Temporal-backed app
-  in `config/docker-apps.json` can reach the Hetzner Temporal server over Tailscale from inside
-  its container, repairs a stale Tailscale route, then restarts the configured workers. Repairs
-  are rate-limited to one per 10 min.
-
-- `dev-docker-cleanup` (MacBook Pro, weekly Monday 09:30): removes dangling images, build cache
-  older than 7 days and anonymous unattached volumes older than 30 days. Never touches tagged
-  images, containers or named volumes.
-
-- `worktree-janitor` (MacBook Pro, daily 08:30): removes worktrees whose branch content is already
-  in main/staging (archiving uncommitted work first), kills api/worker/web dev servers older than
-  24h that run from a worktree, and emails a digest of worktrees idle for 30+ days. Never touches
-  Postgres, Redis, Temporal, Docker or Playwright. Config: `config/worktree-janitor.json`.
-
-- `config/docker-apps.json` is the single list of long-lived compose apps on the Studio. Add an
-  app there (validate with `python3 lib/docker-apps.py validate`) and both loops pick it up on
-  the next deploy; no script edits.
-
-- `playwright-cli-reaper`: backstop for orphaned or abandoned Playwright CLI daemons and headless
-  Chrome process trees. Runs hourly on both Macs (`com.jud.playwright-cli-reaper`, reaping daemons
-  older than 3h); install the manual command with `agent-loops/playwright-cli-reaper/install.sh`, inspect with
-  `playwright-reap --status`, use the safe orphan-only mode as `playwright-reap`, or use
-  `playwright-reap --force` only when no Playwright session should remain.
-
-- `project-sync-macbook-to-mac-studio`: manual one-way rsync sync from
-  `/Users/jamesaphoenix/Desktop/projects/` to
-  `jamesphoenix@Jamess-Mac-Studio.local:/Users/jamesphoenix/Desktop/projects/`.
-  It never deletes Studio files, so files that exist only on the Studio are kept.
-
-Run a dry run before enabling launchd:
+- `octospark-compute` runs Studio's native render/media workers, Qwen admission gateway and
+  fleet watcher. `llama-server` supplies the local inference backend.
+- `host-docker-cleanup`, `cache-hygiene` and `playwright-cli-reaper` maintain Studio resources.
+  Docker remains in use for ML services despite retirement of the primary application stacks.
+- `freeagent-invoice-harvest` remains a Studio daily task at 06:30.
+- `dev-docker-cleanup`, `worktree-janitor`, browser reaping and clone/fuzz pruning maintain the
+  MacBook. Consult the registry for enabled tasks and schedules.
+- `config/docker-apps.json` describes Studio Compose recovery targets, not NAS applications or
+  native workers. All historical recovery entries and the two old recovery schedules are disabled.
+- `project-sync-macbook-to-mac-studio` is a manual, one-way, non-deleting project copy. Preview:
 
 ```bash
 agent-loops/project-sync/macbook-to-mac-studio.sh --dry-run

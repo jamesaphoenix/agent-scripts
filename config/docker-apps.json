@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "_comment": "Mac Studio CI infrastructure only. Product application stacks now run on Synology with Hetzner fallback. Native render and media workers are registered separately in launchd-tasks/registry.json.",
+  "_comment": "Historical Studio Compose recovery inventory. All targets retired 2026-10-22: primary apps run on NAS; no shared dev containers remained. Native compute and ML services are managed separately. Do not re-enable legacy recovery schedules.",
   "defaults": {
     "temporalAddress": "100.116.99.19:7233",
     "temporalAddressEnvVar": "TEMPORAL_ADDRESS"
@@ -107,8 +107,8 @@
     {
       "id": "trace-learn-dev",
       "composeProject": "trace-learn",
-      "enabled": true,
-      "_comment": "Studio retains the shared dev Postgres, Redis, small OTEL collector and Spotlight. Retired Langfuse, Grafana, Prometheus and their supporting services are not restarted after the fleet stability cleanup. CI runs in its separate Colima engine.",
+      "enabled": false,
+      "_comment": "Historical shared dev target. No matching containers remained at retirement on 22 October 2026. CI now runs on A Series.",
       "startOrder": [
         "postgres",
         "redis",

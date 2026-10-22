@@ -1,0 +1,17 @@
+[
+  {
+    "name": "delete-tagged-after-14d",
+    "action": {"type": "Delete"},
+    "condition": {"tagState": "tagged", "olderThan": "14d", "packageNamePrefixes": ["api", "worker"]}
+  },
+  {
+    "name": "delete-untagged-after-1d",
+    "action": {"type": "Delete"},
+    "condition": {"tagState": "untagged", "olderThan": "1d", "packageNamePrefixes": ["api", "worker"]}
+  },
+  {
+    "name": "keep-latest-3",
+    "action": {"type": "Keep"},
+    "mostRecentVersions": {"keepCount": 3, "packageNamePrefixes": ["api", "worker"]}
+  }
+]

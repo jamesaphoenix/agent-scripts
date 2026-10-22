@@ -22,12 +22,13 @@ ROOT = Path('/volume1/docker/jud')
 DOCKER = '/usr/local/bin/docker'
 PROJECTS = ('octospark-staging', 'octospark-prod', 'trace-learn-staging', 'trace-learn-prod')
 REPOS = {
-    'octospark': {'europe-west3-docker.pkg.dev/octospark-prod/tx-agent-kit/' + r for r in ('api', 'worker')},
+    'octospark': {'europe-west3-docker.pkg.dev/octospark-prod/tx-agent-kit/' + r for r in ('api', 'worker', 'ml')},
     'trace-learn': {'europe-west3-docker.pkg.dev/tracelearn-prod/trace-learn/' + r for r in ('api', 'worker')},
 }
 AGE = 48 * 3600
 KEEP = 3
 LIMIT = 10
+DANGLING_AGE = 14 * 24 * 3600
 
 
 def app(project):
@@ -85,16 +86,20 @@ def plan(snapshot, old_history, now):
     allowed = set().union(*REPOS.values()) - bootstrap_repos
     for image in snapshot['images']:
         refs = set(image['refs'])
-        if (refs and {repository(r) for r in refs} <= allowed
-                and not refs.intersection(protected_refs)
-                and image['id'] not in container_images
-                and now - image['created'] >= AGE):
+        owned = (refs and {repository(r) for r in refs} <= allowed
+                 and not refs.intersection(protected_refs)
+                 and now - image['created'] >= AGE)
+        # A replaced local tag (for example Solar ROI :latest) leaves an image
+        # with no tag or digest. Keep two weeks of these for manual recovery;
+        # Docker itself still refuses to remove an image used by a container.
+        dangling = not refs and now - image['created'] >= DANGLING_AGE
+        if (owned or dangling) and image['id'] not in container_images:
             result['imageIds'].append(image['id'])
     # Do not strand an unremoved release folder by removing its images first.
     result['releasePaths'] = sorted(result['releasePaths'])[:LIMIT]
     retained_after_limit = {ref for p in snapshot['projects'].values() for r in p['releases']
                             if r['path'] not in result['releasePaths'] for ref in r['images'].values()}
-    result['imageIds'] = [i['id'] for i in snapshot['images']
+    result['imageIds'] = [i['id'] for i in sorted(snapshot['images'], key=lambda image: image['created'])
                           if i['id'] in result['imageIds'] and not set(i['refs']) & retained_after_limit][:LIMIT]
     return result, history
 

@@ -26,7 +26,6 @@ narrower downstream secrets instead.
 - All loop status: `agent-loops/status.sh`
 - Runtime state and logs: `state/` (gitignored)
 - Generic job wrapper: `lib/run-job.sh`
-- Mac Studio VM sizing (Docker Desktop + Colima memory, restart consequences): `docs/mac-studio-vm-sizing.md`
 - Spotlight exclusions for the Studio's CI runner / VM disk / model trees (manual, needs sudo): `agent-loops/spotlight-exclusions/README.md`
 
 ## Hosts
@@ -128,8 +127,6 @@ Current responsibilities:
 - `freeagent-invoice-harvest` remains a Studio daily task at 06:30.
 - `dev-docker-cleanup`, `worktree-janitor`, browser reaping and clone/fuzz pruning maintain the
   MacBook. Consult the registry for enabled tasks and schedules.
-- `config/docker-apps.json` describes Studio Compose recovery targets, not NAS applications or
-  native workers. All historical recovery entries and the two old recovery schedules are disabled.
 - `project-sync-macbook-to-mac-studio` is a manual, one-way, non-deleting project copy. Preview:
 
 ```bash

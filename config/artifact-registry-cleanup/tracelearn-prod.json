@@ -1,0 +1,17 @@
+[
+  {
+    "name": "delete-untagged-after-14d",
+    "action": {"type": "Delete"},
+    "condition": {"tagState": "untagged", "olderThan": "14d"}
+  },
+  {
+    "name": "delete-all-after-60d",
+    "action": {"type": "Delete"},
+    "condition": {"tagState": "any", "olderThan": "60d"}
+  },
+  {
+    "name": "keep-latest-50-per-package",
+    "action": {"type": "Keep"},
+    "mostRecentVersions": {"keepCount": 50}
+  }
+]

@@ -13,8 +13,10 @@ removes old, unused application images and private release bundles safely.
   conservative; new successful releases establish the rollback history.
 - Protect images referenced by **any** container, including stopped containers.
   Also retain release folders used by any container bind mount.
-- Only four exact Artifact Registry API/worker repositories are eligible. Unknown
-  dangling images, Solar ROI, Redis, cloudflared, collectors, volumes, build caches
+- Only the five exact Artifact Registry API/worker/ML repositories are eligible
+  for referenced-image cleanup. Images with no tag or digest become eligible
+  after 14 days when no container uses them, covering replaced Solar ROI images.
+  Referenced Solar ROI, Redis, cloudflared, collectors, volumes, build caches
   and other application data are excluded.
 - Acquire all four existing deployment locks and a janitor lock before observing
   or deleting. If a deployment is active, skip the run. Unhealthy services,

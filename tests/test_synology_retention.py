@@ -67,6 +67,27 @@ class RetentionTests(unittest.TestCase):
         plan, _ = retention.plan(snapshot, {'trace-learn-staging': [release('4')]}, NOW)
         self.assertEqual(plan['imageIds'], [])
 
+    def test_old_unreferenced_dangling_images_are_bounded_and_container_safe(self):
+        snapshot = self.snapshot()
+        snapshot['images'] = [dict(self.image('old-dangling', None), created=NOW - retention.DANGLING_AGE - 1),
+                              dict(self.image('recent-dangling', None), created=NOW - retention.DANGLING_AGE + 1),
+                              dict(self.image('running-dangling', None), created=NOW - retention.DANGLING_AGE - 1)]
+        snapshot['containers'] = [{'Image': 'running-dangling'}]
+        plan, _ = retention.plan(snapshot, {'trace-learn-staging': [release('4')]}, NOW)
+        self.assertEqual(plan['imageIds'], ['old-dangling'])
+
+    def test_octospark_ml_release_image_is_accepted(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp).resolve()
+            folder = root / 'octospark-prod/releases/a'; folder.mkdir(parents=True)
+            sha = 'a' * 40
+            digest = 'b' * 64
+            images = {key: f'europe-west3-docker.pkg.dev/octospark-prod/tx-agent-kit/{repo}@sha256:{digest}'
+                      for key, repo in [('API_IMAGE', 'api'), ('WORKER_IMAGE', 'worker'), ('ML_IMAGE', 'ml')]}
+            (folder / 'release.json').write_text(json.dumps({'project': 'octospark-prod', 'sourceSha': sha, 'images': images}))
+            with patch.object(retention, 'ROOT', root):
+                self.assertEqual(retention.read_release('octospark-prod', folder)['images'], images)
+
     def test_stopped_container_bind_mount_protects_old_private_release_files(self):
         snapshot = self.snapshot()
         snapshot['containers'] = [{'Image': 'dependency', 'mountSources': ['0/cloudsql/key.json']}]

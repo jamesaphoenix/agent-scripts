@@ -3,10 +3,9 @@ import argparse
 import json
 import os
 from pathlib import Path
-import shutil
 import subprocess
 import sys
-from .runtime import command, environment
+from .runtime import command, environment, executable
 
 
 def main():
@@ -26,7 +25,7 @@ def main():
             value = configure(Path(__file__).resolve().parents[2] / "scripts/blender-lab-mcp", clients)
         else:
             if not args.sdk_runtime:
-                uv = shutil.which("uv")
+                uv = executable("uv")
                 if not uv:
                     raise RuntimeError("uv is required for the standard MCP client health check")
                 launch = [uv, "run", "--no-project", "--python", "3.13", "--with", "mcp==1.26.0",

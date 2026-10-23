@@ -34,8 +34,18 @@ class BlenderRuntimeTest(unittest.TestCase):
             with self.subTest(overrides=overrides), self.assertRaises(ValueError):
                 runtime.environment(overrides)
 
+    def test_gui_system_path_finds_user_installed_uvx(self):
+        with tempfile.TemporaryDirectory() as directory:
+            home = Path(directory)
+            binary = home / ".local/bin/uvx"
+            binary.parent.mkdir(parents=True)
+            binary.write_text("#!/bin/sh\n")
+            binary.chmod(0o700)
+            with patch.object(runtime.shutil, "which", return_value=None), patch.object(runtime.Path, "home", return_value=home):
+                self.assertEqual(runtime.command()[0], str(binary))
+
     def test_missing_uvx_is_a_clear_failure(self):
-        with patch.object(runtime.shutil, "which", return_value=None), self.assertRaisesRegex(RuntimeError, "uvx"):
+        with patch.object(runtime, "executable", return_value=None), self.assertRaisesRegex(RuntimeError, "uvx"):
             runtime.command()
 
 

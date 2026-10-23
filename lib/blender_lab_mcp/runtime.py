@@ -28,8 +28,20 @@ def environment(source=None):
     return env
 
 
+def executable(name):
+    """GUI MCP clients may inherit only the system PATH on macOS."""
+    found = shutil.which(name)
+    if found:
+        return found
+    for directory in (Path.home() / ".local/bin", Path("/opt/homebrew/bin"), Path("/usr/local/bin")):
+        candidate = directory / name
+        if candidate.is_file() and os.access(candidate, os.X_OK):
+            return str(candidate)
+    return None
+
+
 def command():
-    uvx = shutil.which("uvx")
+    uvx = executable("uvx")
     if not uvx:
         raise RuntimeError("uvx is required to launch the official Blender Lab MCP server")
     return [uvx, "--from", SOURCE, "blender-mcp", "--transport", "stdio"]

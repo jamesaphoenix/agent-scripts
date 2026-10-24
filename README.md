@@ -6,6 +6,7 @@ Host automation, native compute services, CI support, and bounded agent research
 - `launchd-tasks/` - Mac task registry and central installer documentation
 - `runner-hooks/` - platform-specific CI hooks and deployment SSH setup
 - `pi-extensions/` - global pi (pi.dev) extensions: Brave `web_search`/`web_fetch` and subscription failover, symlinked into `~/.pi/agent/extensions/` by `dotfiles/install.sh` (see `pi-extensions/README.md`)
+- [Blender Lab MCP](lib/blender_lab_mcp/README.md) - pinned official connector, Codex/Claude setup and read-only end-to-end health checks (`scripts/install-blender-lab-mcp.sh`)
 
 ## Engineering Loops
 

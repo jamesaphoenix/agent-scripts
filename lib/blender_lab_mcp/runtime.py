@@ -7,6 +7,8 @@ RELEASE = "1.0.3"
 COMMIT = "2cea8d566dde07fbac28a61d698909d69724e853"
 SOURCE = f"git+https://projects.blender.org/lab/blender_mcp.git@{COMMIT}#subdirectory=mcp"
 OFFICIAL_TOOLS = {"execute_blender_code", "get_blendfile_summary_datablocks", "get_python_api_docs", "search_manual_docs"}
+# The only settings a client needs to store; everything else stays in the client's own environment.
+CLIENT_VARIABLES = ("BLENDER_MCP_HOST", "BLENDER_MCP_PORT", "BLENDER_PATH")
 
 
 def environment(source=None):

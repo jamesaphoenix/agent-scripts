@@ -49,6 +49,39 @@ class BlenderRuntimeTest(unittest.TestCase):
             runtime.command()
 
 
+class BlenderConfigurationTest(unittest.TestCase):
+    def test_clients_store_the_pinned_command_and_bridge_settings_not_a_checkout_path(self):
+        calls = []
+
+        def run(arguments, **_):
+            calls.append(arguments)
+            return SimpleNamespace(returncode=1 if arguments[2] == "get" else 0, stdout="")
+
+        with patch.object(configuration.shutil, "which", side_effect=lambda name: f"/tools/{name}"), \
+                patch.object(configuration.subprocess, "run", side_effect=run), \
+                patch.object(configuration, "set_codex_timeout") as timeout, \
+                patch.object(runtime, "executable", return_value="/tools/uvx"), \
+                patch.object(runtime.Path, "is_file", return_value=False):
+            value = configuration.configure()
+        adds = [arguments for arguments in calls if arguments[2] == "add"]
+        self.assertEqual([arguments[0] for arguments in adds], ["/tools/codex", "/tools/claude"])
+        self.assertEqual(adds[1][3:5], ["--scope", "user"])
+        for arguments in adds:
+            launch = arguments[arguments.index("--") + 1:]
+            self.assertEqual(launch[0], "/tools/uvx")
+            self.assertIn(runtime.COMMIT, launch[2])
+            self.assertEqual(launch[-3:], ["blender-mcp", "--transport", "stdio"])
+            self.assertNotIn("serve", arguments)
+            self.assertNotIn("scripts/blender-lab-mcp", " ".join(arguments))
+            self.assertIn("BLENDER_MCP_HOST=127.0.0.1", arguments)
+            self.assertIn("BLENDER_MCP_PORT=9876", arguments)
+            self.assertIn("BLENDER_PATH=blender", arguments)
+        self.assertEqual(adds[0].count("--env"), 3)
+        self.assertEqual(adds[1].count("-e"), 3)
+        timeout.assert_called_once()
+        self.assertEqual(value["configured"], ["codex", "claude"])
+
+
 class BlenderHealthTest(unittest.TestCase):
     def response(self, value, error=False, structured=True):
         return SimpleNamespace(isError=error, structuredContent=value if structured else None,

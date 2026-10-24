@@ -25,6 +25,11 @@ scripts/install-blender-lab-mcp.sh
 The installer links the launcher into `~/.local/bin`, registers the named
 `blender` stdio connection in Codex and user-scoped Claude Code, then tests each
 saved client configuration independently. Other MCP entries are preserved.
+Each client stores the pinned command itself (`uvx --from <official Git source
+at the pinned commit> blender-mcp --transport stdio`) together with the bridge
+host, port and Blender path, so neither client depends on where this checkout
+lives and a removed worktree cannot break the connection. Rerun `configure`
+after changing the pin or the bridge settings.
 No host daemon, model provider, 1Password read or paid service is involved.
 Restart an existing client session to refresh its discovered tool list.
 

@@ -22,7 +22,7 @@ def main():
         if args.action == "configure":
             from .configuration import configure
             clients = ("codex", "claude") if args.client in {"direct", "both"} else (args.client,)
-            value = configure(Path(__file__).resolve().parents[2] / "scripts/blender-lab-mcp", clients)
+            value = configure(clients)
         else:
             if not args.sdk_runtime:
                 uv = executable("uv")

@@ -8,6 +8,7 @@ import re
 import stat
 import tempfile
 import tomllib
+from . import runtime
 
 
 def set_codex_timeout(path):
@@ -38,28 +39,31 @@ def set_codex_timeout(path):
             temporary.unlink(missing_ok=True)
 
 
-def configure(launcher, clients=("codex", "claude")):
-    launcher = Path(launcher).resolve()
-    if not launcher.is_file() or not os.access(launcher, os.X_OK):
-        raise ValueError("MCP launcher must be an existing executable file")
+def configure(clients=("codex", "claude")):
+    """Store the pinned official command itself, so no client depends on where this checkout lives."""
+    launch = runtime.command()
+    env = runtime.environment()
+    settings = [f"{name}={env[name]}" for name in runtime.CLIENT_VARIABLES]
     configured = []
     for client in clients:
         executable = shutil.which(client)
         if not executable:
             raise RuntimeError(f"{client} CLI is not installed")
         scope = ["--scope", "user"] if client == "claude" else []
+        flag = "--env" if client == "codex" else "-e"
         previous = subprocess.run([executable, "mcp", "get", "blender"], capture_output=True, text=True)
         if previous.returncode == 0:
             removed = subprocess.run([executable, "mcp", "remove", *scope, "blender"], capture_output=True)
             if removed.returncode:
                 raise RuntimeError(f"Could not replace the {client} Blender connection")
-        added = subprocess.run([executable, "mcp", "add", *scope, "blender", "--", str(launcher), "serve"], capture_output=True)
+        variables = [argument for setting in settings for argument in (flag, setting)]
+        added = subprocess.run([executable, "mcp", "add", *scope, "blender", *variables, "--", *launch], capture_output=True)
         if added.returncode:
             raise RuntimeError(f"Could not register the {client} Blender connection")
         if client == "codex":
             set_codex_timeout(Path.home() / ".codex/config.toml")
         configured.append(client)
-    return {"configured": configured, "server": "blender", "launcher": str(launcher)}
+    return {"configured": configured, "server": "blender", "command": launch, "environment": dict(zip(runtime.CLIENT_VARIABLES, [env[n] for n in runtime.CLIENT_VARIABLES]))}
 
 
 def configured_command(client):

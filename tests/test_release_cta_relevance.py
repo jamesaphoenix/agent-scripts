@@ -23,6 +23,11 @@ class RelevanceTests(unittest.TestCase):
         self.assertIsNone(r.target_cta({'kind': 'teaching', 'subject': 'english', 'ctaId': 'cta-sc-18'}))
         self.assertIsNone(r.target_cta({'kind': 'teaching', 'subject': 'english', 'ctaId': 'cta-sc-05', 'removedFromRelease': True}))
 
+    def test_all_subject_offer_does_not_survive_subject_landing_page(self):
+        for subject in ['english', 'maths', 'nvr', 'vr']:
+            self.assertIsNotNone(r.target_cta({'kind': 'teaching', 'subject': subject, 'ctaId': 'cta-sc-15'}))
+        self.assertIsNone(r.target_cta({'kind': 'marketing', 'subject': None, 'ctaId': 'cta-sc-15'}))
+
 
 if __name__ == '__main__':
     unittest.main()

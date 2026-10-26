@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Replace cross-subject paper-fold offers using existing subject CTA exports.
+"""Align teaching offers and subject destinations using existing CTA exports.
 
 Wait for the current assembly and verifier to finish, and stop review only at
 its safe batch boundary. Preserve superseded files and all original feedback.
@@ -15,11 +15,15 @@ import re
 import subprocess
 import time
 
+EXPECTED_AFFECTED = 56
+
 
 def target_cta(row):
     if row.get('removedFromRelease') or row.get('kind') != 'teaching':
         return None
     subject, old = row.get('subject'), row.get('ctaId')
+    if old == 'cta-sc-15' and subject in ('english', 'maths', 'nvr', 'vr'):
+        return {'english': 'cta-sc-18', 'maths': 'cta-sc-14', 'nvr': 'cta-sc-17', 'vr': 'cta-sc-06'}[subject]
     if old == 'cta-sc-05' and subject in ('english', 'maths', 'vr'):
         return {'english': 'cta-sc-18', 'maths': 'cta-sc-14', 'vr': 'cta-sc-06'}[subject]
     if old == 'cta-sc-07' and subject == 'maths':
@@ -77,10 +81,10 @@ def main():
                         changes.append({'identity': identity, 'oldCta': row['ctaId'], 'newCta': target,
                                         'proof': progress['outputs'][identity], 'ctaSha256': r.sha(cta),
                                         'replacement': str(cta)})
-                if len(changes) != 16:
-                    raise ValueError('Unexpected scope for the eight teaching concepts')
+                if len(changes) != EXPECTED_AFFECTED:
+                    raise ValueError('Unexpected scope for the twenty-eight teaching concepts')
                 m.atomic_json(journal, {'changes': changes, 'at': m.ledger.now(), 'reason':
-                    'Paper-fold offer and footage do not match English, maths or verbal subject destinations. Reuse the matching female subject offer; preserve James and NVR folding demonstrations.'})
+                    'Paper-fold offers do not match English, maths or verbal destinations; the four-subject 144-skill offer also overstates a single-subject landing page. Reuse matching female subject offers; preserve James all-subject and James/NVR folding demonstrations.'})
             changes = r.read(journal)['changes']
             stop = w / 'release-reviews/stop-after-batch'
             stop.touch()
@@ -130,12 +134,12 @@ def main():
                 manifest = w / 'videos/manifest.json'
                 if manifest.exists():
                     os.replace(manifest, archive / 'superseded-manifest.json')
-            save('reassembling_subject_relevant_endings', affected=16)
+            save('reassembling_subject_relevant_endings', affected=EXPECTED_AFFECTED)
             subprocess.run(['/opt/homebrew/bin/python3', str(Path(__file__).with_name('assemble_release.py'))], check=True)
             stop.unlink()
             for task in ('smartcub-release-technical-20261026', 'smartcub-final-review-batch-20261026'):
                 subprocess.run([str(installer), '--task', task], check=True)
-            save('reassembled_pending_fresh_exact_output_review', affected=16, archive=str(archive))
+            save('reassembled_pending_fresh_exact_output_review', affected=EXPECTED_AFFECTED, archive=str(archive))
         except Exception as error:
             save('stopped_needs_attention', error=type(error).__name__ + ': ' + str(error)[:350])
             raise

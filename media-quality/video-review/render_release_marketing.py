@@ -18,16 +18,17 @@ scripts={x['id']:x for x in r.read(r.WORK/'source/james/data/scripts.json')}
 for row in rows:
     note=row['humanReview'].get('notes','').lower()
     if row['needsNewMarketingNarration'] or scripts.get(row['id'],{}).get('style')=='bold' or 'yellow transition' in note or row['id']=='t21-term-report':
-        by.setdefault(row['sourceRoot'],set()).add(row['id'])
+        by.setdefault(row['sourceRoot'],{}).setdefault(row['id'],set()).add(row['aspect'])
 progress_path=r.WORK/'marketing-body-render-progress.json'
 progress=r.read(progress_path) if progress_path.exists() else {'roots':{},'outputs':{},'plannedConcepts':len({i for ids in by.values() for i in ids})}
 progress['plannedConcepts']=len({i for ids in by.values() for i in ids})
 m.atomic_json(progress_path,progress)
 with m.exclusive(r.WORK/'.marketing-body-render.lock'):
-    for original,ids in sorted(by.items()):
-        ids={identity for identity in ids if not all(identity+'|'+aspect in progress['outputs'] for aspect in ['tall','wide'])}
-        if not ids:continue
+    for original,aspects_by_id in sorted(by.items()):
         target=r.WORK/'source'/('marketing-'+__import__('hashlib').sha256(original.encode()).hexdigest()[:14])
+        pending=r.pending_source_aspects(aspects_by_id,progress['outputs'],target)
+        ids=set(pending)
+        if not ids:continue
         r.clone(Path(original),target)
         # Reuse the exact revised James CTA kit, audio and footage while retaining
         # this root's bespoke body components and previously corrected layouts.
@@ -68,9 +69,9 @@ with m.exclusive(r.WORK/'.marketing-body-render.lock'):
             r.render_batch(['/opt/homebrew/bin/node','--import','tsx','scripts/render-batch.ts','--ids',','.join(sorted(ids)),
                 '--aspect','both','--jobs','2','--workers','4','--execute'],cwd=target,env=env,log=f)
         for identity in ids:
-            for aspect in ['tall','wide']:
+            for aspect in pending[identity]:
                 path=target/'out'/f'{identity}-{aspect}.mp4';receipt=path.with_suffix('.render-receipt.json')
                 if r.sha(path)!=r.read(receipt)['output']['sha256']:raise ValueError('Render receipt mismatch')
-                progress['outputs'][identity+'|'+aspect]={'output':str(path),'sha256':r.sha(path),'receipt':str(receipt),'state':'rendered_pending_review'}
+                progress['outputs'][identity+'|'+aspect]={'output':str(path),'sha256':r.sha(path),'receipt':str(receipt),'sourceRoot':original,'state':'rendered_pending_review'}
         progress['roots'][original].update(state='rendered',at=m.ledger.now());m.atomic_json(progress_path,progress)
         print(json.dumps({'state':'body_root_rendered','outputs':len(progress['outputs']),'root':str(target)}),flush=True)

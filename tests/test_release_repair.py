@@ -12,6 +12,13 @@ spec.loader.exec_module(r)
 
 
 class RepairTests(unittest.TestCase):
+    def test_separate_corrected_source_roots_are_selected_per_aspect(self):
+        outputs={'lesson|tall':{'output':'/wide-source/out/lesson-tall.mp4'},
+                 'lesson|wide':{'output':'/wide-source/out/lesson-wide.mp4'}}
+        self.assertEqual(r.pending_source_aspects({'lesson':{'tall'}},outputs,Path('/portrait-source')),
+                         {'lesson':{'tall'}})
+        self.assertEqual(r.pending_source_aspects({'lesson':{'wide'}},outputs,Path('/wide-source')), {})
+
     def test_render_retries_only_a_render_lease_collision(self):
         with tempfile.TemporaryDirectory() as tmp:
             calls=[]

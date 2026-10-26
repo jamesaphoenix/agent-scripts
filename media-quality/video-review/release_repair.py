@@ -41,6 +41,13 @@ def read(p):
     return json.loads(p.read_text())
 
 
+def pending_source_aspects(aspects_by_id, outputs, target):
+    pending = {identity: {aspect for aspect in aspects if
+        Path(outputs.get(identity+'|'+aspect, {}).get('output', '/missing')).parent.parent != target}
+        for identity, aspects in aspects_by_id.items()}
+    return {identity: aspects for identity, aspects in pending.items() if aspects}
+
+
 def render_batch(command, *, cwd, env, log):
     """Wait for other Studio renderers, retrying only an explicit lease collision."""
     lease = Path(tempfile.gettempdir()) / 'smart-cub-founder-render.lock'

@@ -17,7 +17,7 @@ class ReviewTests(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         root = Path(self.tmp.name)
         (root / 'clip.mp4').write_bytes(b'0123456789')
-        (root / 'manifest.json').write_text(json.dumps({'videos': [{'kind': 'cta', 'id': 'one', 'aspect': 'tall', 'sha256': 'exact-hash', 'path': 'clip.mp4'}]}))
+        (root / 'manifest.json').write_text(json.dumps({'videos': [{'kind': 'cta', 'id': 'one', 'aspect': 'tall', 'sha256': 'exact-hash', 'path': 'clip.mp4', 'previous_human_review': {'status': 'fix', 'notes': 'Fade after the last word.'}}]}))
         self.server = module.ReviewServer(('127.0.0.1', 0), root, root / 'state/reviews.json')
         self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
         self.thread.start()
@@ -50,6 +50,13 @@ class ReviewTests(unittest.TestCase):
         self.assertFalse(saved['automaticPublication'])
         self.assertTrue(self.server.state.with_suffix('.history.jsonl').exists())
         self.assertEqual((self.server.root / 'clip.mp4').read_bytes(), b'0123456789')
+
+    def test_previous_feedback_is_visible_without_becoming_a_new_output_decision(self):
+        with urlopen(self.url + '/api/catalog') as response:
+            row=json.load(response)['videos'][0]
+        self.assertEqual(row['previous_human_review']['notes'],'Fade after the last word.')
+        with urlopen(self.url + '/api/reviews') as response:
+            self.assertEqual(json.load(response)['reviews'],{})
 
     def test_cross_origin_writes_and_unlisted_files_are_rejected(self):
         with self.assertRaises(HTTPError) as error:

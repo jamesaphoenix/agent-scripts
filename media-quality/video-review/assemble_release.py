@@ -95,6 +95,9 @@ def main():
                     bodyproof=marketing.get(row['id']+'|'+row['aspect'])
                     if bodyproof:
                         body=Path(bodyproof['output']);root=body.parent.parent
+                        expected_root=r.WORK/'source'/('marketing-'+__import__('hashlib').sha256(row['sourceRoot'].encode()).hexdigest()[:14])
+                        if root!=expected_root:raise ValueError('Marketing aspect selected from the wrong source root: '+identity)
+                        if r.sha(body)!=bodyproof['sha256']:raise ValueError('Marketing body changed after render receipt: '+identity)
                     else:
                         body=Path(row['input']);root=Path(row['sourceRoot'])
                     # Changed narrations retain their new aligned word boundaries.

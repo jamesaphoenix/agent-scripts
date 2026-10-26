@@ -29,7 +29,7 @@ class ReviewServer(ThreadingHTTPServer):
                 raise ValueError(f'Invalid selected video: {path}')
             key = '|'.join([row['kind'], row['id'], row['aspect'], row['sha256']])
             self.rows.append({k: row.get(k) for k in ['id', 'title', 'kind', 'aspect', 'sha256',
-                                                    'path', 'distribution_restrictions']}
+                                                    'path', 'distribution_restrictions', 'previous_human_review']}
                              | {'key': key, 'media': f'/media/{i}.mp4'})
             self.media[f'/media/{i}.mp4'] = path
         self.keys = {r['key'] for r in self.rows}

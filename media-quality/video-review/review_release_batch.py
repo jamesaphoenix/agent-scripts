@@ -25,6 +25,11 @@ never invent a teaching example. The cta_id identifies the reusable ending.
 Check teaching accuracy, examples/answers, clarity for ages 9-10 in British English,
 narration/captions, mispronunciation, clipped speech, pace, readable text, overlap,
 contrast and social UI safe margins. Flag outdated/date-dependent claims for verification.
+The supplied user_feedback is prior editorial feedback to verify against this new
+export, not a statement that the defect is still present. For new_marketing_voice,
+listen for natural, expressive delivery and flag markedly flat, monotonous or forced
+delivery. CTA06 should sound calm. In identify-sound-device, listen specifically for
+the complete pronunciation of onomatopoeia, including its final unstressed vowel.
 Then inspect the complete CTA and join. Speech must finish before a one-second visual
 fade; a final black frame is intentional. No yellow left-right block wipes. Normal
 gold brand highlights are allowed. Female/non-founder teaching follow CTAs say
@@ -158,6 +163,8 @@ def main():
                         files.append(file);job['providerFiles']=files;m.atomic_json(job_path,job)
                     uploaded=client.upload(path,remember)
                     context={k:item[k] for k in ['slot','id','aspect','kind','cta_id','durationSeconds']}
+                    context.update(user_feedback=row.get('humanReview',{}).get('notes',''),
+                                   new_marketing_voice=row.get('needsNewMarketingNarration',False))
                     parts.extend([{'text':'REVIEW_SLOT '+str(slot)+' '+json.dumps(context)},
                         {'fileData':{'mimeType':'video/mp4','fileUri':uploaded['uri']},'videoMetadata':{'fps':1},'mediaProcessing':'STATIC'}])
                     if row['ctaId'] not in ['cta-sc-01','cta-sc-02','cta-sc-03','cta-sc-04']:

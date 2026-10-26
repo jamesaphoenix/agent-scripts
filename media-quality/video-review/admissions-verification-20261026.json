@@ -1,0 +1,48 @@
+{
+  "checkedAt": "2026-10-26T21:56:50.733189+00:00",
+  "method": "Read current primary authority pages with web tool; compare selected source scripts. This is factual verification, not a video editorial approval.",
+  "checks": [
+    {
+      "ids": [
+        "p2-selection-review",
+        "p29-selection-review-headteacher"
+      ],
+      "source": "https://www.buckinghamshire.gov.uk/schools-libraries-and-parks/school-admissions-and-appeals/guides-and-policies/guide-to-grammar-schools-and-the-secondary-school-transfer-test-11-plus/selection-review/",
+      "status": "verified_with_existing_distribution_restriction",
+      "facts": "For results received 9 October 2026, complete review case is due 30 October. Panel has two grammar heads and one primary head. Later results have a separate three-week window. Preserve restriction against posting this unlabelled advice after the main October window."
+    },
+    {
+      "ids": [
+        "p31-pupil-premium-route"
+      ],
+      "source": "https://www.buckinghamshire.gov.uk/schools-libraries-and-parks/school-admissions-and-appeals/guides-and-policies/guide-to-grammar-schools-and-the-secondary-school-transfer-test-11-plus/secondary-transfer-test-results/",
+      "status": "verified_current_cycle",
+      "facts": "School-specific lower-score pupil-premium route and usual catchment requirement, evidence to schools by 31 October. Can request a selection review separately."
+    },
+    {
+      "ids": [
+        "p33-moving-house-for-a-grammar",
+        "p34-outside-bucks"
+      ],
+      "source": "https://www.buckinghamshire.gov.uk/schools-libraries-and-parks/school-admissions-and-appeals/grammar-schools-and-transfer-testing-11/",
+      "status": "verified_current_cycle",
+      "facts": "Most grammar address cut-off 1 September, some earlier. Non-Bucks pupils including Milton Keynes register themselves in May/June. Apply for schools through home authority by 31 October."
+    },
+    {
+      "ids": [
+        "p35-ill-on-test-day"
+      ],
+      "source": "https://www.buckinghamshire.gov.uk/schools-libraries-and-parks/school-admissions-and-appeals/guides-and-policies/guide-to-grammar-schools-and-the-secondary-school-transfer-test-11-plus/illness-on-secondary-transfer-test-day-and-late-tests/",
+      "status": "verified_current_cycle",
+      "facts": "Unwell children should not take the test. State-funded Bucks and Partner school pupils may test later in school. Other pupils need independent evidence within three working days for one alternative date. Started incomplete papers cannot be resat."
+    },
+    {
+      "ids": [
+        "p36-sats-vs-11-plus"
+      ],
+      "source": "https://www.gov.uk/government/publications/key-stage-2-assessment-and-reporting-arrangements-ara/2027-key-stage-2-assessment-and-reporting-arrangements",
+      "status": "verified_explicit_2027_dates",
+      "facts": "Key stage 2 tests are 10-13 May 2027."
+    }
+  ]
+}

@@ -65,13 +65,18 @@ def main():
               'notedExports':sum(len(x['identities']) for x in note_groups.values()),
               'basis':'Coverage joins original feedback and declared requirements to exact-export editorial decisions. It does not independently prove a change.',
               'notes':list(note_groups.values()),'requirements':list(requirement_groups.values())}
+    relevance=w/'cta-relevance-status.json'
+    pending_repairs=[]
+    if relevance.exists() and r.read(relevance).get('state')!='reassembled_pending_fresh_exact_output_review':
+        pending_repairs.append({'repair':'subject CTA relevance','status':r.read(relevance),'evidence':str(relevance)})
     ledger={'contract':'smartcub-feedback26-release-review-ledger/v1','at':m.ledger.now(),
         'scope':{'originalExports':plan['inputCount'],'selectedExports':plan['selectedForRelease'],'removedExports':len(removed)},
         'counts':{'changedMarketingBodies':body_count,'targetedTeachingBodies':len(list((w/'teaching-body-repairs').glob('*.json'))),
                   'finalReusableCtasReady':(w/'cta-final-pictures-and-facts-ready.json').exists(),
                   'assembled':len(proofs),'technicalChecks':len(technical),'audiovisualAdvisories':len(advisory),
                   'readyForSocial':sum(x['readyForSocial'] for x in rows)},
-        'allSelectedReadyForSocial':len(rows)==plan['selectedForRelease'] and all(x['readyForSocial'] for x in rows),
+        'allSelectedReadyForSocial':not pending_repairs and len(rows)==plan['selectedForRelease'] and all(x['readyForSocial'] for x in rows),
+        'pendingRepairs':pending_repairs,
         'budget':{**totals,'cap_cents':5000,'billingReconciled':False,
                   'basis':'Settled model usage estimates plus conservative voice and unresolved-request holds.'},
         'publicationPerformed':False,'textJitterScan':'waived_by_user',

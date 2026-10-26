@@ -36,5 +36,10 @@ class DeliveryGateTests(unittest.TestCase):
         self.ledger['videos'][5]['readyForSocial']=False
         with self.assertRaisesRegex(ValueError,'unapproved'):d.validate(self.manifest,self.ledger)
 
+    def test_late_repair_blocks_previously_approved_generation(self):
+        self.ledger['pendingRepairs']=[{'repair':'subject CTA relevance'}]
+        with self.assertRaisesRegex(ValueError,'Pending targeted repairs'):
+            d.validate(self.manifest,self.ledger)
+
 
 if __name__=='__main__':unittest.main()

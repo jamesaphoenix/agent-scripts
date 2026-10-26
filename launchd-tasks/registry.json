@@ -420,6 +420,20 @@
         "plistPath": "launchd-tasks/plists/com.jud.smartcub-release-technical-20261026.plist"
       },
       "notes": "No paid requests. Hash, stream, ending picture fade and silent audio-tail checks, plus measured body/CTA join gaps. No text jitter or extra visual scans. No editorial approval."
+    },
+    {
+      "id": "smartcub-cta-relevance-20261026",
+      "name": "Smart Cub subject offer and destination alignment",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.smartcub-cta-relevance-20261026",
+      "schedule": "Finite repair after existing assembly and technical jobs finish; deadline 27 Oct 07:30 UTC",
+      "requiresOpServiceAccount": false,
+      "install": {
+        "kind": "plist",
+        "plistPath": "launchd-tasks/plists/com.jud.smartcub-cta-relevance-20261026.plist"
+      },
+      "notes": "Replace sixteen teaching exports using existing female subject CTA exports. Preserve requested James/NVR folding footage. Archive old bytes, invalidate old decisions, restart exact-output checks at safe batch boundary. No new TTS or publication."
     }
   ]
 }

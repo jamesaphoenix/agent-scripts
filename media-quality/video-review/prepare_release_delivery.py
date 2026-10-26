@@ -11,6 +11,8 @@ r=importlib.util.module_from_spec(spec);spec.loader.exec_module(r)
 
 
 def validate(manifest,ledger):
+    if ledger.get('pendingRepairs'):
+        raise ValueError('Pending targeted repairs must finish before delivery')
     rows=manifest['videos'];checked=ledger['videos']
     target=ledger['scope']['selectedExports']
     if target!=578 or len(rows)!=target or len(checked)!=target:

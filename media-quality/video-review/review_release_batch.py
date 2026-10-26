@@ -133,9 +133,22 @@ def collect_current_reviews(folder,current,*,require_resolved=True):
     return rows
 
 
+def request_with_file_poll_retry(request,endpoint,body=None,*,sleep=time.sleep,**kwargs):
+    safe_poll=(body is None and kwargs.get('method') in [None,'GET']
+               and re.fullmatch(r'/v1beta/files/[A-Za-z0-9_-]+',endpoint))
+    for attempt in range(3):
+        try:return request(endpoint,body,**kwargs)
+        except Exception as error:
+            if not safe_poll or attempt==2 or not re.search(r'Gemini HTTP (502|503|504);',str(error)):
+                raise
+            sleep(2*(attempt+1))
+
+
 def main():
     plan=r.read(r.WORK/'repair-plan.json');selected=[x for x in plan['outputs'] if not x['removedFromRelease']]
     client=m.Gemini.__new__(m.Gemini);client._key=(r.OLD/'.runtime-secrets/gemini-key').read_text().strip()
+    original_request=client.request
+    client.request=lambda endpoint,body=None,**kwargs:request_with_file_poll_retry(original_request,endpoint,body,**kwargs)
     if client.model()['name']!='models/'+m.MODEL:raise ValueError('Existing Flash model unavailable')
     state={'state':'starting','total':len(selected),'completed':0,'model':m.MODEL,'publicationApproval':False}
     def save(status,**values):

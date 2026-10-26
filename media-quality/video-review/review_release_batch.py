@@ -33,8 +33,10 @@ the complete pronunciation of onomatopoeia, including its final unstressed vowel
 Then inspect the complete CTA and join. Speech must finish before a one-second visual
 fade; a final black frame is intentional. No yellow left-right block wipes. Normal
 gold brand highlights are allowed. Female/non-founder teaching follow CTAs say
-Follow for more; James's own voice/portrait can say Follow me. Practice offers must
-not be described as diagnostics. A diagnostic CTA uses /free-diagnostic. Teaching
+Follow for more; James's own voice/portrait can say Follow me.
+For teaching exports, listen across the body/CTA join for the same recognisable
+female narrator; flag an obvious speaker change. A modest change in emphasis is fine.
+Practice offers must not be described as diagnostics. A diagnostic CTA uses /free-diagnostic. Teaching
 practice CTAs use their relevant subject /11-plus/english/, /maths,
 /non-verbal-reasoning or /verbal-reasoning/ path on ONE readable line. Unrelated
 tool-specific CTA destinations stay intact. Logos inside genuine website captures
@@ -107,6 +109,24 @@ def proxy(row,proof):
     m.atomic_json(receipt,saved);return dest,saved
 
 
+def collect_current_reviews(folder,current):
+    rows={}
+    for p in folder.glob('batch-*.json'):
+        if p.name.endswith('-response.json'):continue
+        j=r.read(p)
+        if j['state']!='completed_advisory':
+            if j.get('reservationId'):raise ValueError('Unresolved paid batch retained; inspect before continuing: '+str(p))
+            continue
+        if r.sha(Path(j['responsePath']))!=j['responseSha256']:raise ValueError('Review response changed')
+        for item,result in zip(j['items'],j['reviews']):
+            if current.get(item['identity'],{}).get('outputSha256')!=item['sha256']:
+                continue  # Retain prior evidence, but a changed export needs a new review.
+            rows[item['identity']]={'id':item['id'],'kind':item['kind'],'aspect':item['aspect'],
+                'sourceSha256':item['sha256'],'source':item['output'],'advisory':result,'job':str(p),
+                'agentJudgement':'pending'}
+    return rows
+
+
 def main():
     plan=r.read(r.WORK/'repair-plan.json');selected=[x for x in plan['outputs'] if not x['removedFromRelease']]
     client=m.Gemini.__new__(m.Gemini);client._key=(r.OLD/'.runtime-secrets/gemini-key').read_text().strip()
@@ -117,17 +137,9 @@ def main():
         print(json.dumps(state),flush=True)
     def completed():
         rows={}
-        for p in out.glob('batch-*.json'):
-            if p.name.endswith('-response.json'):continue
-            j=r.read(p)
-            if j['state']!='completed_advisory':
-                if j.get('reservationId'):raise ValueError('Unresolved paid batch retained; inspect before continuing: '+str(p))
-                continue
-            if r.sha(Path(j['responsePath']))!=j['responseSha256']:raise ValueError('Review response changed')
-            for item,result in zip(j['items'],j['reviews']):
-                rows[item['identity']]={'id':item['id'],'kind':item['kind'],'aspect':item['aspect'],
-                    'sourceSha256':item['sha256'],'source':item['output'],'advisory':result,'job':str(p),
-                    'agentJudgement':'pending'}
+        progress=r.WORK/'assembly-progress.json'
+        current=r.read(progress)['outputs'] if progress.exists() else {}
+        rows=collect_current_reviews(out,current)
         m.atomic_json(out/'findings.json',{'at':m.ledger.now(),'total':len(selected),'completed':len(rows),
             'rows':list(rows.values()),'publicationApproval':False})
         return rows

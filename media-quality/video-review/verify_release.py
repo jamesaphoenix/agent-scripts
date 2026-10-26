@@ -70,7 +70,8 @@ def main():
     with m.exclusive(folder/'.lock'),concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
         while True:
             p=r.WORK/'assembly-progress.json';proofs=r.read(p)['outputs'] if p.exists() else {}
-            tasks={pool.submit(inspect,k,v):(k,v) for k,v in proofs.items() if k not in done}
+            tasks={pool.submit(inspect,k,v):(k,v) for k,v in proofs.items()
+                   if done.get(k,{}).get('sha256')!=v['outputSha256']}
             for future in concurrent.futures.as_completed(tasks):
                 result=future.result();key=result['identity'];m.atomic_json(folder/(result['sha256']+'.result.json'),result);done[key]=result
                 m.atomic_json(folder/'status.json',{'completed':len(done),'target':target,

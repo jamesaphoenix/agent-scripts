@@ -1,12 +1,28 @@
 import importlib.util
 from pathlib import Path
 import unittest
+import json
+import tempfile
 
 spec=importlib.util.spec_from_file_location('release_review',Path(__file__).resolve().parents[1]/'media-quality/video-review/review_release_batch.py')
 r=importlib.util.module_from_spec(spec);spec.loader.exec_module(r)
 
 
 class ParserTests(unittest.TestCase):
+    def test_changed_export_does_not_inherit_a_completed_advisory(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            folder=Path(tmp);response=folder/'batch-001-response.json'
+            response.write_text('{"saved":"provider response"}')
+            item={'identity':'cta|one|tall','id':'one','kind':'cta','aspect':'tall',
+                  'output':'/selected/one.mp4','sha256':'old-output'}
+            job={'state':'completed_advisory','responsePath':str(response),
+                 'responseSha256':r.r.sha(response),'items':[item],
+                 'reviews':[{'verdict':'no_additional_defects_observed'}]}
+            (folder/'batch-001.json').write_text(json.dumps(job))
+            self.assertEqual(len(r.collect_current_reviews(folder,{'cta|one|tall':{'outputSha256':'old-output'}})),1)
+            self.assertEqual(r.collect_current_reviews(folder,{'cta|one|tall':{'outputSha256':'corrected-output'}}),{})
+            self.assertTrue(response.exists())
+
     def response(self,text,finish='STOP'):
         return {'candidates':[{'finishReason':finish,'content':{'parts':[{'text':text}]}}]}
 

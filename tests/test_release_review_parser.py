@@ -9,6 +9,14 @@ r=importlib.util.module_from_spec(spec);spec.loader.exec_module(r)
 
 
 class ParserTests(unittest.TestCase):
+    def test_report_can_skip_live_batch_but_worker_cannot_retry_unresolved_payment(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            folder=Path(tmp)
+            (folder/'batch-001.json').write_text(json.dumps({'state':'submitted_unknown','reservationId':'held'}))
+            with self.assertRaisesRegex(ValueError,'Unresolved paid batch'):
+                r.collect_current_reviews(folder,{})
+            self.assertEqual(r.collect_current_reviews(folder,{},require_resolved=False),{})
+
     def test_changed_export_does_not_inherit_a_completed_advisory(self):
         with tempfile.TemporaryDirectory() as tmp:
             folder=Path(tmp);response=folder/'batch-001-response.json'

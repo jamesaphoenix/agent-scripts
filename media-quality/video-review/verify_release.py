@@ -36,7 +36,9 @@ def inspect(identity,proof):
     frames=subprocess.run([FF,'-nostdin','-v','error','-sseof','-1.5','-i',str(path),'-an',
         '-vf','fps=4,scale=16:16,format=gray','-f','rawvideo','-'],capture_output=True,check=True).stdout
     means=[round(sum(frames[i:i+256])/256,3) for i in range(0,len(frames),256) if len(frames[i:i+256])==256]
-    final=subprocess.run([FF,'-nostdin','-v','error','-sseof','-0.1','-i',str(path),'-an',
+    # Container duration can extend beyond video due to AAC padding. Decode a
+    # longer tail and take its actual last picture, not a possibly empty 100ms.
+    final=subprocess.run([FF,'-nostdin','-v','error','-sseof','-1.5','-i',str(path),'-an',
         '-vf','scale=16:16,format=gray','-f','rawvideo','-'],capture_output=True,check=True).stdout
     final_mean=round(sum(final[-256:])/256,3) if len(final)>=256 else None
     if final_mean is None or final_mean>8:issues.append('Final decoded picture not sufficiently faded to black')
@@ -71,7 +73,8 @@ def main():
         while True:
             p=r.WORK/'assembly-progress.json';proofs=r.read(p)['outputs'] if p.exists() else {}
             tasks={pool.submit(inspect,k,v):(k,v) for k,v in proofs.items()
-                   if done.get(k,{}).get('sha256')!=v['outputSha256']}
+                   if done.get(k,{}).get('sha256')!=v['outputSha256']
+                   or done.get(k,{}).get('lastFrameMeanLuminance') is None}
             for future in concurrent.futures.as_completed(tasks):
                 result=future.result();key=result['identity'];m.atomic_json(folder/(result['sha256']+'.result.json'),result);done[key]=result
                 m.atomic_json(folder/'status.json',{'completed':len(done),'target':target,

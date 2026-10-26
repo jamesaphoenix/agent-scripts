@@ -27,7 +27,7 @@ def ready(proof,technical,review,decision):
 def main():
     m=r.helpers();m.ledger.require_studio();w=r.WORK;plan=r.read(w/'repair-plan.json')
     p=w/'assembly-progress.json';proofs=r.read(p)['outputs'] if p.exists() else {}
-    advisory=reviews.collect_current_reviews(w/'release-reviews',proofs)
+    advisory=reviews.collect_current_reviews(w/'release-reviews',proofs,require_resolved=False)
     technical={}
     for p in (w/'technical-verification').glob('*.result.json'):
         value=r.read(p)
@@ -48,12 +48,18 @@ def main():
             'renderEvidence':proof,'technicalEvidence':check,'audiovisualReviewEvidence':review,
             'agentDecision':decision,'readyForSocial':ready(proof,check,review,decision)})
     budget=r.read(w/'budget-ledger.json')['budget'];totals=m.ledger.budget_totals(budget)
+    bodies=w/'marketing-body-render-progress.json'
+    body_count=len(r.read(bodies)['outputs']) if bodies.exists() else 0
     ledger={'contract':'smartcub-feedback26-release-review-ledger/v1','at':m.ledger.now(),
         'scope':{'originalExports':plan['inputCount'],'selectedExports':plan['selectedForRelease'],'removedExports':len(removed)},
-        'counts':{'assembled':len(proofs),'technicalChecks':len(technical),'audiovisualAdvisories':len(advisory),
+        'counts':{'changedMarketingBodies':body_count,'targetedTeachingBodies':len(list((w/'teaching-body-repairs').glob('*.json'))),
+                  'finalReusableCtasReady':(w/'cta-final-pictures-and-facts-ready.json').exists(),
+                  'assembled':len(proofs),'technicalChecks':len(technical),'audiovisualAdvisories':len(advisory),
                   'readyForSocial':sum(x['readyForSocial'] for x in rows)},
         'allSelectedReadyForSocial':len(rows)==plan['selectedForRelease'] and all(x['readyForSocial'] for x in rows),
-        'budget':totals,'publicationPerformed':False,'textJitterScan':'waived_by_user',
+        'budget':{**totals,'cap_cents':5000,'billingReconciled':False,
+                  'basis':'Settled model usage estimates plus conservative voice and unresolved-request holds.'},
+        'publicationPerformed':False,'textJitterScan':'waived_by_user',
         'removed':removed,'videos':rows}
     m.atomic_json(w/'release-review-ledger.json',ledger)
     print(__import__('json').dumps({k:ledger[k] for k in ['scope','counts','allSelectedReadyForSocial','budget']}))

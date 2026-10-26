@@ -109,13 +109,13 @@ def proxy(row,proof):
     m.atomic_json(receipt,saved);return dest,saved
 
 
-def collect_current_reviews(folder,current):
+def collect_current_reviews(folder,current,*,require_resolved=True):
     rows={}
     for p in folder.glob('batch-*.json'):
         if p.name.endswith('-response.json'):continue
         j=r.read(p)
         if j['state']!='completed_advisory':
-            if j.get('reservationId'):raise ValueError('Unresolved paid batch retained; inspect before continuing: '+str(p))
+            if require_resolved and j.get('reservationId'):raise ValueError('Unresolved paid batch retained; inspect before continuing: '+str(p))
             continue
         if r.sha(Path(j['responsePath']))!=j['responseSha256']:raise ValueError('Review response changed')
         for item,result in zip(j['items'],j['reviews']):

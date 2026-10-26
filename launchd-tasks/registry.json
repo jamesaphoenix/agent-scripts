@@ -308,6 +308,104 @@
         "plistPath": "launchd-tasks/plists/com.jud.smartcub-render-20261021.plist"
       },
       "notes": "User explicitly requested a standalone render script and cancellation of the Smart Cub Codex/Herdr workspace on 21 October. Resume frozen local rendering, body preservation proofs, native scans and join verification for the 586 selected outputs. No agent, credentials, provider calls, new charges, editorial auto-approval, delivery activation or publication. Preserve active baseline, evidence, distribution restrictions and all budget holds."
+    },
+    {
+      "id": "smartcub-video-review",
+      "name": "Private Smart Cub video review player",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.smartcub-video-review",
+      "schedule": "RunAtLoad; keep alive while review tool installed",
+      "requiresOpServiceAccount": false,
+      "install": {
+        "kind": "plist",
+        "plistPath": "launchd-tasks/plists/com.jud.smartcub-video-review.plist"
+      },
+      "notes": "Loopback-only review player for 586 existing selected candidates. Access from MacBook via SSH tunnel on port 18762. Saves separate human decisions and notes; never modifies videos, approves delivery, restarts automated visual checks or publishes."
+    },
+    {
+      "id": "smartcub-remaining-review-20261026",
+      "name": "Remaining Smart Cub teaching audiovisual review",
+      "enabled": false,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.smartcub-remaining-review-20261026",
+      "schedule": "Finite resumable review; no automatic failed-request retries",
+      "requiresOpServiceAccount": false,
+      "install": {
+        "kind": "plist",
+        "plistPath": "launchd-tasks/plists/com.jud.smartcub-remaining-review-20261026.plist"
+      },
+      "notes": "237 previously human-unreviewed teaching exports. Existing Gemini 3.6 Flash, original audio, 0.5 fps video sampling. Uses shared $100 lifetime cap and runtime credential cache. No Anthropic key, no jitter scans, no render changes, no human-decision overwrite, no automatic launch approval. Fail closed on unknown paid requests. Retired after its finite stage completed/superseded; do not restart and overwrite final CTA asset revisions."
+    },
+    {
+      "id": "smartcub-feedback-release-20261026",
+      "name": "Smart Cub feedback release revision",
+      "enabled": false,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.smartcub-feedback-release-20261026",
+      "schedule": "Finite checkpointed revision; no automatic unknown request retries",
+      "requiresOpServiceAccount": false,
+      "install": {
+        "kind": "plist",
+        "plistPath": "launchd-tasks/plists/com.jud.smartcub-feedback-release-20261026.plist"
+      },
+      "notes": "User-authorised additional $50 revision, prioritise ElevenLabs. Separate budget-ledger.json under workflow/feedback-release-20261026. Preserve original ledger holds and human reviews. Three voice pilots first; no publication or blanket approvals. No Anthropic API key. Retired after its finite stage completed/superseded; do not restart and overwrite final CTA asset revisions."
+    },
+    {
+      "id": "smartcub-release-continuation-20261026",
+      "name": "Smart Cub feedback release local render continuation",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.smartcub-release-continuation-20261026",
+      "schedule": "Finite continuation, waits on verified live CTA renderer",
+      "requiresOpServiceAccount": false,
+      "install": {
+        "kind": "plist",
+        "plistPath": "launchd-tasks/plists/com.jud.smartcub-release-continuation-20261026.plist"
+      },
+      "notes": "No paid requests or provider keys. After revised CTAs finish, render flagged narration/wipe/layout bodies and assemble 578 candidates. Do not claim launch approval; explicit teaching body repairs and fresh review still required."
+    },
+    {
+      "id": "smartcub-teaching-body-repairs-20261026",
+      "name": "Smart Cub pronunciation and opening overlap repairs",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.smartcub-teaching-body-repairs-20261026",
+      "schedule": "Finite staged repair; explicit listening gate before render",
+      "requiresOpServiceAccount": false,
+      "install": {
+        "kind": "plist",
+        "plistPath": "launchd-tasks/plists/com.jud.smartcub-teaching-body-repairs-20261026.plist"
+      },
+      "notes": "Additional Alice narration uses same $50 revision ledger and cached ElevenLabs key. Keep exact lesson display words and indices; phonetic onomatopoeia alias only affects spoken text. Remove overlapping giant purple apostrophe. No publication."
+    },
+    {
+      "id": "smartcub-night-batch-20261026",
+      "name": "Smart Cub overnight final CTA and release batch",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.smartcub-night-batch-20261026",
+      "schedule": "Finite batch; deadline 27 Oct 2026 08:00 UK",
+      "requiresOpServiceAccount": false,
+      "install": {
+        "kind": "plist",
+        "plistPath": "launchd-tasks/plists/com.jud.smartcub-night-batch-20261026.plist"
+      },
+      "notes": "Uses additional $50 feedback revision ledger with strict no-retry holds. Capture current public pages, correct stale maths/NVR exercise counts using cached ElevenLabs key, wait for verified live marketing render worker, then render final reusable CTAs and unblock assembly. No publishing or blanket approval."
+    },
+    {
+      "id": "smartcub-final-review-batch-20261026",
+      "name": "Smart Cub final four-video audiovisual review batches",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.smartcub-final-review-batch-20261026",
+      "schedule": "Finite 578-export review, waits for completed assembly checkpoints",
+      "requiresOpServiceAccount": false,
+      "install": {
+        "kind": "plist",
+        "plistPath": "launchd-tasks/plists/com.jud.smartcub-final-review-batch-20261026.plist"
+      },
+      "notes": "New user goal authorises final release checks under additional $50 ledger. Four low-bandwidth proxy videos per Gemini 3.6 Flash request, complete original audio, sampled visuals. $12 review category limit within $50 overall cap, no retry of uncertain paid requests. Independent findings; no overwrite of human decisions or publication approval. Text jitter stays disabled."
     }
   ]
 }

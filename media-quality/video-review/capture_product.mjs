@@ -1,0 +1,37 @@
+// Capture the actual public exercise, including its real folding interaction.
+import {createRequire} from 'node:module';
+import fs from 'node:fs';
+import path from 'node:path';
+import {execFileSync} from 'node:child_process';
+const require=createRequire('/Users/jamesphoenix/.npm-global/lib/node_modules/@playwright/cli/node_modules/playwright-core/package.json');
+const {chromium}=require('playwright-core');
+const work='/Users/jamesphoenix/render-tmp/smart-cub-refresh-20261016/workflow/feedback-release-20261026';
+const out=path.join(work,'product-capture');fs.mkdirSync(out,{recursive:true});
+const browser=await chromium.launch({executablePath:'/Users/jamesphoenix/render-tmp/smart-cub-refresh-20261016/smart-cub/apps/prototypes/founder-videos/node_modules/.remotion/chrome-headless-shell/mac-arm64/chrome-headless-shell-mac-arm64/chrome-headless-shell',headless:true,args:['--no-sandbox','--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader']});
+const page=await browser.newPage({viewport:{width:1080,height:1200},deviceScaleFactor:1});
+await page.goto('https://smartcublearning.com/11-plus/exercises/paper-fold/',{waitUntil:'networkidle',timeout:45000});
+await page.getByRole('button',{name:'Reject',exact:true}).click().catch(()=>{});
+const fold=page.getByRole('button',{name:'Fold along the line ▶',exact:true});await fold.waitFor({state:'visible'});
+const canvas=page.locator('canvas').first();await canvas.waitFor({state:'visible'});
+await canvas.scrollIntoViewIfNeeded();
+await page.evaluate(()=>{const el=document.querySelector('canvas');const y=el.getBoundingClientRect().top+window.scrollY;window.scrollTo(0,Math.max(0,y-200));});
+const session=await page.context().newCDPSession(page);let frames=[];const pending=[];
+session.on('Page.screencastFrame',evt=>{const n=frames.length;const filename=path.join(out,`frame-${String(n).padStart(5,'0')}.jpg`);fs.writeFileSync(filename,Buffer.from(evt.data,'base64'));frames.push({file:filename,timestamp:evt.metadata.timestamp});pending.push(session.send('Page.screencastFrameAck',{sessionId:evt.sessionId}));});
+await session.send('Page.startScreencast',{format:'jpeg',quality:90,maxWidth:1080,maxHeight:1200,everyNthFrame:1});
+await page.waitForTimeout(500);await fold.click();await page.waitForTimeout(1700);
+if(await fold.isVisible()&&await fold.isEnabled())await fold.click();
+await page.waitForTimeout(1400);
+const next=page.getByRole('button',{name:'Next step →',exact:true});if(await next.isVisible())await next.click();
+await page.waitForTimeout(500);
+const before=await page.locator('body').innerText();
+const box=await canvas.boundingBox();if(box)await page.mouse.click(box.x+box.width*.56,box.y+box.height*.48);
+await page.waitForTimeout(1600);await session.send('Page.stopScreencast');await Promise.allSettled(pending);
+await page.screenshot({path:path.join(out,'settled.png')});
+const observed=await page.locator('body').innerText();
+fs.writeFileSync(path.join(out,'capture.json'),JSON.stringify({url:page.url(),title:await page.title(),frames:frames.length,firstTimestamp:frames[0]?.timestamp,lastTimestamp:frames.at(-1)?.timestamp,beforePunch:before.slice(0,2100),afterPunch:observed.slice(0,2100),purpose:'Actual public product interaction, no learner data saved or submitted'},null,2));
+if(frames.length<20||frames.at(-1).timestamp-frames[0].timestamp<4)throw Error('Incomplete product recording');
+const concat=frames.map((f,i)=>`file '${f.file}'\nduration ${i+1<frames.length?Math.max(.005,frames[i+1].timestamp-f.timestamp):.2}`).join('\n');fs.writeFileSync(path.join(out,'frames.txt'),concat+'\n');
+execFileSync('/opt/homebrew/bin/ffmpeg',['-v','error','-y','-f','concat','-safe','0','-i',path.join(out,'frames.txt'),'-vf','fps=30','-c:v','h264_videotoolbox','-b:v','8M','-pix_fmt','yuv420p','-t','6',path.join(out,'release-product-footage.mp4')]);
+execFileSync('/opt/homebrew/bin/ffmpeg',['-v','error','-y','-i',path.join(out,'release-product-footage.mp4'),'-vf','crop=650:700:215:120,scale=780:840','-c:v','h264_videotoolbox','-b:v','8M',path.join(out,'release-paper-fold-closeup.mp4')]);
+for(const mode of ['james','english','maths','nvr','vr']){fs.copyFileSync(path.join(out,'release-product-footage.mp4'),path.join(work,'source',mode,'public/cta/release-product-footage.mp4'));fs.copyFileSync(path.join(out,'release-paper-fold-closeup.mp4'),path.join(work,'source',mode,'public/cta/release-paper-fold-closeup.mp4'));}
+await browser.close();console.log(JSON.stringify({state:'captured_real_product',frames:frames.length,path:path.join(out,'release-product-footage.mp4')}));

@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+<key>Label</key><string>com.jud.smartcub-video-review</string>
+<key>ProgramArguments</key><array>
+<string>/opt/homebrew/bin/python3</string>
+<string>/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts/.worktrees/smartcub-render-20261021/media-quality/video-review/server.py</string>
+<string>--root</string><string>/Users/jamesphoenix/render-tmp/smart-cub-refresh-20261016/workflow/cta-11plus-routing-20261021/rendered-videos</string>
+<string>--state</string><string>/Users/jamesphoenix/render-tmp/smart-cub-refresh-20261016/workflow/cta-11plus-routing-20261021/human-review/reviews.json</string>
+<string>--port</string><string>18762</string>
+</array>
+<key>RunAtLoad</key><true/>
+<key>KeepAlive</key><true/>
+<key>ThrottleInterval</key><integer>15</integer>
+<key>StandardOutPath</key><string>/Users/jamesphoenix/render-tmp/smart-cub-refresh-20261016/workflow/cta-11plus-routing-20261021/human-review/server.log</string>
+<key>StandardErrorPath</key><string>/Users/jamesphoenix/render-tmp/smart-cub-refresh-20261016/workflow/cta-11plus-routing-20261021/human-review/server-error.log</string>
+</dict></plist>

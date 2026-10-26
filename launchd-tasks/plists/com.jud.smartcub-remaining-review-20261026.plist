@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+<key>Label</key><string>com.jud.smartcub-remaining-review-20261026</string>
+<key>ProgramArguments</key><array>
+<string>/opt/homebrew/bin/python3</string>
+<string>/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts/.worktrees/smartcub-render-20261021/media-quality/video-review/review_remaining.py</string>
+<string>run</string><string>--max-requests</string><string>1</string>
+</array>
+<key>RunAtLoad</key><true/>
+<key>ThrottleInterval</key><integer>60</integer>
+<key>StandardOutPath</key><string>/Users/jamesphoenix/render-tmp/smart-cub-refresh-20261016/workflow/cta-11plus-routing-20261021/remaining-review-20261026/runner.log</string>
+<key>StandardErrorPath</key><string>/Users/jamesphoenix/render-tmp/smart-cub-refresh-20261016/workflow/cta-11plus-routing-20261021/remaining-review-20261026/runner-error.log</string>
+</dict></plist>

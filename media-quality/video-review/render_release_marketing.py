@@ -65,8 +65,8 @@ with m.exclusive(r.WORK/'.marketing-body-render.lock'):
         env['PATH']='/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin'
         log=r.WORK/('marketing-'+target.name+'.log')
         with log.open('a') as f:
-            subprocess.run(['/opt/homebrew/bin/node','--import','tsx','scripts/render-batch.ts','--ids',','.join(sorted(ids)),
-                '--aspect','both','--jobs','2','--workers','4','--execute'],cwd=target,env=env,stdout=f,stderr=subprocess.STDOUT,check=True)
+            r.render_batch(['/opt/homebrew/bin/node','--import','tsx','scripts/render-batch.ts','--ids',','.join(sorted(ids)),
+                '--aspect','both','--jobs','2','--workers','4','--execute'],cwd=target,env=env,log=f)
         for identity in ids:
             for aspect in ['tall','wide']:
                 path=target/'out'/f'{identity}-{aspect}.mp4';receipt=path.with_suffix('.render-receipt.json')

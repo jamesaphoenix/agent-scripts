@@ -51,7 +51,7 @@ for mode in ['james','maths','nvr']:
     shutil.copyfile(video,root/'public/cta/release-paper-canvas.mp4')
     env={k:v for k,v in os.environ.items() if not any(s in k for s in ['TOKEN','KEY','SECRET'])};env['PATH']='/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin'
     with (r.WORK/f'cta07-final-{mode}.log').open('a') as log:
-        subprocess.run(['/opt/homebrew/bin/node','--import','tsx','scripts/render-batch.ts','--ids',','.join(['cta-sc-07']+(['cta-sc-12','cta-sc-14','cta-sc-16','cta-sc-17'] if mode=='james' else ['cta-sc-14'] if mode=='maths' else ['cta-sc-17'])),
-            '--aspect','both','--jobs','2','--workers','4','--execute'],cwd=root,env=env,stdout=log,stderr=subprocess.STDOUT,check=True)
+        r.render_batch(['/opt/homebrew/bin/node','--import','tsx','scripts/render-batch.ts','--ids',','.join(['cta-sc-07']+(['cta-sc-12','cta-sc-14','cta-sc-16','cta-sc-17'] if mode=='james' else ['cta-sc-14'] if mode=='maths' else ['cta-sc-17'])),
+            '--aspect','both','--jobs','2','--workers','4','--execute'],cwd=root,env=env,log=log)
 m.atomic_json(r.WORK/'cta07-final-visibility.json',{'state':'rendered_enlarged_real_paper_canvas_pending_review',
     'at':m.ledger.now(),'modes':['james','maths','nvr'],'source':str(video),'sha256':r.sha(video)})

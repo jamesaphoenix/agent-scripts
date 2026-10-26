@@ -406,6 +406,20 @@
         "plistPath": "launchd-tasks/plists/com.jud.smartcub-final-review-batch-20261026.plist"
       },
       "notes": "New user goal authorises final release checks under additional $50 ledger. Four low-bandwidth proxy videos per Gemini 3.6 Flash request, complete original audio, sampled visuals. $12 review category limit within $50 overall cap, no retry of uncertain paid requests. Independent findings; no overwrite of human decisions or publication approval. Text jitter stays disabled."
+    },
+    {
+      "id": "smartcub-release-technical-20261026",
+      "name": "Smart Cub exact-export ending and join verification",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.smartcub-release-technical-20261026",
+      "schedule": "Finite checkpointed verification of 578 outputs",
+      "requiresOpServiceAccount": false,
+      "install": {
+        "kind": "plist",
+        "plistPath": "launchd-tasks/plists/com.jud.smartcub-release-technical-20261026.plist"
+      },
+      "notes": "No paid requests. Hash, stream, ending picture fade and silent audio-tail checks, plus measured body/CTA join gaps. No text jitter or extra visual scans. No editorial approval."
     }
   ]
 }

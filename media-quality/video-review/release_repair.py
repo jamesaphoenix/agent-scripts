@@ -12,6 +12,8 @@ import re
 import shutil
 import socket
 import subprocess
+import tempfile
+import time
 import urllib.request
 
 BASE = Path('/Users/jamesphoenix/render-tmp/smart-cub-refresh-20261016')
@@ -37,6 +39,28 @@ SUBJECT = {'english': ('English', 'english/'), 'maths': ('maths', 'maths'),
 
 def read(p):
     return json.loads(p.read_text())
+
+
+def render_batch(command, *, cwd, env, log):
+    """Wait for other Studio renderers, retrying only an explicit lease collision."""
+    lease = Path(tempfile.gettempdir()) / 'smart-cub-founder-render.lock'
+    while True:
+        while lease.exists():
+            # Never steal another job's lease, including a lease needing inspection.
+            time.sleep(15)
+        log.flush()
+        offset = log.tell()
+        result = subprocess.run(command, cwd=cwd, env=env, stdout=log,
+                                stderr=subprocess.STDOUT)
+        log.flush()
+        if result.returncode == 0:
+            return
+        with Path(log.name).open() as evidence:
+            evidence.seek(offset)
+            failure = evidence.read()
+        if 'Another render job holds ' not in failure:
+            raise subprocess.CalledProcessError(result.returncode, command)
+        time.sleep(15)
 
 
 def sha(p):

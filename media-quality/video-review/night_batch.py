@@ -49,8 +49,8 @@ with m.exclusive(r.WORK/'.night-batch.lock'):
             save('batch_rendering_final_reusable_ctas',mode=mode)
             root=r.WORK/'source'/mode
             with (r.WORK/f'cta-final-{mode}.log').open('a') as log:
-                subprocess.run(['/opt/homebrew/bin/node','--import','tsx','scripts/render-batch.ts','--ids',','.join(ids),
-                    '--aspect','both','--jobs','2','--workers','4','--execute'],cwd=root,env=env,stdout=log,stderr=subprocess.STDOUT,check=True)
+                r.render_batch(['/opt/homebrew/bin/node','--import','tsx','scripts/render-batch.ts','--ids',','.join(ids),
+                    '--aspect','both','--jobs','2','--workers','4','--execute'],cwd=root,env=env,log=log)
         m.atomic_json(r.WORK/'cta-final-pictures-and-facts-ready.json',{'state':'complete_pending_exact_output_review','at':m.ledger.now(),
             'freshPages':str(r.WORK/'fresh-page-captures/capture-evidence.json'),'notPublicationApproval':True})
         save('final_ctas_ready_assembly_and_pronunciation_review_pending')

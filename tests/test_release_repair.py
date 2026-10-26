@@ -2,6 +2,8 @@ import importlib.util
 from pathlib import Path
 import unittest
 import tempfile
+import subprocess
+from types import SimpleNamespace
 from unittest.mock import patch
 
 spec=importlib.util.spec_from_file_location('repair',Path(__file__).resolve().parents[1]/'media-quality/video-review/release_repair.py')
@@ -10,6 +12,22 @@ spec.loader.exec_module(r)
 
 
 class RepairTests(unittest.TestCase):
+    def test_render_retries_only_a_render_lease_collision(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            calls=[]
+            def execute(*args,**kwargs):
+                calls.append(args)
+                if len(calls)==1:
+                    kwargs['stdout'].write('Error: Another render job holds lease\n')
+                    return SimpleNamespace(returncode=1)
+                return SimpleNamespace(returncode=0)
+            with Path(tmp,'render.log').open('a') as log, patch.object(r.subprocess,'run',side_effect=execute), patch.object(r.time,'sleep'), patch.object(r.tempfile,'gettempdir',return_value=tmp):
+                r.render_batch(['render'],cwd=tmp,env={},log=log)
+            self.assertEqual(len(calls),2)
+            with Path(tmp,'error.log').open('a') as log, patch.object(r.subprocess,'run',return_value=SimpleNamespace(returncode=1)), patch.object(r.tempfile,'gettempdir',return_value=tmp):
+                with self.assertRaises(subprocess.CalledProcessError):
+                    r.render_batch(['render'],cwd=tmp,env={},log=log)
+
     def test_read_only_snapshots_are_editable_only_in_the_isolated_clone(self):
         with tempfile.TemporaryDirectory() as tmp:
             base=Path(tmp);source=base/'original';source.mkdir()

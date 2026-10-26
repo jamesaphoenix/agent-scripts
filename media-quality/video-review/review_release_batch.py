@@ -55,6 +55,12 @@ first_observed and last_observed describe actual content, not just timestamps.
 Where supplied, inspect the native-resolution URL crop from the same exact video
 and return observed_url as the actual printed text, or unclear if unreadable.
 For follow cards with no website URL return not_applicable.'''
+PROMPT+='''
+The correct domain is smartcublearning.com, formed from smart + cub + learning.
+The letters "le" immediately after "cub" begin "learning" and are correct.
+For a spelling finding, quote the actual wrong character sequence and the distinct
+correct sequence. Identical observed and proposed spellings do not prove a typo.
+This clarification does not excuse genuinely wrong domains or destination paths.'''
 
 
 def schema():
@@ -147,6 +153,8 @@ def main():
         while True:
             done=completed();state['completed']=len(done)
             if len(done)==len(selected):save('all_exact_export_advisories_complete_agent_judgement_pending');return
+            if (out/'stop-after-batch').exists():
+                save('stopped_at_safe_batch_boundary');return
             assembly=r.WORK/'assembly-progress.json';proofs=r.read(assembly)['outputs'] if assembly.exists() else {}
             batch=[]
             for row in selected:

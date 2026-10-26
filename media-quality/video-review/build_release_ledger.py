@@ -50,6 +50,21 @@ def main():
     budget=r.read(w/'budget-ledger.json')['budget'];totals=m.ledger.budget_totals(budget)
     bodies=w/'marketing-body-render-progress.json'
     body_count=len(r.read(bodies)['outputs']) if bodies.exists() else 0
+    note_groups={};requirement_groups={}
+    for row in rows+removed:
+        note=row['previousFeedback'].get('notes','').strip()
+        if note:
+            group=note_groups.setdefault(note,{'note':note,'identities':[],'ready':0,'removedAtUserRequest':0})
+            group['identities'].append(row['identity'])
+            group['ready']+=bool(row.get('readyForSocial'))
+            group['removedAtUserRequest']+=row in removed
+        for requirement in row.get('requirements',[]):
+            group=requirement_groups.setdefault(requirement,{'requirement':requirement,'selected':0,'ready':0})
+            group['selected']+=1;group['ready']+=bool(row.get('readyForSocial'))
+    coverage={'distinctSavedNotes':len(note_groups),
+              'notedExports':sum(len(x['identities']) for x in note_groups.values()),
+              'basis':'Coverage joins original feedback and declared requirements to exact-export editorial decisions. It does not independently prove a change.',
+              'notes':list(note_groups.values()),'requirements':list(requirement_groups.values())}
     ledger={'contract':'smartcub-feedback26-release-review-ledger/v1','at':m.ledger.now(),
         'scope':{'originalExports':plan['inputCount'],'selectedExports':plan['selectedForRelease'],'removedExports':len(removed)},
         'counts':{'changedMarketingBodies':body_count,'targetedTeachingBodies':len(list((w/'teaching-body-repairs').glob('*.json'))),
@@ -60,7 +75,7 @@ def main():
         'budget':{**totals,'cap_cents':5000,'billingReconciled':False,
                   'basis':'Settled model usage estimates plus conservative voice and unresolved-request holds.'},
         'publicationPerformed':False,'textJitterScan':'waived_by_user',
-        'removed':removed,'videos':rows}
+        'feedbackCoverage':coverage,'removed':removed,'videos':rows}
     m.atomic_json(w/'release-review-ledger.json',ledger)
     print(__import__('json').dumps({k:ledger[k] for k in ['scope','counts','allSelectedReadyForSocial','budget']}))
 

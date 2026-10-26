@@ -87,6 +87,25 @@ def answer(response):
     raise ValueError('No valid review JSON in saved response; do not repeat request')
 
 
+def validate_advisories(items,rows):
+    if [x.get('slot') for x in rows]!=list(range(len(items))):raise ValueError('Missing/reordered review slots')
+    for item,result in zip(items,rows):
+        if result.get('verdict') not in ['no_additional_defects_observed','needs_changes','uncertain'] or type(result.get('observed_complete')) is not bool:raise ValueError('Invalid verdict/coverage')
+        if not all(isinstance(result.get(k),str) and result[k].strip() for k in ['first_observed','last_observed','body_observation','heard_cta']):raise ValueError('Missing observed body/CTA evidence')
+        if not isinstance(result.get('uncertainties'),list):raise ValueError('Missing uncertainty list')
+        for issue in result.get('issues',[]):
+            if issue.get('severity') not in ['blocker','minor']:raise ValueError('Invalid finding severity')
+            if type(issue.get('seconds')) not in [int,float] or not 0<=issue['seconds']<=item['durationSeconds']+.6:
+                # Keep the raw finding, but make its localisation an explicit
+                # release-blocking uncertainty. Never repeat a paid request just
+                # because the provider supplied an impossible timestamp.
+                result['uncertainties'].append(
+                    'Provider finding timestamp '+str(issue.get('seconds'))+
+                    ' is invalid for the '+str(item['durationSeconds'])+
+                    ' second export. Finding retained unmodified; requires independent localisation and editorial resolution.')
+                result['verdict']='uncertain'
+
+
 def proxy(row,proof):
     path=Path(proof['output']);digest=proof['outputSha256']
     if r.sha(path)!=digest:raise ValueError('Committed export changed before review')
@@ -231,13 +250,7 @@ def main():
                 if response['usageMetadata']['promptTokenCount']>bound['maximum_input_tokens'] or cost['generated_tokens_including_thoughts']>4096:raise ValueError('Usage exceeds preflight; reservation held')
                 m.ledger.settle(ledger_path,reservation,cost['ledger_cents_rounded_up'],'Gemini final export batch '+str(number)+' usage tariff estimate')
                 rows=answer(response)['reviews']
-                if [x.get('slot') for x in rows]!=list(range(len(items))):raise ValueError('Missing/reordered review slots')
-                for item,result in zip(items,rows):
-                    if result.get('verdict') not in ['no_additional_defects_observed','needs_changes','uncertain'] or type(result.get('observed_complete')) is not bool:raise ValueError('Invalid verdict/coverage')
-                    if not all(isinstance(result.get(k),str) and result[k].strip() for k in ['first_observed','last_observed','body_observation','heard_cta']):raise ValueError('Missing observed body/CTA evidence')
-                    for issue in result.get('issues',[]):
-                        if type(issue.get('seconds')) not in [int,float] or not 0<=issue['seconds']<=item['durationSeconds']+.6:raise ValueError('Invalid finding timestamp')
-                        if issue.get('severity') not in ['blocker','minor']:raise ValueError('Invalid finding severity')
+                validate_advisories(items,rows)
                 job.update(state='completed_advisory',reviews=rows,costEstimate=cost);m.atomic_json(job_path,job)
                 save('four_export_batch_complete',batch=number)
             finally:

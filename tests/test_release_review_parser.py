@@ -9,6 +9,22 @@ r=importlib.util.module_from_spec(spec);spec.loader.exec_module(r)
 
 
 class ParserTests(unittest.TestCase):
+    def test_out_of_range_time_is_retained_as_unresolved_not_retried(self):
+        issue={'seconds':237,'severity':'blocker','issue':'URL typo'}
+        rows=[{'slot':0,'verdict':'needs_changes','observed_complete':True,
+               'first_observed':'Opening','last_observed':'Ending',
+               'body_observation':'Worked example','heard_cta':'Practise',
+               'issues':[issue.copy()],'uncertainties':[]}]
+        r.validate_advisories([{'durationSeconds':169.7}],rows)
+        self.assertEqual(rows[0]['issues'],[issue])
+        self.assertEqual(rows[0]['verdict'],'uncertain')
+        self.assertIn('237',rows[0]['uncertainties'][0])
+        self.assertIn('169.7',rows[0]['uncertainties'][0])
+
+    def test_missing_slot_still_rejects_the_batch(self):
+        with self.assertRaisesRegex(ValueError,'slots'):
+            r.validate_advisories([{'durationSeconds':10}],[])
+
     def test_report_can_skip_live_batch_but_worker_cannot_retry_unresolved_payment(self):
         with tempfile.TemporaryDirectory() as tmp:
             folder=Path(tmp)

@@ -128,10 +128,48 @@ For an inactive job, last write is the newest mtime/ctime in the tree:
 
 `node_modules/.cache/webpack` directories under `~/render-tmp` and `~/agent-runtime`
 (`--webpack-cache-root` overrides) are bounded per cache name (for example
-`remotion-production-4.0.523`): a unit unused (newest pack mtime/atime) for three days is
+`remotion-production-4.0.523`): a unit unused (newest pack mtime/atime) for six hours is
 removed, then the remaining units are removed oldest first until they total at most 20 GiB.
 Caches inside active render jobs, inside busy projects, or used within the last hour are
 retained and do not count toward the cap. Webpack rebuilds a removed cache on the next bundle.
+
+## Octospark render scratch
+
+The Go render host stages every attempt under `RENDER_HOST_TEMP_ROOT` (default
+`~/.cache/octospark-render-host`, `--render-scratch-root` / `--scratch-root` overrides) as one
+`render-attempt-*` directory and removes it when the attempt ends. The sweep is the backstop for
+a crashed host: an attempt idle (newest mtime/ctime in its tree) for six hours is removed. An
+attempt is never a candidate while it holds a top-level lease or lock file (`KEEP`, `.lease`,
+`.lock`, `lease`, `lock`, `lease.json`), any process has an open file or cwd inside it, a
+container binds it (the renderer bind-mounts `input/` and `output/`), or a herdr agent sits in it.
+The lease check is repeated immediately before each delete.
+
+Across every remaining render attempt and webpack cache unit a soft cap applies
+(`--render-soft-cap-gb` / `--soft-cap-gb`, default 150 GB): above it the oldest units are
+removed first until the total fits. Nothing in `~/render-tmp` job folders, deliveries or evidence
+is part of this cap. The Mac Studio keeps nothing durable in scratch; reruns restore finished
+outputs from R2 (octospark PR #615).
+
+### Dedicated APFS quota volume for scratch
+
+A quota volume keeps a runaway render from filling the system volume. Create a 200 GB
+volume once on the Studio (same container as the Data volume, no reformat):
+
+```sh
+diskutil apfs addVolume disk3 APFS RenderScratch -quota 200g -mountpoint /Volumes/RenderScratch
+# disk3 is the APFS container that holds "Macintosh HD"; confirm with: diskutil list | grep -B2 'APFS Container'
+mkdir -p /Volumes/RenderScratch/octospark-render-host
+```
+
+Then point the render host at it: set `RENDER_HOST_TEMP_ROOT=/Volumes/RenderScratch/octospark-render-host`
+in the Studio runtime env (`deploy/env/*.env.template` and the native compute env that
+`agent-loops/octospark-compute` installs) and pass the same path to this sweep with
+`--render-scratch-root /Volumes/RenderScratch/octospark-render-host` in the launchd arguments.
+The host also watches that volume: below `RENDER_HOST_SCRATCH_MIN_FREE_RATIO` (default 10% free)
+it stops polling render queues until this sweep frees space, and it kills any single render whose
+output exceeds `RENDER_HOST_OUTPUT_MAX_BYTES` (2 GiB) or `RENDER_HOST_OUTPUT_MAX_FILES` (2000).
+Docker Desktop must be allowed to share `/Volumes/RenderScratch` (Settings, Resources, File sharing)
+or the bind mounts fail.
 
 Manual review, dry-run by default:
 

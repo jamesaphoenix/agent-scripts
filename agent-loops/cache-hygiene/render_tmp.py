@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
-"""Expire idle render-tmp job intermediates and bound Remotion webpack caches."""
+"""Expire idle render-tmp job intermediates, Octospark render scratch attempts and Remotion webpack caches.
+
+Render scratch (the render host's RENDER_HOST_TEMP_ROOT, one `render-attempt-*` directory per attempt)
+and webpack caches share a 6 hour TTL and a soft cap: above the cap the oldest units go first.
+A scratch attempt with an active lease or lock file, an open handle or a container bind is never touched.
+"""
 import argparse,collections,hashlib,importlib.util,json,os,shutil,stat,subprocess,time
 from pathlib import Path
 HERE=Path(__file__).resolve().parent
@@ -8,6 +13,15 @@ HERDR='/opt/homebrew/bin/herdr'
 DAY=86400
 JOB_ROOTS=(HOME/'render-tmp',)
 CACHE_ROOTS=(HOME/'render-tmp',HOME/'agent-runtime')
+# Octospark render host scratch: hostconfig defaults RENDER_HOST_TEMP_ROOT to ~/.cache/octospark-render-host
+# on macOS; each attempt is a `render-attempt-*` child removed by the host when the render ends.
+SCRATCH_ROOTS=(HOME/'.cache/octospark-render-host',)
+HOUR=3600
+SCRATCH_HOURS=6
+CACHE_HOURS=6
+SOFT_CAP_BYTES=150*10**9
+# A scratch attempt carrying any of these at its top level belongs to a live render (or an operator) and is skipped.
+LEASE_NAMES=frozenset({'KEEP','.lease','.lock','lease','lock','lease.json'})
 # Job-level children kept as final outputs, evidence or ledgers. delivery/ anywhere has its own contract.
 FINAL_NAMES=frozenset({'out','final','finals','export','exports','output','outputs','evidence','ledger','ledgers','reports','receipts'})
 RECEIPT='r2-archive-receipt.json'
@@ -166,8 +180,28 @@ def cache_units(webpack):
         units.append({'path':str(p),'last_use':last,'bytes':size})
     return units
 
-def run(job_roots,cache_roots,state,apply=False,active_hours=48,intermediate_days=7,delivery_days=30,cache_days=3,cache_cap_bytes=20*2**30,cache_quiet_seconds=3600,scan_seconds=900,delete_seconds=900,snapshot_fn=None,herdr_fn=herdr_cwds,now=None):
-    if min(active_hours,intermediate_days,delivery_days,cache_days,cache_cap_bytes,cache_quiet_seconds)<0:raise ValueError('Negative retention threshold')
+def scan_scratch(attempt,deadline):
+    """Newest write and allocated bytes of one scratch attempt; lease markers at the top level mark it live."""
+    s=attempt.lstat();newest=max(s.st_mtime,s.st_ctime);size=s.st_blocks*512;lease=None;complete=True
+    try:top=list(os.scandir(attempt))
+    except OSError as e:return {'newest':newest,'bytes':size,'lease':None,'complete':False,'error':str(e)[:300]}
+    for e in top:
+        if e.name in LEASE_NAMES:lease=e.name
+    stack=[attempt]
+    while stack:
+        if time.monotonic()>deadline:complete=False;break
+        d=stack.pop()
+        try:entries=list(os.scandir(d))
+        except OSError:complete=False;continue
+        for e in entries:
+            try:x=e.stat(follow_symlinks=False)
+            except FileNotFoundError:continue
+            newest=max(newest,x.st_mtime,x.st_ctime);size+=x.st_blocks*512
+            if stat.S_ISDIR(x.st_mode):stack.append(Path(e.path))
+    return {'newest':newest,'bytes':size,'lease':lease,'complete':complete}
+
+def run(job_roots,cache_roots,state,apply=False,active_hours=48,intermediate_days=7,delivery_days=30,cache_hours=CACHE_HOURS,cache_cap_bytes=20*2**30,cache_quiet_seconds=3600,scan_seconds=900,delete_seconds=900,snapshot_fn=None,herdr_fn=herdr_cwds,now=None,scratch_roots=(),scratch_hours=SCRATCH_HOURS,soft_cap_bytes=SOFT_CAP_BYTES):
+    if min(active_hours,intermediate_days,delivery_days,cache_hours,cache_cap_bytes,cache_quiet_seconds,scratch_hours,soft_cap_bytes)<0:raise ValueError('Negative retention threshold')
     state.mkdir(parents=True,exist_ok=True,mode=0o700)
     if snapshot_fn is None:
         spec=importlib.util.spec_from_file_location('render_tmp_activity',HERE/'maintenance.py');m=importlib.util.module_from_spec(spec);spec.loader.exec_module(m);snapshot_fn=m.snapshot
@@ -215,6 +249,22 @@ def run(job_roots,cache_roots,state,apply=False,active_hours=48,intermediate_day
         found,complete=discover_caches(root,time.monotonic()+60)
         discovery.append({'root':str(root),'status':'complete' if complete else 'timed_out','count':len(found)})
         caches += [(w,None) for w in found]
+    # Render scratch attempts: one unit per top-level child of each scratch root. Live attempts (lease or lock
+    # file, open handle, container bind, agent cwd) are never candidates; the rest expire after scratch_hours.
+    scratch_units=[];scratch_detail=[]
+    for root in [Path(r).absolute() for r in scratch_roots]:
+        if root.is_symlink() or not root.is_dir():scratch_detail.append({'root':str(root),'status':'absent'});continue
+        count=0
+        for attempt in sorted(root.iterdir()):
+            count+=1;s=attempt.lstat();row={'path':str(attempt),'kind':'render-scratch','project':str(root)}
+            if not stat.S_ISDIR(s.st_mode) or s.st_uid!=uid:rows.append(dict(row,bytes=0,result='retained_not_owned_directory'));continue
+            info=scan_scratch(attempt,start+scan_seconds);row['bytes']=info['bytes'];row['last_use']=info['newest']
+            reason=activity(attempt,live,agents)
+            if info['lease']:rows.append(dict(row,result='retained_lease_'+info['lease'].strip('.').replace('.json','')));continue
+            if reason:rows.append(dict(row,result='retained_'+reason));continue
+            if not info['complete']:rows.append(dict(row,result='retained_scan_incomplete',error=info.get('error')));continue
+            scratch_units.append(row)
+        scratch_detail.append({'root':str(root),'status':'complete','count':count})
     retained_bytes=0;candidates=[]
     expiring=[Path(r['path']) for r in rows if r['kind']=='render-intermediate']
     for webpack,job in caches:
@@ -227,10 +277,22 @@ def run(job_roots,cache_roots,state,apply=False,active_hours=48,intermediate_day
             candidates.append(u)
     candidates.sort(key=lambda u:u['last_use']);total=sum(u['bytes'] for u in candidates)
     for u in candidates:
-        if now-u['last_use']>cache_days*DAY:u['reason']=f'unused {(now-u["last_use"])/DAY:.1f}d > {cache_days}d';total-=u['bytes']
+        if now-u['last_use']>cache_hours*HOUR:u['reason']=f'unused {(now-u["last_use"])/HOUR:.1f}h > {cache_hours}h';total-=u['bytes']
         elif total>cache_cap_bytes:u['reason']=f'global cap {cache_cap_bytes/2**30:.0f}GiB, oldest first';total-=u['bytes']
         else:u['result']='retained_within_cap'
         rows.append(u)
+    # Scratch TTL, then one soft cap across every remaining scratch attempt and webpack cache unit, oldest first.
+    for u in scratch_units:
+        if now-u['last_use']>scratch_hours*HOUR:u['reason']=f'idle {(now-u["last_use"])/HOUR:.1f}h > {scratch_hours}h'
+        rows.append(u)
+    survivors=[u for u in rows if u['kind'] in ('render-scratch','webpack-cache') and 'reason' not in u and u.get('result') in (None,'retained_within_cap')]
+    survivors.sort(key=lambda u:u['last_use']);held=sum(u['bytes'] for u in survivors)
+    for u in survivors:
+        if held<=soft_cap_bytes:break
+        u.pop('result',None);u['reason']=f'soft cap {soft_cap_bytes/10**9:.0f}GB, oldest first';held-=u['bytes']
+    for u in scratch_units:
+        if 'reason' not in u and 'result' not in u:u['result']='retained_within_ttl'
+    retained_bytes+=sum(u['bytes'] for u in scratch_units if u.get('result')=='retained_within_ttl')
     # Apply: refresh activity per job/cache project and stop starting new deletions at the deadline.
     deadline=time.monotonic()+delete_seconds;fresh={}
     for row in rows:
@@ -238,18 +300,25 @@ def run(job_roots,cache_roots,state,apply=False,active_hours=48,intermediate_day
         if not apply:row['result']='dry_run';continue
         if time.monotonic()>deadline:row['result']='retained_deadline';continue
         p=Path(row['path']);scope=Path(row.get('job') or row['project'])
+        if row['kind']=='render-scratch':
+            # A render may have started since the plan: re-check the attempt itself, not its root.
+            snap=snapshot_fn();_,agents=herdr_fn();live_reason=activity(p,snap,agents)
+            if live_reason:row['result']='retained_'+live_reason;continue
+            if any((p/name).exists() for name in LEASE_NAMES):row['result']='retained_lease';continue
         if str(scope) not in fresh:
             snap=snapshot_fn();_,agents=herdr_fn();fresh[str(scope)]=activity(scope,snap,agents) or ('keep_marker' if row.get('job') and (scope/'KEEP').exists() else None)
-        if fresh[str(scope)]:row['result']='retained_'+fresh[str(scope)];continue
+        if fresh[str(scope)] and row['kind']!='render-scratch':row['result']='retained_'+fresh[str(scope)];continue
         try:
             s=p.lstat()
             if s.st_uid!=uid:row['result']='retained_not_owned';continue
             if row.get('job') and max(s.st_mtime,s.st_ctime)>now-active_hours*3600:row['result']='retained_changed';continue
+            if row['kind']=='render-scratch' and scan_scratch(p,time.monotonic()+60)['newest']>row['last_use']+1:row['result']='retained_changed';continue
             remove(p);row['result']='removed'
         except FileNotFoundError:row['result']='already_absent'
         except OSError as e:row.update(result='retained_error',error=str(e)[:300])
     counts=collections.Counter(r['result'] for r in rows)
-    summary={'at':time.time(),'apply':apply,'herdr':herdr_status,'job_roots':list(map(str,job_roots)),'cache_discovery':discovery,
+    summary={'at':time.time(),'apply':apply,'herdr':herdr_status,'job_roots':list(map(str,job_roots)),'cache_discovery':discovery,'scratch_roots':scratch_detail,
+        'soft_cap_bytes':soft_cap_bytes,'scratch_hours':scratch_hours,'cache_hours':cache_hours,
         'jobs':{'active':sum(r.get('status')=='active' for r in jobs),'inactive':sum(r.get('status')=='inactive' for r in jobs),'retained':sum(r.get('status')=='retained' for r in jobs)},
         'results':dict(counts),'planned_bytes':sum(r['bytes'] for r in rows if r['result'] in ('dry_run','removed')),
         'removed_bytes':sum(r['bytes'] for r in rows if r['result']=='removed'),
@@ -260,7 +329,11 @@ if __name__=='__main__':
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('--job-root',type=Path,action='append',help='Render job root; each child is a job folder. Default ~/render-tmp')
     p.add_argument('--cache-root',type=Path,action='append',help='Webpack cache discovery root. Default ~/render-tmp and ~/agent-runtime')
+    p.add_argument('--scratch-root',type=Path,action='append',help='Octospark render host scratch root (RENDER_HOST_TEMP_ROOT); each child is one render attempt. Default ~/.cache/octospark-render-host')
+    p.add_argument('--scratch-hours',type=float,default=SCRATCH_HOURS,help='Idle hours before a render attempt directory is removed (default 6)')
+    p.add_argument('--cache-hours',type=float,default=CACHE_HOURS,help='Unused hours before a webpack cache unit is removed (default 6)')
+    p.add_argument('--soft-cap-gb',type=float,default=SOFT_CAP_BYTES/10**9,help='Soft cap in GB across render scratch and webpack caches; above it the oldest units go first (default 150)')
     p.add_argument('--state-dir',type=Path,required=True);p.add_argument('--apply',action='store_true')
     a=p.parse_args()
-    r=run(a.job_root or JOB_ROOTS,a.cache_root or CACHE_ROOTS,a.state_dir,a.apply)
+    r=run(a.job_root or JOB_ROOTS,a.cache_root or CACHE_ROOTS,a.state_dir,a.apply,cache_hours=a.cache_hours,scratch_roots=a.scratch_root or SCRATCH_ROOTS,scratch_hours=a.scratch_hours,soft_cap_bytes=int(a.soft_cap_gb*10**9))
     print(json.dumps({k:v for k,v in r.items() if k not in ('job_detail','rows')}))

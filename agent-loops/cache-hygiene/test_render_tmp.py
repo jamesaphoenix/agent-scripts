@@ -68,17 +68,130 @@ class RenderTmpRetention(unittest.TestCase):
         outside=self.base/'outside';outside.mkdir();(outside/'keep.txt').write_text('x');(self.job/'linked').symlink_to(outside)
         self.run_cleanup();self.assertFalse((self.job/'linked').is_symlink());self.assertTrue((outside/'keep.txt').exists())
 
-    def test_webpack_cache_expires_after_three_days_before_intermediates(self):
-        age(self.cache,4);r=self.run_cleanup(days=2.5)
+    def test_webpack_cache_expires_after_six_hours_before_intermediates(self):
+        # The job must be inactive (no write in 48h) for its caches to be scanned; the cache itself is 3d unused.
+        age(self.cache,0.5);r=self.run_cleanup(days=2.5)
         self.assertFalse(self.cache.exists());self.assertTrue((self.job/'workflow').exists())
-        self.assertEqual([x['result'] for x in r['rows'] if x['kind']=='webpack-cache'],['removed'])
+        unit=[x for x in r['rows'] if x['kind']=='webpack-cache'][0]
+        self.assertEqual(unit['result'],'removed');self.assertIn('> 6h',unit['reason'])
+
+    def test_webpack_cache_used_within_six_hours_is_kept(self):
+        # Outside a job root (a job written in the last 48h hides its caches); a negative age dates the pack 4.8h before the simulated now (1d ahead).
+        runtime=self.base/'agent-runtime/repo';cache=runtime/'node_modules/.cache/webpack/default-development';cache.mkdir(parents=True);(cache/'0.pack').write_bytes(b'p')
+        age(cache,-0.8);r=m.run([self.root],[runtime.parent],self.state,True,snapshot_fn=IDLE,herdr_fn=NO_AGENTS,now=time.time()+DAY)
+        self.assertTrue(cache.exists())
+        self.assertEqual([x['result'] for x in r['rows'] if x['kind']=='webpack-cache'],['retained_within_cap'])
+
+    # Octospark render host scratch (RENDER_HOST_TEMP_ROOT): one render-attempt-* directory per attempt.
+    def scratch(self,name,files=3,size=64):
+        attempt=self.base/'scratch'/name
+        for i in range(files):
+            p=attempt/'output'/f'slide-{i}.png';p.parent.mkdir(parents=True,exist_ok=True);p.write_bytes(b's'*size)
+        (attempt/'input'/'project.json').parent.mkdir(parents=True,exist_ok=True);(attempt/'input'/'project.json').write_bytes(b'{}')
+        return attempt
+    def run_scratch(self,days=0.5,**kwargs):
+        options=dict(scratch_roots=[self.base/'scratch']);options.update(kwargs)
+        return self.run_cleanup(days=days,**options)
+
+    def test_scratch_attempt_idle_six_hours_is_removed_and_fresh_one_kept(self):
+        stale=self.scratch('render-attempt-stale');fresh=self.scratch('render-attempt-fresh')
+        age(stale,0.5);age(fresh,-0.2)  # stale idle 19h, fresh written 2.4h before the simulated now (7.2h ahead)
+        r=self.run_scratch(days=0.3)
+        self.assertFalse(stale.exists());self.assertTrue(fresh.exists())
+        results={x['path']:x for x in r['rows'] if x['kind']=='render-scratch'}
+        self.assertEqual(results[str(stale)]['result'],'removed');self.assertIn('> 6h',results[str(stale)]['reason'])
+        self.assertEqual(results[str(fresh)]['result'],'retained_within_ttl')
+        self.assertEqual(r['scratch_roots'],[{'root':str(self.base/'scratch'),'status':'complete','count':2}])
+
+    def test_scratch_attempt_with_lease_lock_handle_or_container_bind_is_never_touched(self):
+        leased=self.scratch('render-attempt-leased');(leased/'.lease').write_text('render-job-1');age(leased,2)
+        locked=self.scratch('render-attempt-locked');(locked/'lock').write_text('');age(locked,2)
+        handled=self.scratch('render-attempt-handle');age(handled,2)
+        bound=self.scratch('render-attempt-bound');age(bound,2)
+        snapshot=lambda:([m.key(handled/'output/slide-0.png')],[],[bound/'output'],False)
+        r=self.run_scratch(days=1,snapshot_fn=snapshot)
+        for attempt in (leased,locked,handled,bound):self.assertTrue(attempt.exists(),attempt.name)
+        results={Path(x['path']).name:x['result'] for x in r['rows'] if x['kind']=='render-scratch'}
+        self.assertEqual(results,{'render-attempt-leased':'retained_lease_lease','render-attempt-locked':'retained_lease_lock',
+            'render-attempt-handle':'retained_open_handle_or_cwd','render-attempt-bound':'retained_container_bind'})
+
+    def test_lease_appearing_after_the_plan_stops_the_delete(self):
+        attempt=self.scratch('render-attempt-late');age(attempt,1)
+        calls={'n':0}
+        def snapshot():
+            calls['n']+=1
+            if calls['n']>1:(attempt/'.lease').write_text('late')
+            return ([],[],[],False)
+        r=self.run_scratch(days=0.5,snapshot_fn=snapshot)
+        self.assertTrue(attempt.exists())
+        self.assertEqual([x['result'] for x in r['rows'] if x['kind']=='render-scratch'],['retained_lease'])
+
+    def test_soft_cap_removes_oldest_scratch_and_caches_first_across_both_kinds(self):
+        # Scratch last use is max(mtime, ctime) and ctime cannot be backdated, so creation order is the age order:
+        # the cache (dated 2.4h back by mtime/atime) is oldest, then old, mid, new. All are within the 6h TTL.
+        runtime=self.base/'agent-runtime/repo';cache=runtime/'node_modules/.cache/webpack/default-development';cache.mkdir(parents=True);(cache/'0.pack').write_bytes(b'p'*64);age(cache,0.1)
+        old=self.scratch('render-attempt-old',files=4);time.sleep(0.01);mid=self.scratch('render-attempt-mid',files=4);time.sleep(0.01);new=self.scratch('render-attempt-new',files=4)
+        run=lambda **kw:m.run([self.root],[runtime.parent],self.state,snapshot_fn=IDLE,herdr_fn=NO_AGENTS,now=time.time()+0.01*DAY,scratch_roots=[self.base/'scratch'],**kw)
+        sizes={Path(x['path']).name:x['bytes'] for x in run(apply=False)['rows'] if x['kind'] in ('render-scratch','webpack-cache')}
+        cap=sizes['render-attempt-new']+sizes['render-attempt-mid']  # mid and new fit exactly; the cache and old must go
+        r=run(apply=True,soft_cap_bytes=cap,low_water_bytes=cap)  # low water at the cap: evict only to the cap
+        self.assertFalse(cache.exists());self.assertFalse(old.exists());self.assertTrue(mid.exists());self.assertTrue(new.exists())
+        reasons={Path(x['path']).name:x.get('reason','') for x in r['rows'] if x['kind'] in ('render-scratch','webpack-cache')}
+        self.assertIn('soft cap',reasons['default-development']);self.assertIn('soft cap',reasons['render-attempt-old'])
+        self.assertEqual((reasons['render-attempt-mid'],reasons['render-attempt-new']),('',''))
+        self.assertEqual(r['soft_cap_bytes'],cap)
+
+    def test_crossing_the_soft_cap_evicts_oldest_down_to_the_low_water_mark(self):
+        old=self.scratch('render-attempt-old',files=4);time.sleep(0.01);mid=self.scratch('render-attempt-mid',files=4);time.sleep(0.01);new=self.scratch('render-attempt-new',files=4)
+        run=lambda **kw:m.run([self.root],[self.base/'no-caches'],self.state,snapshot_fn=IDLE,herdr_fn=NO_AGENTS,now=time.time()+0.01*DAY,scratch_roots=[self.base/'scratch'],**kw)
+        sizes={Path(x['path']).name:x['bytes'] for x in run(apply=False)['rows'] if x['kind']=='render-scratch'}
+        total=sum(sizes.values());low=sizes['render-attempt-new']
+        # One byte over the cap: evicting to the cap would take only the oldest, the low water mark takes old and mid.
+        r=run(apply=True,soft_cap_bytes=total-1,low_water_bytes=low)
+        self.assertFalse(old.exists());self.assertFalse(mid.exists());self.assertTrue(new.exists())
+        self.assertEqual((r['soft_cap_bytes'],r['low_water_bytes']),(total-1,low))
+
+    def test_usage_between_low_water_and_soft_cap_evicts_nothing(self):
+        old=self.scratch('render-attempt-old',files=4);time.sleep(0.01);new=self.scratch('render-attempt-new',files=4)
+        run=lambda **kw:m.run([self.root],[self.base/'no-caches'],self.state,snapshot_fn=IDLE,herdr_fn=NO_AGENTS,now=time.time()+0.01*DAY,scratch_roots=[self.base/'scratch'],**kw)
+        total=sum(x['bytes'] for x in run(apply=False)['rows'] if x['kind']=='render-scratch')
+        run(apply=True,soft_cap_bytes=total,low_water_bytes=1)
+        self.assertTrue(old.exists());self.assertTrue(new.exists())
+
+    def test_defaults_match_the_100gb_scratch_quota(self):
+        # D17: 100 GB APFS quota volume, 80 GB soft cap, 64 GB low water mark.
+        self.assertEqual((m.SOFT_CAP_BYTES,m.LOW_WATER_BYTES),(80*10**9,64*10**9))
+        r=m.run([self.root],[self.base/'no-caches'],self.state,snapshot_fn=IDLE,herdr_fn=NO_AGENTS,scratch_roots=[self.base/'scratch'])
+        self.assertEqual((r['soft_cap_bytes'],r['low_water_bytes']),(80*10**9,64*10**9))
+        with self.assertRaises(ValueError):m.run([self.root],[],self.state,soft_cap_bytes=10,low_water_bytes=11)
+
+    def test_only_render_attempt_children_of_a_volume_root_are_candidates(self):
+        # The scratch root is the whole RenderScratch volume, so anything else on it is never touched.
+        attempt=self.scratch('render-attempt-stale');other=self.scratch('operator-notes');age(attempt,1);age(other,1)
+        r=self.run_scratch(days=0.5)
+        self.assertFalse(attempt.exists());self.assertTrue(other.exists())
+        self.assertEqual({Path(x['path']).name for x in r['rows'] if x['kind']=='render-scratch'},{'render-attempt-stale'})
+
+    def test_default_scratch_root_is_the_render_scratch_volume(self):
+        self.assertEqual(m.SCRATCH_ROOTS[0],Path('/Volumes/RenderScratch'))
+
+    def test_dry_run_reports_scratch_without_deleting(self):
+        attempt=self.scratch('render-attempt-dry');age(attempt,1)
+        r=self.run_scratch(days=0.5,apply=False)
+        self.assertTrue(attempt.exists());self.assertEqual([x['result'] for x in r['rows'] if x['kind']=='render-scratch'],['dry_run'])
+
+    def test_absent_scratch_root_is_reported_not_created(self):
+        r=self.run_scratch(scratch_roots=[self.base/'missing-scratch'])
+        self.assertEqual(r['scratch_roots'],[{'root':str(self.base/'missing-scratch'),'status':'absent'}]);self.assertFalse((self.base/'missing-scratch').exists())
 
     def test_webpack_cap_removes_oldest_first(self):
-        newer=self.cache.with_name('default-production');newer.mkdir();(newer/'0.pack').write_bytes(b'p'*64)
-        age(self.cache,0.5);cap=m.cache_units(newer.parent)[0 if m.cache_units(newer.parent)[0]['path']==str(newer) else 1]['bytes']
-        r=self.run_cleanup(days=2.1,cache_cap_bytes=cap)
-        self.assertFalse(self.cache.exists());self.assertTrue(newer.exists())
-        self.assertEqual(sorted((x['path'],x['result']) for x in r['rows'] if x['kind']=='webpack-cache'),[(str(self.cache),'removed'),(str(newer),'retained_within_cap')])
+        # Outside a job root; both units used within six hours of the simulated now (1d ahead), so only the cap decides.
+        runtime=self.base/'agent-runtime/repo';webpack=runtime/'node_modules/.cache/webpack';older=webpack/'default-development';newer=webpack/'default-production'
+        for unit in (older,newer):unit.mkdir(parents=True);(unit/'0.pack').write_bytes(b'p'*64)
+        age(older,-0.8);age(newer,-0.95);cap=[u for u in m.cache_units(webpack) if u['path']==str(newer)][0]['bytes']
+        r=m.run([self.root],[runtime.parent],self.state,True,snapshot_fn=IDLE,herdr_fn=NO_AGENTS,now=time.time()+DAY,cache_cap_bytes=cap)
+        self.assertFalse(older.exists());self.assertTrue(newer.exists())
+        self.assertEqual(sorted((x['path'],x['result']) for x in r['rows'] if x['kind']=='webpack-cache'),[(str(older),'removed'),(str(newer),'retained_within_cap')])
 
     def test_busy_project_cache_outside_job_roots_is_retained(self):
         runtime=self.base/'agent-runtime/repo';cache=runtime/'node_modules/.cache/webpack/default-development';cache.mkdir(parents=True);(cache/'0.pack').write_bytes(b'p')

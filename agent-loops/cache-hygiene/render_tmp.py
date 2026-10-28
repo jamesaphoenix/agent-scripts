@@ -13,9 +13,12 @@ HERDR='/opt/homebrew/bin/herdr'
 DAY=86400
 JOB_ROOTS=(HOME/'render-tmp',)
 CACHE_ROOTS=(HOME/'render-tmp',HOME/'agent-runtime')
-# Octospark render host scratch: hostconfig defaults RENDER_HOST_TEMP_ROOT to ~/.cache/octospark-render-host
-# on macOS; each attempt is a `render-attempt-*` child removed by the host when the render ends.
-SCRATCH_ROOTS=(HOME/'.cache/octospark-render-host',)
+# Octospark render host scratch: on the Mac Studio RENDER_HOST_TEMP_ROOT is the 100 GB APFS RenderScratch
+# volume; elsewhere hostconfig defaults it to ~/.cache/octospark-render-host. Each attempt is a
+# `render-attempt-*` child removed by the host when the render ends; an absent root is reported, never created.
+SCRATCH_ROOTS=(Path('/Volumes/RenderScratch'),HOME/'.cache/octospark-render-host')
+# Only the host's own attempt directories are candidates, so a volume root's other entries are never touched.
+ATTEMPT_PREFIX='render-attempt-'
 HOUR=3600
 SCRATCH_HOURS=6
 CACHE_HOURS=6
@@ -263,6 +266,7 @@ def run(job_roots,cache_roots,state,apply=False,active_hours=48,intermediate_day
         if root.is_symlink() or not root.is_dir():scratch_detail.append({'root':str(root),'status':'absent'});continue
         count=0
         for attempt in sorted(root.iterdir()):
+            if not attempt.name.startswith(ATTEMPT_PREFIX):continue
             count+=1;s=attempt.lstat();row={'path':str(attempt),'kind':'render-scratch','project':str(root)}
             if not stat.S_ISDIR(s.st_mode) or s.st_uid!=uid:rows.append(dict(row,bytes=0,result='retained_not_owned_directory'));continue
             info=scan_scratch(attempt,start+scan_seconds);row['bytes']=info['bytes'];row['last_use']=info['newest']
@@ -338,7 +342,7 @@ if __name__=='__main__':
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('--job-root',type=Path,action='append',help='Render job root; each child is a job folder. Default ~/render-tmp')
     p.add_argument('--cache-root',type=Path,action='append',help='Webpack cache discovery root. Default ~/render-tmp and ~/agent-runtime')
-    p.add_argument('--scratch-root',type=Path,action='append',help='Octospark render host scratch root (RENDER_HOST_TEMP_ROOT); each child is one render attempt. Default ~/.cache/octospark-render-host')
+    p.add_argument('--scratch-root',type=Path,action='append',help='Octospark render host scratch root (RENDER_HOST_TEMP_ROOT); each child is one render attempt. Default /Volumes/RenderScratch and ~/.cache/octospark-render-host')
     p.add_argument('--scratch-hours',type=float,default=SCRATCH_HOURS,help='Idle hours before a render attempt directory is removed (default 6)')
     p.add_argument('--cache-hours',type=float,default=CACHE_HOURS,help='Unused hours before a webpack cache unit is removed (default 6)')
     p.add_argument('--soft-cap-gb',type=float,default=SOFT_CAP_BYTES/10**9,help='Soft cap in GB across render scratch and webpack caches; above it the oldest units go first (default 80)')

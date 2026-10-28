@@ -165,6 +165,16 @@ class RenderTmpRetention(unittest.TestCase):
         self.assertEqual((r['soft_cap_bytes'],r['low_water_bytes']),(80*10**9,64*10**9))
         with self.assertRaises(ValueError):m.run([self.root],[],self.state,soft_cap_bytes=10,low_water_bytes=11)
 
+    def test_only_render_attempt_children_of_a_volume_root_are_candidates(self):
+        # The scratch root is the whole RenderScratch volume, so anything else on it is never touched.
+        attempt=self.scratch('render-attempt-stale');other=self.scratch('operator-notes');age(attempt,1);age(other,1)
+        r=self.run_scratch(days=0.5)
+        self.assertFalse(attempt.exists());self.assertTrue(other.exists())
+        self.assertEqual({Path(x['path']).name for x in r['rows'] if x['kind']=='render-scratch'},{'render-attempt-stale'})
+
+    def test_default_scratch_root_is_the_render_scratch_volume(self):
+        self.assertEqual(m.SCRATCH_ROOTS[0],Path('/Volumes/RenderScratch'))
+
     def test_dry_run_reports_scratch_without_deleting(self):
         attempt=self.scratch('render-attempt-dry');age(attempt,1)
         r=self.run_scratch(days=0.5,apply=False)

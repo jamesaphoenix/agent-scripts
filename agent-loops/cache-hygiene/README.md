@@ -135,9 +135,12 @@ retained and do not count toward the cap. Webpack rebuilds a removed cache on th
 
 ## Octospark render scratch
 
-The Go render host stages every attempt under `RENDER_HOST_TEMP_ROOT` (default
-`~/.cache/octospark-render-host`, `--render-scratch-root` / `--scratch-root` overrides) as one
-`render-attempt-*` directory and removes it when the attempt ends. The sweep is the backstop for
+The Go render host stages every attempt under `RENDER_HOST_TEMP_ROOT` as one `render-attempt-*`
+directory and removes it when the attempt ends. On the Mac Studio that root is the RenderScratch
+volume, `/Volumes/RenderScratch`. The sweep's default roots are `/Volumes/RenderScratch` and
+`~/.cache/octospark-render-host` (the host's default elsewhere); an absent root is reported, never
+created, and `--render-scratch-root` / `--scratch-root` override both. Only `render-attempt-*`
+children of a root are candidates, so nothing else on the volume is ever touched. The sweep is the backstop for
 a crashed host: an attempt idle (newest mtime/ctime in its tree) for six hours is removed. An
 attempt is never a candidate while it holds a top-level lease or lock file (`KEEP`, `.lease`,
 `.lock`, `lease`, `lock`, `lease.json`), any process has an open file or cwd inside it, a
@@ -161,13 +164,15 @@ volume once on the Studio (same container as the Data volume, no reformat):
 ```sh
 diskutil apfs addVolume disk3 APFS RenderScratch -quota 100g -mountpoint /Volumes/RenderScratch
 # disk3 is the APFS container that holds "Macintosh HD"; confirm with: diskutil list | grep -B2 'APFS Container'
-mkdir -p /Volumes/RenderScratch/octospark-render-host
 ```
 
-Then point the render host at it: set `RENDER_HOST_TEMP_ROOT=/Volumes/RenderScratch/octospark-render-host`
+The volume exists on the Studio (disk3s7, 100 GB quota, about 93 GiB usable, writable by
+`jamesphoenix`).
+
+Then point the render host at it: set `RENDER_HOST_TEMP_ROOT=/Volumes/RenderScratch`
 in the Studio runtime env (`deploy/env/*.env.template` and the native compute env that
 `agent-loops/octospark-compute` installs) and pass the same path to this sweep with
-`--render-scratch-root /Volumes/RenderScratch/octospark-render-host` in the launchd arguments.
+`--render-scratch-root /Volumes/RenderScratch`, which the launchd job passes explicitly.
 The host also watches that volume: below `RENDER_HOST_SCRATCH_MIN_FREE_RATIO` (default 10% free)
 it stops polling render queues until this sweep frees space, and it kills any single render whose
 output exceeds `RENDER_HOST_OUTPUT_MAX_BYTES` (2 GiB) or `RENDER_HOST_OUTPUT_MAX_FILES` (2000).

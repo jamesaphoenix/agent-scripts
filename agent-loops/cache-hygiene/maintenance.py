@@ -148,7 +148,7 @@ def main():
     parser.add_argument('--state-dir',type=Path,default=ROOT/'state/cache-hygiene')
     parser.add_argument('--render-tmp-root',type=Path,action='append',help='Render job root; each child is one job folder. Default ~/render-tmp')
     parser.add_argument('--webpack-cache-root',type=Path,action='append',help='Remotion webpack cache discovery root. Default ~/render-tmp and ~/agent-runtime')
-    parser.add_argument('--render-scratch-root',type=Path,action='append',help='Octospark render host scratch root (RENDER_HOST_TEMP_ROOT). Default ~/.cache/octospark-render-host')
+    parser.add_argument('--render-scratch-root',type=Path,action='append',help='Octospark render host scratch root (RENDER_HOST_TEMP_ROOT). Default /Volumes/RenderScratch and ~/.cache/octospark-render-host')
     parser.add_argument('--render-soft-cap-gb',type=float,default=80.0,help='Soft cap in GB across render scratch attempts and webpack caches; above it the oldest go first (default 80)')
     parser.add_argument('--render-low-water-gb',type=float,default=None,help='Above the soft cap, evict down to this many GB (default 80%% of the soft cap, 64 for the default cap)')
     args=parser.parse_args()

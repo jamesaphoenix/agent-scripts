@@ -134,12 +134,36 @@ class RenderTmpRetention(unittest.TestCase):
         run=lambda **kw:m.run([self.root],[runtime.parent],self.state,snapshot_fn=IDLE,herdr_fn=NO_AGENTS,now=time.time()+0.01*DAY,scratch_roots=[self.base/'scratch'],**kw)
         sizes={Path(x['path']).name:x['bytes'] for x in run(apply=False)['rows'] if x['kind'] in ('render-scratch','webpack-cache')}
         cap=sizes['render-attempt-new']+sizes['render-attempt-mid']  # mid and new fit exactly; the cache and old must go
-        r=run(apply=True,soft_cap_bytes=cap)
+        r=run(apply=True,soft_cap_bytes=cap,low_water_bytes=cap)  # low water at the cap: evict only to the cap
         self.assertFalse(cache.exists());self.assertFalse(old.exists());self.assertTrue(mid.exists());self.assertTrue(new.exists())
         reasons={Path(x['path']).name:x.get('reason','') for x in r['rows'] if x['kind'] in ('render-scratch','webpack-cache')}
         self.assertIn('soft cap',reasons['default-development']);self.assertIn('soft cap',reasons['render-attempt-old'])
         self.assertEqual((reasons['render-attempt-mid'],reasons['render-attempt-new']),('',''))
         self.assertEqual(r['soft_cap_bytes'],cap)
+
+    def test_crossing_the_soft_cap_evicts_oldest_down_to_the_low_water_mark(self):
+        old=self.scratch('render-attempt-old',files=4);time.sleep(0.01);mid=self.scratch('render-attempt-mid',files=4);time.sleep(0.01);new=self.scratch('render-attempt-new',files=4)
+        run=lambda **kw:m.run([self.root],[self.base/'no-caches'],self.state,snapshot_fn=IDLE,herdr_fn=NO_AGENTS,now=time.time()+0.01*DAY,scratch_roots=[self.base/'scratch'],**kw)
+        sizes={Path(x['path']).name:x['bytes'] for x in run(apply=False)['rows'] if x['kind']=='render-scratch'}
+        total=sum(sizes.values());low=sizes['render-attempt-new']
+        # One byte over the cap: evicting to the cap would take only the oldest, the low water mark takes old and mid.
+        r=run(apply=True,soft_cap_bytes=total-1,low_water_bytes=low)
+        self.assertFalse(old.exists());self.assertFalse(mid.exists());self.assertTrue(new.exists())
+        self.assertEqual((r['soft_cap_bytes'],r['low_water_bytes']),(total-1,low))
+
+    def test_usage_between_low_water_and_soft_cap_evicts_nothing(self):
+        old=self.scratch('render-attempt-old',files=4);time.sleep(0.01);new=self.scratch('render-attempt-new',files=4)
+        run=lambda **kw:m.run([self.root],[self.base/'no-caches'],self.state,snapshot_fn=IDLE,herdr_fn=NO_AGENTS,now=time.time()+0.01*DAY,scratch_roots=[self.base/'scratch'],**kw)
+        total=sum(x['bytes'] for x in run(apply=False)['rows'] if x['kind']=='render-scratch')
+        run(apply=True,soft_cap_bytes=total,low_water_bytes=1)
+        self.assertTrue(old.exists());self.assertTrue(new.exists())
+
+    def test_defaults_match_the_100gb_scratch_quota(self):
+        # D17: 100 GB APFS quota volume, 80 GB soft cap, 64 GB low water mark.
+        self.assertEqual((m.SOFT_CAP_BYTES,m.LOW_WATER_BYTES),(80*10**9,64*10**9))
+        r=m.run([self.root],[self.base/'no-caches'],self.state,snapshot_fn=IDLE,herdr_fn=NO_AGENTS,scratch_roots=[self.base/'scratch'])
+        self.assertEqual((r['soft_cap_bytes'],r['low_water_bytes']),(80*10**9,64*10**9))
+        with self.assertRaises(ValueError):m.run([self.root],[],self.state,soft_cap_bytes=10,low_water_bytes=11)
 
     def test_dry_run_reports_scratch_without_deleting(self):
         attempt=self.scratch('render-attempt-dry');age(attempt,1)

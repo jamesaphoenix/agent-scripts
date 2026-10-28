@@ -145,18 +145,21 @@ container binds it (the renderer bind-mounts `input/` and `output/`), or a herdr
 The lease check is repeated immediately before each delete.
 
 Across every remaining render attempt and webpack cache unit a soft cap applies
-(`--render-soft-cap-gb` / `--soft-cap-gb`, default 150 GB): above it the oldest units are
-removed first until the total fits. Nothing in `~/render-tmp` job folders, deliveries or evidence
+(`--render-soft-cap-gb` / `--soft-cap-gb`, default 80 GB) with a low water mark
+(`--render-low-water-gb` / `--low-water-gb`, default 64 GB, 80% of the cap when only the cap is
+given): once the total crosses the cap the oldest units are removed first until it is at or under
+the low water mark, so one hourly pass frees a real margin instead of trimming to the cap. At or
+under the cap nothing is removed. The launchd job passes both values explicitly. Nothing in `~/render-tmp` job folders, deliveries or evidence
 is part of this cap. The Mac Studio keeps nothing durable in scratch; reruns restore finished
 outputs from R2 (octospark PR #615).
 
 ### Dedicated APFS quota volume for scratch
 
-A quota volume keeps a runaway render from filling the system volume. Create a 200 GB
+A quota volume keeps a runaway render from filling the system volume. Create a 100 GB
 volume once on the Studio (same container as the Data volume, no reformat):
 
 ```sh
-diskutil apfs addVolume disk3 APFS RenderScratch -quota 200g -mountpoint /Volumes/RenderScratch
+diskutil apfs addVolume disk3 APFS RenderScratch -quota 100g -mountpoint /Volumes/RenderScratch
 # disk3 is the APFS container that holds "Macintosh HD"; confirm with: diskutil list | grep -B2 'APFS Container'
 mkdir -p /Volumes/RenderScratch/octospark-render-host
 ```
@@ -168,6 +171,8 @@ in the Studio runtime env (`deploy/env/*.env.template` and the native compute en
 The host also watches that volume: below `RENDER_HOST_SCRATCH_MIN_FREE_RATIO` (default 10% free)
 it stops polling render queues until this sweep frees space, and it kills any single render whose
 output exceeds `RENDER_HOST_OUTPUT_MAX_BYTES` (2 GiB) or `RENDER_HOST_OUTPUT_MAX_FILES` (2000).
+On the 100 GB volume the layers stack as: sweep starts at 80 GB used (20% free) and stops at 64 GB,
+the host pauses polling at 90 GB used (10% free), and the quota itself stops writes at 100 GB.
 Docker Desktop must be allowed to share `/Volumes/RenderScratch` (Settings, Resources, File sharing)
 or the bind mounts fail.
 

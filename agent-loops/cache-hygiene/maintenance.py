@@ -149,7 +149,8 @@ def main():
     parser.add_argument('--render-tmp-root',type=Path,action='append',help='Render job root; each child is one job folder. Default ~/render-tmp')
     parser.add_argument('--webpack-cache-root',type=Path,action='append',help='Remotion webpack cache discovery root. Default ~/render-tmp and ~/agent-runtime')
     parser.add_argument('--render-scratch-root',type=Path,action='append',help='Octospark render host scratch root (RENDER_HOST_TEMP_ROOT). Default ~/.cache/octospark-render-host')
-    parser.add_argument('--render-soft-cap-gb',type=float,default=150.0,help='Soft cap in GB across render scratch attempts and webpack caches, oldest first above it')
+    parser.add_argument('--render-soft-cap-gb',type=float,default=80.0,help='Soft cap in GB across render scratch attempts and webpack caches; above it the oldest go first (default 80)')
+    parser.add_argument('--render-low-water-gb',type=float,default=None,help='Above the soft cap, evict down to this many GB (default 80%% of the soft cap, 64 for the default cap)')
     args=parser.parse_args()
     state=args.state_dir;state.mkdir(parents=True,exist_ok=True,mode=0o700)
     global_state=ROOT/'state/cache-hygiene';global_state.mkdir(parents=True,exist_ok=True,mode=0o700)
@@ -266,7 +267,7 @@ def main():
             import importlib.util
             spec=importlib.util.spec_from_file_location('render_tmp_retention',HERE/'render_tmp.py')
             renders=importlib.util.module_from_spec(spec);spec.loader.exec_module(renders)
-            tmp_report=renders.run(args.render_tmp_root or renders.JOB_ROOTS,args.webpack_cache_root or renders.CACHE_ROOTS,state/'render-tmp',apply=args.apply,snapshot_fn=snapshot,scratch_roots=args.render_scratch_root or renders.SCRATCH_ROOTS,soft_cap_bytes=int(args.render_soft_cap_gb*10**9))
+            tmp_report=renders.run(args.render_tmp_root or renders.JOB_ROOTS,args.webpack_cache_root or renders.CACHE_ROOTS,state/'render-tmp',apply=args.apply,snapshot_fn=snapshot,scratch_roots=args.render_scratch_root or renders.SCRATCH_ROOTS,soft_cap_bytes=int(args.render_soft_cap_gb*10**9),low_water_bytes=None if args.render_low_water_gb is None else int(args.render_low_water_gb*10**9))
             report['render_tmp_retention']={k:v for k,v in tmp_report.items() if k not in ('job_detail','rows')}
         except Exception as error:
             report['render_tmp_retention']={'status':'retained_error','error':str(error)[:500]}

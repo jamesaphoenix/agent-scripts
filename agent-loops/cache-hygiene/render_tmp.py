@@ -19,7 +19,11 @@ SCRATCH_ROOTS=(HOME/'.cache/octospark-render-host',)
 HOUR=3600
 SCRATCH_HOURS=6
 CACHE_HOURS=6
-SOFT_CAP_BYTES=150*10**9
+# Sized for the Mac Studio's 100 GB APFS scratch quota volume: crossing the 80 GB soft cap evicts the oldest
+# units down to the 64 GB low water mark, so the sweep frees a real margin instead of trimming to the cap each hour.
+SOFT_CAP_BYTES=80*10**9
+LOW_WATER_BYTES=64*10**9
+LOW_WATER_FRACTION=LOW_WATER_BYTES/SOFT_CAP_BYTES
 # A scratch attempt carrying any of these at its top level belongs to a live render (or an operator) and is skipped.
 LEASE_NAMES=frozenset({'KEEP','.lease','.lock','lease','lock','lease.json'})
 # Job-level children kept as final outputs, evidence or ledgers. delivery/ anywhere has its own contract.
@@ -200,8 +204,11 @@ def scan_scratch(attempt,deadline):
             if stat.S_ISDIR(x.st_mode):stack.append(Path(e.path))
     return {'newest':newest,'bytes':size,'lease':lease,'complete':complete}
 
-def run(job_roots,cache_roots,state,apply=False,active_hours=48,intermediate_days=7,delivery_days=30,cache_hours=CACHE_HOURS,cache_cap_bytes=20*2**30,cache_quiet_seconds=3600,scan_seconds=900,delete_seconds=900,snapshot_fn=None,herdr_fn=herdr_cwds,now=None,scratch_roots=(),scratch_hours=SCRATCH_HOURS,soft_cap_bytes=SOFT_CAP_BYTES):
-    if min(active_hours,intermediate_days,delivery_days,cache_hours,cache_cap_bytes,cache_quiet_seconds,scratch_hours,soft_cap_bytes)<0:raise ValueError('Negative retention threshold')
+def run(job_roots,cache_roots,state,apply=False,active_hours=48,intermediate_days=7,delivery_days=30,cache_hours=CACHE_HOURS,cache_cap_bytes=20*2**30,cache_quiet_seconds=3600,scan_seconds=900,delete_seconds=900,snapshot_fn=None,herdr_fn=herdr_cwds,now=None,scratch_roots=(),scratch_hours=SCRATCH_HOURS,soft_cap_bytes=SOFT_CAP_BYTES,low_water_bytes=None):
+    # Without an explicit low water mark it keeps the default ratio to the cap (80 GB cap -> 64 GB).
+    if low_water_bytes is None:low_water_bytes=int(soft_cap_bytes*LOW_WATER_FRACTION)
+    if min(active_hours,intermediate_days,delivery_days,cache_hours,cache_cap_bytes,cache_quiet_seconds,scratch_hours,soft_cap_bytes,low_water_bytes)<0:raise ValueError('Negative retention threshold')
+    if low_water_bytes>soft_cap_bytes:raise ValueError('Low water mark must not exceed the soft cap')
     state.mkdir(parents=True,exist_ok=True,mode=0o700)
     if snapshot_fn is None:
         spec=importlib.util.spec_from_file_location('render_tmp_activity',HERE/'maintenance.py');m=importlib.util.module_from_spec(spec);spec.loader.exec_module(m);snapshot_fn=m.snapshot
@@ -281,15 +288,17 @@ def run(job_roots,cache_roots,state,apply=False,active_hours=48,intermediate_day
         elif total>cache_cap_bytes:u['reason']=f'global cap {cache_cap_bytes/2**30:.0f}GiB, oldest first';total-=u['bytes']
         else:u['result']='retained_within_cap'
         rows.append(u)
-    # Scratch TTL, then one soft cap across every remaining scratch attempt and webpack cache unit, oldest first.
+    # Scratch TTL, then one soft cap across every remaining scratch attempt and webpack cache unit: above the cap,
+    # oldest first down to the low water mark; at or under the cap nothing goes.
     for u in scratch_units:
         if now-u['last_use']>scratch_hours*HOUR:u['reason']=f'idle {(now-u["last_use"])/HOUR:.1f}h > {scratch_hours}h'
         rows.append(u)
     survivors=[u for u in rows if u['kind'] in ('render-scratch','webpack-cache') and 'reason' not in u and u.get('result') in (None,'retained_within_cap')]
     survivors.sort(key=lambda u:u['last_use']);held=sum(u['bytes'] for u in survivors)
+    over_cap=held>soft_cap_bytes
     for u in survivors:
-        if held<=soft_cap_bytes:break
-        u.pop('result',None);u['reason']=f'soft cap {soft_cap_bytes/10**9:.0f}GB, oldest first';held-=u['bytes']
+        if not over_cap or held<=low_water_bytes:break
+        u.pop('result',None);u['reason']=f'soft cap {soft_cap_bytes/10**9:.0f}GB, oldest first to {low_water_bytes/10**9:.0f}GB';held-=u['bytes']
     for u in scratch_units:
         if 'reason' not in u and 'result' not in u:u['result']='retained_within_ttl'
     retained_bytes+=sum(u['bytes'] for u in scratch_units if u.get('result')=='retained_within_ttl')
@@ -318,7 +327,7 @@ def run(job_roots,cache_roots,state,apply=False,active_hours=48,intermediate_day
         except OSError as e:row.update(result='retained_error',error=str(e)[:300])
     counts=collections.Counter(r['result'] for r in rows)
     summary={'at':time.time(),'apply':apply,'herdr':herdr_status,'job_roots':list(map(str,job_roots)),'cache_discovery':discovery,'scratch_roots':scratch_detail,
-        'soft_cap_bytes':soft_cap_bytes,'scratch_hours':scratch_hours,'cache_hours':cache_hours,
+        'soft_cap_bytes':soft_cap_bytes,'low_water_bytes':low_water_bytes,'scratch_hours':scratch_hours,'cache_hours':cache_hours,
         'jobs':{'active':sum(r.get('status')=='active' for r in jobs),'inactive':sum(r.get('status')=='inactive' for r in jobs),'retained':sum(r.get('status')=='retained' for r in jobs)},
         'results':dict(counts),'planned_bytes':sum(r['bytes'] for r in rows if r['result'] in ('dry_run','removed')),
         'removed_bytes':sum(r['bytes'] for r in rows if r['result']=='removed'),
@@ -332,8 +341,9 @@ if __name__=='__main__':
     p.add_argument('--scratch-root',type=Path,action='append',help='Octospark render host scratch root (RENDER_HOST_TEMP_ROOT); each child is one render attempt. Default ~/.cache/octospark-render-host')
     p.add_argument('--scratch-hours',type=float,default=SCRATCH_HOURS,help='Idle hours before a render attempt directory is removed (default 6)')
     p.add_argument('--cache-hours',type=float,default=CACHE_HOURS,help='Unused hours before a webpack cache unit is removed (default 6)')
-    p.add_argument('--soft-cap-gb',type=float,default=SOFT_CAP_BYTES/10**9,help='Soft cap in GB across render scratch and webpack caches; above it the oldest units go first (default 150)')
+    p.add_argument('--soft-cap-gb',type=float,default=SOFT_CAP_BYTES/10**9,help='Soft cap in GB across render scratch and webpack caches; above it the oldest units go first (default 80)')
+    p.add_argument('--low-water-gb',type=float,default=None,help='Above the soft cap the oldest units go until usage is at or under this (default 80%% of the soft cap, 64 for the default cap)')
     p.add_argument('--state-dir',type=Path,required=True);p.add_argument('--apply',action='store_true')
     a=p.parse_args()
-    r=run(a.job_root or JOB_ROOTS,a.cache_root or CACHE_ROOTS,a.state_dir,a.apply,cache_hours=a.cache_hours,scratch_roots=a.scratch_root or SCRATCH_ROOTS,scratch_hours=a.scratch_hours,soft_cap_bytes=int(a.soft_cap_gb*10**9))
+    r=run(a.job_root or JOB_ROOTS,a.cache_root or CACHE_ROOTS,a.state_dir,a.apply,cache_hours=a.cache_hours,scratch_roots=a.scratch_root or SCRATCH_ROOTS,scratch_hours=a.scratch_hours,soft_cap_bytes=int(a.soft_cap_gb*10**9),low_water_bytes=None if a.low_water_gb is None else int(a.low_water_gb*10**9))
     print(json.dumps({k:v for k,v in r.items() if k not in ('job_detail','rows')}))

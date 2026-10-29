@@ -1,0 +1,453 @@
+{
+  "receivers": {
+    "otlp": {
+      "protocols": {
+        "grpc": {
+          "endpoint": "0.0.0.0:4317",
+          "max_recv_msg_size_mib": 1
+        },
+        "http": {
+          "endpoint": "0.0.0.0:4318",
+          "max_request_body_size": 1048576
+        }
+      }
+    },
+    "prometheus/self": {
+      "config": {
+        "scrape_configs": [
+          {
+            "job_name": "collector-self",
+            "scrape_interval": "60s",
+            "static_configs": [
+              {
+                "targets": [
+                  "127.0.0.1:8888"
+                ]
+              }
+            ],
+            "metric_relabel_configs": [
+              {
+                "source_labels": [
+                  "__name__"
+                ],
+                "regex": "(otelcol_exporter_queue_size|otelcol_exporter_queue_capacity|otelcol_exporter_send_failed_spans|otelcol_exporter_send_failed_metric_points|otelcol_exporter_send_failed_log_records|otelcol_exporter_enqueue_failed_spans|otelcol_exporter_enqueue_failed_metric_points|otelcol_exporter_enqueue_failed_log_records|otelcol_receiver_refused_spans|otelcol_receiver_refused_metric_points|otelcol_receiver_refused_log_records|otelcol_process_memory_rss|otelcol_processor_tail_sampling_sampling_trace_dropped_too_early|otelcol_processor_tail_sampling_sampling_late_span_age_bucket|otelcol_processor_tail_sampling_sampling_late_span_age_sum|otelcol_processor_tail_sampling_sampling_late_span_age_count)",
+                "action": "keep"
+              },
+              {
+                "regex": "__name__|exporter|receiver|processor|transport|data_type|otel_signal|le",
+                "action": "labelkeep"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "processors": {
+    "memory_limiter": {
+      "check_interval": "1s",
+      "limit_mib": 384,
+      "spike_limit_mib": 64
+    },
+    "transform/traces": {
+      "error_mode": "propagate",
+      "trace_statements": [
+        {
+          "context": "resource",
+          "statements": [
+            "keep_keys(attributes, [\"service.name\", \"service.instance.id\", \"deployment.environment.name\", \"location\", \"cluster\", \"namespace\"])",
+            "set(attributes[\"service.name\"], \"OTHER\") where not (attributes[\"service.name\"] == \"gowithsolar-api\" or attributes[\"service.name\"] == \"gowithsolar-worker\" or attributes[\"service.name\"] == \"gowithsolar-collector\")",
+            "set(attributes[\"service.instance.id\"], \"OTHER\") where not (attributes[\"service.instance.id\"] == \"api-1\" or attributes[\"service.instance.id\"] == \"worker-1\" or attributes[\"service.instance.id\"] == \"collector-1\")",
+            "set(attributes[\"deployment.environment.name\"], \"OTHER\") where not (attributes[\"deployment.environment.name\"] == \"production\" or attributes[\"deployment.environment.name\"] == \"staging\")",
+            "set(attributes[\"location\"], \"OTHER\") where not (attributes[\"location\"] == \"europe-west2\")",
+            "set(attributes[\"cluster\"], \"OTHER\") where not (attributes[\"cluster\"] == \"nas\")",
+            "set(attributes[\"namespace\"], \"OTHER\") where not (attributes[\"namespace\"] == \"gowithsolar-production\" or attributes[\"namespace\"] == \"gowithsolar-staging\")"
+          ]
+        },
+        {
+          "context": "scope",
+          "statements": [
+            "set(name, \"gowithsolar\")",
+            "set(version, \"\")",
+            "keep_keys(attributes, [])"
+          ]
+        },
+        {
+          "context": "span",
+          "statements": [
+            "keep_keys(attributes, [\"operation\", \"provider\", \"reason\"])",
+            "set(attributes[\"operation\"], \"OTHER\") where not (attributes[\"operation\"] == \"HTTP\" or attributes[\"operation\"] == \"EXTRACT\" or attributes[\"operation\"] == \"EMBED\" or attributes[\"operation\"] == \"SEARCH\" or attributes[\"operation\"] == \"GENERATE\" or attributes[\"operation\"] == \"CHAT\" or attributes[\"operation\"] == \"RECONCILE\" or attributes[\"operation\"] == \"REFUND\" or attributes[\"operation\"] == \"CALCULATE\" or attributes[\"operation\"] == \"OTHER\")",
+            "set(attributes[\"provider\"], \"OTHER\") where not (attributes[\"provider\"] == \"OPENROUTER\" or attributes[\"provider\"] == \"GOOGLE_SOLAR\" or attributes[\"provider\"] == \"PVGIS\" or attributes[\"provider\"] == \"LICENSED_SEARCH\" or attributes[\"provider\"] == \"STRIPE\" or attributes[\"provider\"] == \"OTHER\")",
+            "set(attributes[\"reason\"], \"OTHER\") where not (attributes[\"reason\"] == \"MISSING\" or attributes[\"reason\"] == \"CONFLICT\" or attributes[\"reason\"] == \"STALE\" or attributes[\"reason\"] == \"UNAVAILABLE\" or attributes[\"reason\"] == \"INVALID\" or attributes[\"reason\"] == \"TIMEOUT\" or attributes[\"reason\"] == \"BUDGET\" or attributes[\"reason\"] == \"OTHER\")",
+            "set(name, attributes[\"operation\"])",
+            "set(status.message, \"\")",
+            "set(trace_state, \"\")"
+          ]
+        },
+        {
+          "context": "spanevent",
+          "statements": [
+            "set(span.status.code, STATUS_CODE_ERROR) where name == \"exception\"",
+            "set(name, \"event\")",
+            "keep_keys(attributes, [])"
+          ]
+        }
+      ]
+    },
+    "transform/logs": {
+      "error_mode": "propagate",
+      "log_statements": [
+        {
+          "context": "resource",
+          "statements": [
+            "keep_keys(attributes, [\"service.name\", \"service.instance.id\", \"deployment.environment.name\", \"location\", \"cluster\", \"namespace\"])",
+            "set(attributes[\"service.name\"], \"OTHER\") where not (attributes[\"service.name\"] == \"gowithsolar-api\" or attributes[\"service.name\"] == \"gowithsolar-worker\" or attributes[\"service.name\"] == \"gowithsolar-collector\")",
+            "set(attributes[\"service.instance.id\"], \"OTHER\") where not (attributes[\"service.instance.id\"] == \"api-1\" or attributes[\"service.instance.id\"] == \"worker-1\" or attributes[\"service.instance.id\"] == \"collector-1\")",
+            "set(attributes[\"deployment.environment.name\"], \"OTHER\") where not (attributes[\"deployment.environment.name\"] == \"production\" or attributes[\"deployment.environment.name\"] == \"staging\")",
+            "set(attributes[\"location\"], \"OTHER\") where not (attributes[\"location\"] == \"europe-west2\")",
+            "set(attributes[\"cluster\"], \"OTHER\") where not (attributes[\"cluster\"] == \"nas\")",
+            "set(attributes[\"namespace\"], \"OTHER\") where not (attributes[\"namespace\"] == \"gowithsolar-production\" or attributes[\"namespace\"] == \"gowithsolar-staging\")"
+          ]
+        },
+        {
+          "context": "scope",
+          "statements": [
+            "set(name, \"gowithsolar\")",
+            "set(version, \"\")",
+            "keep_keys(attributes, [])"
+          ]
+        },
+        {
+          "context": "log",
+          "statements": [
+            "keep_keys(attributes, [\"operation\", \"provider\", \"reason\"])",
+            "set(attributes[\"operation\"], \"OTHER\") where not (attributes[\"operation\"] == \"HTTP\" or attributes[\"operation\"] == \"EXTRACT\" or attributes[\"operation\"] == \"EMBED\" or attributes[\"operation\"] == \"SEARCH\" or attributes[\"operation\"] == \"GENERATE\" or attributes[\"operation\"] == \"CHAT\" or attributes[\"operation\"] == \"RECONCILE\" or attributes[\"operation\"] == \"REFUND\" or attributes[\"operation\"] == \"CALCULATE\" or attributes[\"operation\"] == \"OTHER\")",
+            "set(attributes[\"provider\"], \"OTHER\") where not (attributes[\"provider\"] == \"OPENROUTER\" or attributes[\"provider\"] == \"GOOGLE_SOLAR\" or attributes[\"provider\"] == \"PVGIS\" or attributes[\"provider\"] == \"LICENSED_SEARCH\" or attributes[\"provider\"] == \"STRIPE\" or attributes[\"provider\"] == \"OTHER\")",
+            "set(attributes[\"reason\"], \"OTHER\") where not (attributes[\"reason\"] == \"MISSING\" or attributes[\"reason\"] == \"CONFLICT\" or attributes[\"reason\"] == \"STALE\" or attributes[\"reason\"] == \"UNAVAILABLE\" or attributes[\"reason\"] == \"INVALID\" or attributes[\"reason\"] == \"TIMEOUT\" or attributes[\"reason\"] == \"BUDGET\" or attributes[\"reason\"] == \"OTHER\")",
+            "set(body, \"GoWithSolar operational incident\")",
+            "set(severity_text, \"WARN\")",
+            "set(severity_text, \"ERROR\") where severity_number >= SEVERITY_NUMBER_ERROR"
+          ]
+        }
+      ]
+    },
+    "transform/metric_scope": {
+      "error_mode": "propagate",
+      "metric_statements": [
+        {
+          "context": "scope",
+          "statements": [
+            "set(name, \"gowithsolar\")",
+            "set(version, \"\")",
+            "keep_keys(attributes, [])"
+          ]
+        },
+        {
+          "context": "metric",
+          "statements": [
+            "set(description, \"\")",
+            "keep_keys(metadata, [])"
+          ]
+        },
+        {
+          "context": "datapoint",
+          "statements": [
+            "set(exemplars, nil)"
+          ]
+        }
+      ]
+    },
+    "filter/metrics": {
+      "error_mode": "propagate",
+      "metric_conditions": [
+        "not ((Len(resource.attributes) == 6) and ((resource.attributes[\"service.name\"] == \"gowithsolar-api\" or resource.attributes[\"service.name\"] == \"gowithsolar-worker\" or resource.attributes[\"service.name\"] == \"gowithsolar-collector\")) and ((resource.attributes[\"service.instance.id\"] == \"api-1\" or resource.attributes[\"service.instance.id\"] == \"worker-1\" or resource.attributes[\"service.instance.id\"] == \"collector-1\")) and ((resource.attributes[\"deployment.environment.name\"] == \"production\" or resource.attributes[\"deployment.environment.name\"] == \"staging\")) and ((resource.attributes[\"location\"] == \"europe-west2\")) and ((resource.attributes[\"cluster\"] == \"nas\")) and ((resource.attributes[\"namespace\"] == \"gowithsolar-production\" or resource.attributes[\"namespace\"] == \"gowithsolar-staging\")) and ((resource.attributes[\"service.name\"] == \"gowithsolar-api\" and resource.attributes[\"service.instance.id\"] == \"api-1\") or (resource.attributes[\"service.name\"] == \"gowithsolar-worker\" and resource.attributes[\"service.instance.id\"] == \"worker-1\")) and ((resource.attributes[\"deployment.environment.name\"] == \"production\" and resource.attributes[\"namespace\"] == \"gowithsolar-production\") or (resource.attributes[\"deployment.environment.name\"] == \"staging\" and resource.attributes[\"namespace\"] == \"gowithsolar-staging\")) and ((metric.name == \"qa_http_requests_total\" and metric.type == METRIC_DATA_TYPE_SUM and metric.unit == \"{request}\" and metric.aggregation_temporality == AGGREGATION_TEMPORALITY_CUMULATIVE and metric.is_monotonic == true and ((Len(datapoint.attributes) == 3 and (datapoint.attributes[\"route\"] == \"/api/v1/quote-audit/purchases/{id}\" or datapoint.attributes[\"route\"] == \"/api/v1/quote-audit/purchases/{id}/quotes\" or datapoint.attributes[\"route\"] == \"/api/v1/quote-audit/uploads/{id}\" or datapoint.attributes[\"route\"] == \"/api/v1/quote-audit/quotes/{id}\" or datapoint.attributes[\"route\"] == \"/api/v1/quote-audit/quotes/{id}/clarifications\" or datapoint.attributes[\"route\"] == \"/api/v1/billing/checkout\" or datapoint.attributes[\"route\"] == \"/api/v1/billing/purchases/{purchaseId}/refund-requests\" or datapoint.attributes[\"route\"] == \"/api/v1/billing/webhooks/stripe\" or datapoint.attributes[\"route\"] == \"/api/admin/quote-audit/refund-requests/{id}/approve\" or datapoint.attributes[\"route\"] == \"/api/admin/quote-audit/refund-requests/{id}/reconcile\" or datapoint.attributes[\"route\"] == \"/api/v1/identity/magic-links\" or datapoint.attributes[\"route\"] == \"/api/v1/identity/magic-links/claim\" or datapoint.attributes[\"route\"] == \"/api/v1/identity/session\" or datapoint.attributes[\"route\"] == \"/api/v1/identity/logout\" or datapoint.attributes[\"route\"] == \"/api/health\" or datapoint.attributes[\"route\"] == \"/actuator/health\" or datapoint.attributes[\"route\"] == \"/actuator/health/liveness\" or datapoint.attributes[\"route\"] == \"/actuator/health/readiness\" or datapoint.attributes[\"route\"] == \"OTHER\" or datapoint.attributes[\"route\"] == \"UNMATCHED\") and (datapoint.attributes[\"method\"] == \"GET\" or datapoint.attributes[\"method\"] == \"POST\" or datapoint.attributes[\"method\"] == \"PUT\" or datapoint.attributes[\"method\"] == \"PATCH\" or datapoint.attributes[\"method\"] == \"DELETE\" or datapoint.attributes[\"method\"] == \"HEAD\" or datapoint.attributes[\"method\"] == \"OPTIONS\" or datapoint.attributes[\"method\"] == \"OTHER\") and (datapoint.attributes[\"status_class\"] == \"1xx\" or datapoint.attributes[\"status_class\"] == \"2xx\" or datapoint.attributes[\"status_class\"] == \"3xx\" or datapoint.attributes[\"status_class\"] == \"4xx\" or datapoint.attributes[\"status_class\"] == \"5xx\" or datapoint.attributes[\"status_class\"] == \"OTHER\")) or (Len(datapoint.attributes) == 1 and datapoint.attributes[\"otel.metric.overflow\"] == true))) or (metric.name == \"qa_http_duration_seconds\" and metric.type == METRIC_DATA_TYPE_HISTOGRAM and metric.unit == \"s\" and metric.aggregation_temporality == AGGREGATION_TEMPORALITY_CUMULATIVE and String(datapoint.explicit_bounds) == \"[0.05,0.1,0.25,0.5,1,2,5,10]\" and ((Len(datapoint.attributes) == 1 and (datapoint.attributes[\"route\"] == \"/api/v1/quote-audit/purchases/{id}\" or datapoint.attributes[\"route\"] == \"/api/v1/quote-audit/purchases/{id}/quotes\" or datapoint.attributes[\"route\"] == \"/api/v1/quote-audit/uploads/{id}\" or datapoint.attributes[\"route\"] == \"/api/v1/quote-audit/quotes/{id}\" or datapoint.attributes[\"route\"] == \"/api/v1/quote-audit/quotes/{id}/clarifications\" or datapoint.attributes[\"route\"] == \"/api/v1/billing/checkout\" or datapoint.attributes[\"route\"] == \"/api/v1/billing/purchases/{purchaseId}/refund-requests\" or datapoint.attributes[\"route\"] == \"/api/v1/billing/webhooks/stripe\" or datapoint.attributes[\"route\"] == \"/api/admin/quote-audit/refund-requests/{id}/approve\" or datapoint.attributes[\"route\"] == \"/api/admin/quote-audit/refund-requests/{id}/reconcile\" or datapoint.attributes[\"route\"] == \"/api/v1/identity/magic-links\" or datapoint.attributes[\"route\"] == \"/api/v1/identity/magic-links/claim\" or datapoint.attributes[\"route\"] == \"/api/v1/identity/session\" or datapoint.attributes[\"route\"] == \"/api/v1/identity/logout\" or datapoint.attributes[\"route\"] == \"/api/health\" or datapoint.attributes[\"route\"] == \"/actuator/health\" or datapoint.attributes[\"route\"] == \"/actuator/health/liveness\" or datapoint.attributes[\"route\"] == \"/actuator/health/readiness\" or datapoint.attributes[\"route\"] == \"OTHER\" or datapoint.attributes[\"route\"] == \"UNMATCHED\")) or (Len(datapoint.attributes) == 1 and datapoint.attributes[\"otel.metric.overflow\"] == true))) or (metric.name == \"qa_work_total\" and metric.type == METRIC_DATA_TYPE_SUM and metric.unit == \"{work}\" and metric.aggregation_temporality == AGGREGATION_TEMPORALITY_CUMULATIVE and metric.is_monotonic == true and ((Len(datapoint.attributes) == 2 and (datapoint.attributes[\"stage\"] == \"EXTRACTION\" or datapoint.attributes[\"stage\"] == \"RESOLUTION\" or datapoint.attributes[\"stage\"] == \"GENERATION\" or datapoint.attributes[\"stage\"] == \"CALCULATION\" or datapoint.attributes[\"stage\"] == \"REPORT\" or datapoint.attributes[\"stage\"] == \"CHAT\" or datapoint.attributes[\"stage\"] == \"REFUND\" or datapoint.attributes[\"stage\"] == \"OTHER\") and (datapoint.attributes[\"outcome\"] == \"SUCCESS\" or datapoint.attributes[\"outcome\"] == \"FAILURE\" or datapoint.attributes[\"outcome\"] == \"REJECTED\" or datapoint.attributes[\"outcome\"] == \"OTHER\")) or (Len(datapoint.attributes) == 1 and datapoint.attributes[\"otel.metric.overflow\"] == true))) or (metric.name == \"qa_provider_attempts_total\" and metric.type == METRIC_DATA_TYPE_SUM and metric.unit == \"{attempt}\" and metric.aggregation_temporality == AGGREGATION_TEMPORALITY_CUMULATIVE and metric.is_monotonic == true and ((Len(datapoint.attributes) == 3 and (datapoint.attributes[\"provider\"] == \"OPENROUTER\" or datapoint.attributes[\"provider\"] == \"GOOGLE_SOLAR\" or datapoint.attributes[\"provider\"] == \"PVGIS\" or datapoint.attributes[\"provider\"] == \"LICENSED_SEARCH\" or datapoint.attributes[\"provider\"] == \"STRIPE\" or datapoint.attributes[\"provider\"] == \"OTHER\") and (datapoint.attributes[\"operation\"] == \"HTTP\" or datapoint.attributes[\"operation\"] == \"EXTRACT\" or datapoint.attributes[\"operation\"] == \"EMBED\" or datapoint.attributes[\"operation\"] == \"SEARCH\" or datapoint.attributes[\"operation\"] == \"GENERATE\" or datapoint.attributes[\"operation\"] == \"CHAT\" or datapoint.attributes[\"operation\"] == \"RECONCILE\" or datapoint.attributes[\"operation\"] == \"REFUND\" or datapoint.attributes[\"operation\"] == \"CALCULATE\" or datapoint.attributes[\"operation\"] == \"OTHER\") and (datapoint.attributes[\"outcome\"] == \"SUCCESS\" or datapoint.attributes[\"outcome\"] == \"FAILURE\" or datapoint.attributes[\"outcome\"] == \"REJECTED\" or datapoint.attributes[\"outcome\"] == \"OTHER\")) or (Len(datapoint.attributes) == 1 and datapoint.attributes[\"otel.metric.overflow\"] == true))) or (metric.name == \"qa_provider_cost_usd\" and metric.type == METRIC_DATA_TYPE_GAUGE and metric.unit == \"USD\" and ((Len(datapoint.attributes) == 3 and (datapoint.attributes[\"provider\"] == \"OPENROUTER\" or datapoint.attributes[\"provider\"] == \"GOOGLE_SOLAR\" or datapoint.attributes[\"provider\"] == \"PVGIS\" or datapoint.attributes[\"provider\"] == \"LICENSED_SEARCH\" or datapoint.attributes[\"provider\"] == \"STRIPE\" or datapoint.attributes[\"provider\"] == \"OTHER\") and (datapoint.attributes[\"category\"] == \"ANALYSIS\" or datapoint.attributes[\"category\"] == \"CHAT\" or datapoint.attributes[\"category\"] == \"OPERATIONAL\") and (datapoint.attributes[\"cost_state\"] == \"PENDING\" or datapoint.attributes[\"cost_state\"] == \"REPORTED\" or datapoint.attributes[\"cost_state\"] == \"RECONCILED\" or datapoint.attributes[\"cost_state\"] == \"ESTIMATED\" or datapoint.attributes[\"cost_state\"] == \"UNKNOWN\")) or (Len(datapoint.attributes) == 1 and datapoint.attributes[\"otel.metric.overflow\"] == true))) or (metric.name == \"qa_remaining_budget_usd\" and metric.type == METRIC_DATA_TYPE_GAUGE and metric.unit == \"USD\" and ((Len(datapoint.attributes) == 1 and (datapoint.attributes[\"category\"] == \"ANALYSIS\" or datapoint.attributes[\"category\"] == \"CHAT\" or datapoint.attributes[\"category\"] == \"OPERATIONAL\")) or (Len(datapoint.attributes) == 1 and datapoint.attributes[\"otel.metric.overflow\"] == true))) or (metric.name == \"qa_coverage_total\" and metric.type == METRIC_DATA_TYPE_SUM and metric.unit == \"{resolution}\" and metric.aggregation_temporality == AGGREGATION_TEMPORALITY_CUMULATIVE and metric.is_monotonic == true and ((Len(datapoint.attributes) == 2 and (datapoint.attributes[\"source\"] == \"CATALOGUE\" or datapoint.attributes[\"source\"] == \"LICENSED_WEB\" or datapoint.attributes[\"source\"] == \"CUSTOMER\" or datapoint.attributes[\"source\"] == \"OTHER\") and (datapoint.attributes[\"reason\"] == \"MISSING\" or datapoint.attributes[\"reason\"] == \"CONFLICT\" or datapoint.attributes[\"reason\"] == \"STALE\" or datapoint.attributes[\"reason\"] == \"UNAVAILABLE\" or datapoint.attributes[\"reason\"] == \"INVALID\" or datapoint.attributes[\"reason\"] == \"TIMEOUT\" or datapoint.attributes[\"reason\"] == \"BUDGET\" or datapoint.attributes[\"reason\"] == \"OTHER\")) or (Len(datapoint.attributes) == 1 and datapoint.attributes[\"otel.metric.overflow\"] == true))) or (metric.name == \"qa_heartbeat_timestamp_seconds\" and metric.type == METRIC_DATA_TYPE_GAUGE and metric.unit == \"s\" and ((Len(datapoint.attributes) == 0) or (Len(datapoint.attributes) == 1 and datapoint.attributes[\"otel.metric.overflow\"] == true))) or (metric.name == \"qa_oldest_active_work_seconds\" and metric.type == METRIC_DATA_TYPE_GAUGE and metric.unit == \"s\" and ((Len(datapoint.attributes) == 1 and (datapoint.attributes[\"stage\"] == \"EXTRACTION\" or datapoint.attributes[\"stage\"] == \"RESOLUTION\" or datapoint.attributes[\"stage\"] == \"GENERATION\" or datapoint.attributes[\"stage\"] == \"CALCULATION\" or datapoint.attributes[\"stage\"] == \"REPORT\" or datapoint.attributes[\"stage\"] == \"CHAT\" or datapoint.attributes[\"stage\"] == \"REFUND\" or datapoint.attributes[\"stage\"] == \"OTHER\")) or (Len(datapoint.attributes) == 1 and datapoint.attributes[\"otel.metric.overflow\"] == true))) or (metric.name == \"qa_active_work_deadline_breaches\" and metric.type == METRIC_DATA_TYPE_GAUGE and metric.unit == \"{work}\" and ((Len(datapoint.attributes) == 0) or (Len(datapoint.attributes) == 1 and datapoint.attributes[\"otel.metric.overflow\"] == true))) or (metric.name == \"qa_refund_failures\" and metric.type == METRIC_DATA_TYPE_GAUGE and metric.unit == \"{refund}\" and ((Len(datapoint.attributes) == 0) or (Len(datapoint.attributes) == 1 and datapoint.attributes[\"otel.metric.overflow\"] == true))) or (metric.name == \"qa_pending_refund_oldest_seconds\" and metric.type == METRIC_DATA_TYPE_GAUGE and metric.unit == \"s\" and ((Len(datapoint.attributes) == 0) or (Len(datapoint.attributes) == 1 and datapoint.attributes[\"otel.metric.overflow\"] == true))) or (metric.name == \"qa_unknown_cost_oldest_seconds\" and metric.type == METRIC_DATA_TYPE_GAUGE and metric.unit == \"s\" and ((Len(datapoint.attributes) == 0) or (Len(datapoint.attributes) == 1 and datapoint.attributes[\"otel.metric.overflow\"] == true))) or (metric.name == \"qa_budget_overruns\" and metric.type == METRIC_DATA_TYPE_GAUGE and metric.unit == \"{budget}\" and ((Len(datapoint.attributes) == 0) or (Len(datapoint.attributes) == 1 and datapoint.attributes[\"otel.metric.overflow\"] == true))) or (metric.name == \"qa_terminal_coverage_incidents\" and metric.type == METRIC_DATA_TYPE_GAUGE and metric.unit == \"{incident}\" and ((Len(datapoint.attributes) == 0) or (Len(datapoint.attributes) == 1 and datapoint.attributes[\"otel.metric.overflow\"] == true))) or (metric.name == \"qa_ingestion_failures\" and metric.type == METRIC_DATA_TYPE_GAUGE and metric.unit == \"{ingestion}\" and ((Len(datapoint.attributes) == 1 and (datapoint.attributes[\"dataset\"] == \"SOLAR_DNC\" or datapoint.attributes[\"dataset\"] == \"SOLAR_TIC\" or datapoint.attributes[\"dataset\"] == \"BATTERY\" or datapoint.attributes[\"dataset\"] == \"OTHER\")) or (Len(datapoint.attributes) == 1 and datapoint.attributes[\"otel.metric.overflow\"] == true))) or (metric.name == \"qa_expected_release_overdue\" and metric.type == METRIC_DATA_TYPE_GAUGE and metric.unit == \"{release}\" and ((Len(datapoint.attributes) == 1 and (datapoint.attributes[\"dataset\"] == \"SOLAR_DNC\" or datapoint.attributes[\"dataset\"] == \"SOLAR_TIC\" or datapoint.attributes[\"dataset\"] == \"BATTERY\" or datapoint.attributes[\"dataset\"] == \"OTHER\")) or (Len(datapoint.attributes) == 1 and datapoint.attributes[\"otel.metric.overflow\"] == true))) or (metric.name == \"qa_metric_overflow_total\" and metric.type == METRIC_DATA_TYPE_SUM and metric.unit == \"{point}\" and metric.aggregation_temporality == AGGREGATION_TEMPORALITY_CUMULATIVE and metric.is_monotonic == true and ((Len(datapoint.attributes) == 0) or (Len(datapoint.attributes) == 1 and datapoint.attributes[\"otel.metric.overflow\"] == true))) or (metric.name == \"qa_logs_suppressed_total\" and metric.type == METRIC_DATA_TYPE_SUM and metric.unit == \"{log}\" and metric.aggregation_temporality == AGGREGATION_TEMPORALITY_CUMULATIVE and metric.is_monotonic == true and ((Len(datapoint.attributes) == 0) or (Len(datapoint.attributes) == 1 and datapoint.attributes[\"otel.metric.overflow\"] == true))) or (metric.name == \"qa_snapshot_success\" and metric.type == METRIC_DATA_TYPE_GAUGE and metric.unit == \"1\" and ((Len(datapoint.attributes) == 1 and (datapoint.attributes[\"component\"] == \"COST\" or datapoint.attributes[\"component\"] == \"WORKFLOW\" or datapoint.attributes[\"component\"] == \"REFUND\" or datapoint.attributes[\"component\"] == \"BUSINESS\" or datapoint.attributes[\"component\"] == \"COVERAGE\" or datapoint.attributes[\"component\"] == \"INGESTION\" or datapoint.attributes[\"component\"] == \"RELEASE\" or datapoint.attributes[\"component\"] == \"OUTBOX\" or datapoint.attributes[\"component\"] == \"READINESS\" or datapoint.attributes[\"component\"] == \"CAPTURE\" or datapoint.attributes[\"component\"] == \"PIPELINES\" or datapoint.attributes[\"component\"] == \"BACKUP\")) or (Len(datapoint.attributes) == 1 and datapoint.attributes[\"otel.metric.overflow\"] == true))) or (metric.name == \"qa_checkout_ready\" and metric.type == METRIC_DATA_TYPE_GAUGE and metric.unit == \"1\" and ((Len(datapoint.attributes) == 0) or (Len(datapoint.attributes) == 1 and datapoint.attributes[\"otel.metric.overflow\"] == true))) or (metric.name == \"qa_outbox_pending\" and metric.type == METRIC_DATA_TYPE_GAUGE and metric.unit == \"{event}\" and ((Len(datapoint.attributes) == 0) or (Len(datapoint.attributes) == 1 and datapoint.attributes[\"otel.metric.overflow\"] == true))) or (metric.name == \"qa_outbox_oldest_seconds\" and metric.type == METRIC_DATA_TYPE_GAUGE and metric.unit == \"s\" and ((Len(datapoint.attributes) == 0) or (Len(datapoint.attributes) == 1 and datapoint.attributes[\"otel.metric.overflow\"] == true))) or (metric.name == \"qa_pipeline_failures\" and metric.type == METRIC_DATA_TYPE_GAUGE and metric.unit == \"1\" and ((Len(datapoint.attributes) == 1 and (datapoint.attributes[\"pipeline\"] == \"TARIFFS\" or datapoint.attributes[\"pipeline\"] == \"PRODUCTS\" or datapoint.attributes[\"pipeline\"] == \"PRODUCT_SCOPE\" or datapoint.attributes[\"pipeline\"] == \"PRODUCT_FACTS\" or datapoint.attributes[\"pipeline\"] == \"INSTALLERS\" or datapoint.attributes[\"pipeline\"] == \"PVGIS\" or datapoint.attributes[\"pipeline\"] == \"TARIFF_OFFERS\" or datapoint.attributes[\"pipeline\"] == \"MANUFACTURER_ASSURANCE\" or datapoint.attributes[\"pipeline\"] == \"INSTALLER_VERIFICATION\" or datapoint.attributes[\"pipeline\"] == \"PROPERTY_CONTEXT\" or datapoint.attributes[\"pipeline\"] == \"REGIONAL_MARKET\" or datapoint.attributes[\"pipeline\"] == \"GRID_CONTEXT\" or datapoint.attributes[\"pipeline\"] == \"AREA_CONTEXT\" or datapoint.attributes[\"pipeline\"] == \"BUILDING_OUTLINES\" or datapoint.attributes[\"pipeline\"] == \"ENERGY_SERIES\" or datapoint.attributes[\"pipeline\"] == \"CONTENT_RELEASE\" or datapoint.attributes[\"pipeline\"] == \"POSTGRES_BACKUP\" or datapoint.attributes[\"pipeline\"] == \"OTHER\")) or (Len(datapoint.attributes) == 1 and datapoint.attributes[\"otel.metric.overflow\"] == true))) or (metric.name == \"qa_pipeline_overdue\" and metric.type == METRIC_DATA_TYPE_GAUGE and metric.unit == \"1\" and ((Len(datapoint.attributes) == 1 and (datapoint.attributes[\"pipeline\"] == \"TARIFFS\" or datapoint.attributes[\"pipeline\"] == \"PRODUCTS\" or datapoint.attributes[\"pipeline\"] == \"PRODUCT_SCOPE\" or datapoint.attributes[\"pipeline\"] == \"PRODUCT_FACTS\" or datapoint.attributes[\"pipeline\"] == \"INSTALLERS\" or datapoint.attributes[\"pipeline\"] == \"PVGIS\" or datapoint.attributes[\"pipeline\"] == \"TARIFF_OFFERS\" or datapoint.attributes[\"pipeline\"] == \"MANUFACTURER_ASSURANCE\" or datapoint.attributes[\"pipeline\"] == \"INSTALLER_VERIFICATION\" or datapoint.attributes[\"pipeline\"] == \"PROPERTY_CONTEXT\" or datapoint.attributes[\"pipeline\"] == \"REGIONAL_MARKET\" or datapoint.attributes[\"pipeline\"] == \"GRID_CONTEXT\" or datapoint.attributes[\"pipeline\"] == \"AREA_CONTEXT\" or datapoint.attributes[\"pipeline\"] == \"BUILDING_OUTLINES\" or datapoint.attributes[\"pipeline\"] == \"ENERGY_SERIES\" or datapoint.attributes[\"pipeline\"] == \"CONTENT_RELEASE\" or datapoint.attributes[\"pipeline\"] == \"POSTGRES_BACKUP\" or datapoint.attributes[\"pipeline\"] == \"OTHER\")) or (Len(datapoint.attributes) == 1 and datapoint.attributes[\"otel.metric.overflow\"] == true))) or (metric.name == \"qa_pipeline_data_invalid\" and metric.type == METRIC_DATA_TYPE_GAUGE and metric.unit == \"1\" and ((Len(datapoint.attributes) == 1 and (datapoint.attributes[\"pipeline\"] == \"TARIFFS\" or datapoint.attributes[\"pipeline\"] == \"PRODUCTS\" or datapoint.attributes[\"pipeline\"] == \"PRODUCT_SCOPE\" or datapoint.attributes[\"pipeline\"] == \"PRODUCT_FACTS\" or datapoint.attributes[\"pipeline\"] == \"INSTALLERS\" or datapoint.attributes[\"pipeline\"] == \"PVGIS\" or datapoint.attributes[\"pipeline\"] == \"TARIFF_OFFERS\" or datapoint.attributes[\"pipeline\"] == \"MANUFACTURER_ASSURANCE\" or datapoint.attributes[\"pipeline\"] == \"INSTALLER_VERIFICATION\" or datapoint.attributes[\"pipeline\"] == \"PROPERTY_CONTEXT\" or datapoint.attributes[\"pipeline\"] == \"REGIONAL_MARKET\" or datapoint.attributes[\"pipeline\"] == \"GRID_CONTEXT\" or datapoint.attributes[\"pipeline\"] == \"AREA_CONTEXT\" or datapoint.attributes[\"pipeline\"] == \"BUILDING_OUTLINES\" or datapoint.attributes[\"pipeline\"] == \"ENERGY_SERIES\" or datapoint.attributes[\"pipeline\"] == \"CONTENT_RELEASE\" or datapoint.attributes[\"pipeline\"] == \"POSTGRES_BACKUP\" or datapoint.attributes[\"pipeline\"] == \"OTHER\")) or (Len(datapoint.attributes) == 1 and datapoint.attributes[\"otel.metric.overflow\"] == true))) or (metric.name == \"qa_pipeline_unfinished_seconds\" and metric.type == METRIC_DATA_TYPE_GAUGE and metric.unit == \"s\" and ((Len(datapoint.attributes) == 1 and (datapoint.attributes[\"pipeline\"] == \"TARIFFS\" or datapoint.attributes[\"pipeline\"] == \"PRODUCTS\" or datapoint.attributes[\"pipeline\"] == \"PRODUCT_SCOPE\" or datapoint.attributes[\"pipeline\"] == \"PRODUCT_FACTS\" or datapoint.attributes[\"pipeline\"] == \"INSTALLERS\" or datapoint.attributes[\"pipeline\"] == \"PVGIS\" or datapoint.attributes[\"pipeline\"] == \"TARIFF_OFFERS\" or datapoint.attributes[\"pipeline\"] == \"MANUFACTURER_ASSURANCE\" or datapoint.attributes[\"pipeline\"] == \"INSTALLER_VERIFICATION\" or datapoint.attributes[\"pipeline\"] == \"PROPERTY_CONTEXT\" or datapoint.attributes[\"pipeline\"] == \"REGIONAL_MARKET\" or datapoint.attributes[\"pipeline\"] == \"GRID_CONTEXT\" or datapoint.attributes[\"pipeline\"] == \"AREA_CONTEXT\" or datapoint.attributes[\"pipeline\"] == \"BUILDING_OUTLINES\" or datapoint.attributes[\"pipeline\"] == \"ENERGY_SERIES\" or datapoint.attributes[\"pipeline\"] == \"CONTENT_RELEASE\" or datapoint.attributes[\"pipeline\"] == \"POSTGRES_BACKUP\" or datapoint.attributes[\"pipeline\"] == \"OTHER\")) or (Len(datapoint.attributes) == 1 and datapoint.attributes[\"otel.metric.overflow\"] == true))) or (metric.name == \"qa_backup_stored_bytes\" and metric.type == METRIC_DATA_TYPE_GAUGE and metric.unit == \"By\" and ((Len(datapoint.attributes) == 0) or (Len(datapoint.attributes) == 1 and datapoint.attributes[\"otel.metric.overflow\"] == true))) or (metric.name == \"qa_backup_projected_bytes\" and metric.type == METRIC_DATA_TYPE_GAUGE and metric.unit == \"By\" and ((Len(datapoint.attributes) == 0) or (Len(datapoint.attributes) == 1 and datapoint.attributes[\"otel.metric.overflow\"] == true))) or (metric.name == \"qa_backup_inventory_age_seconds\" and metric.type == METRIC_DATA_TYPE_GAUGE and metric.unit == \"s\" and ((Len(datapoint.attributes) == 0) or (Len(datapoint.attributes) == 1 and datapoint.attributes[\"otel.metric.overflow\"] == true)))))"
+      ]
+    },
+    "filter/self": {
+      "error_mode": "propagate",
+      "metric_conditions": [
+        "not ((metric.name == \"otelcol_exporter_enqueue_failed_log_records\" and ((datapoint.attributes[\"exporter\"] == \"otlp_http/traces\" and (Len(datapoint.attributes) == 1 or (Len(datapoint.attributes) == 2 and datapoint.attributes[\"data_type\"] == \"traces\"))) or (datapoint.attributes[\"exporter\"] == \"otlp_http/metrics\" and (Len(datapoint.attributes) == 1 or (Len(datapoint.attributes) == 2 and datapoint.attributes[\"data_type\"] == \"metrics\"))) or (datapoint.attributes[\"exporter\"] == \"otlp_http/logs\" and (Len(datapoint.attributes) == 1 or (Len(datapoint.attributes) == 2 and datapoint.attributes[\"data_type\"] == \"logs\"))))) or (metric.name == \"otelcol_exporter_enqueue_failed_metric_points\" and ((datapoint.attributes[\"exporter\"] == \"otlp_http/traces\" and (Len(datapoint.attributes) == 1 or (Len(datapoint.attributes) == 2 and datapoint.attributes[\"data_type\"] == \"traces\"))) or (datapoint.attributes[\"exporter\"] == \"otlp_http/metrics\" and (Len(datapoint.attributes) == 1 or (Len(datapoint.attributes) == 2 and datapoint.attributes[\"data_type\"] == \"metrics\"))) or (datapoint.attributes[\"exporter\"] == \"otlp_http/logs\" and (Len(datapoint.attributes) == 1 or (Len(datapoint.attributes) == 2 and datapoint.attributes[\"data_type\"] == \"logs\"))))) or (metric.name == \"otelcol_exporter_enqueue_failed_spans\" and ((datapoint.attributes[\"exporter\"] == \"otlp_http/traces\" and (Len(datapoint.attributes) == 1 or (Len(datapoint.attributes) == 2 and datapoint.attributes[\"data_type\"] == \"traces\"))) or (datapoint.attributes[\"exporter\"] == \"otlp_http/metrics\" and (Len(datapoint.attributes) == 1 or (Len(datapoint.attributes) == 2 and datapoint.attributes[\"data_type\"] == \"metrics\"))) or (datapoint.attributes[\"exporter\"] == \"otlp_http/logs\" and (Len(datapoint.attributes) == 1 or (Len(datapoint.attributes) == 2 and datapoint.attributes[\"data_type\"] == \"logs\"))))) or (metric.name == \"otelcol_exporter_queue_capacity\" and ((datapoint.attributes[\"exporter\"] == \"otlp_http/traces\" and (Len(datapoint.attributes) == 1 or (Len(datapoint.attributes) == 2 and datapoint.attributes[\"data_type\"] == \"traces\"))) or (datapoint.attributes[\"exporter\"] == \"otlp_http/metrics\" and (Len(datapoint.attributes) == 1 or (Len(datapoint.attributes) == 2 and datapoint.attributes[\"data_type\"] == \"metrics\"))) or (datapoint.attributes[\"exporter\"] == \"otlp_http/logs\" and (Len(datapoint.attributes) == 1 or (Len(datapoint.attributes) == 2 and datapoint.attributes[\"data_type\"] == \"logs\"))))) or (metric.name == \"otelcol_exporter_queue_size\" and ((datapoint.attributes[\"exporter\"] == \"otlp_http/traces\" and (Len(datapoint.attributes) == 1 or (Len(datapoint.attributes) == 2 and datapoint.attributes[\"data_type\"] == \"traces\"))) or (datapoint.attributes[\"exporter\"] == \"otlp_http/metrics\" and (Len(datapoint.attributes) == 1 or (Len(datapoint.attributes) == 2 and datapoint.attributes[\"data_type\"] == \"metrics\"))) or (datapoint.attributes[\"exporter\"] == \"otlp_http/logs\" and (Len(datapoint.attributes) == 1 or (Len(datapoint.attributes) == 2 and datapoint.attributes[\"data_type\"] == \"logs\"))))) or (metric.name == \"otelcol_exporter_send_failed_log_records\" and ((datapoint.attributes[\"exporter\"] == \"otlp_http/traces\" and (Len(datapoint.attributes) == 1 or (Len(datapoint.attributes) == 2 and datapoint.attributes[\"data_type\"] == \"traces\"))) or (datapoint.attributes[\"exporter\"] == \"otlp_http/metrics\" and (Len(datapoint.attributes) == 1 or (Len(datapoint.attributes) == 2 and datapoint.attributes[\"data_type\"] == \"metrics\"))) or (datapoint.attributes[\"exporter\"] == \"otlp_http/logs\" and (Len(datapoint.attributes) == 1 or (Len(datapoint.attributes) == 2 and datapoint.attributes[\"data_type\"] == \"logs\"))))) or (metric.name == \"otelcol_exporter_send_failed_metric_points\" and ((datapoint.attributes[\"exporter\"] == \"otlp_http/traces\" and (Len(datapoint.attributes) == 1 or (Len(datapoint.attributes) == 2 and datapoint.attributes[\"data_type\"] == \"traces\"))) or (datapoint.attributes[\"exporter\"] == \"otlp_http/metrics\" and (Len(datapoint.attributes) == 1 or (Len(datapoint.attributes) == 2 and datapoint.attributes[\"data_type\"] == \"metrics\"))) or (datapoint.attributes[\"exporter\"] == \"otlp_http/logs\" and (Len(datapoint.attributes) == 1 or (Len(datapoint.attributes) == 2 and datapoint.attributes[\"data_type\"] == \"logs\"))))) or (metric.name == \"otelcol_exporter_send_failed_spans\" and ((datapoint.attributes[\"exporter\"] == \"otlp_http/traces\" and (Len(datapoint.attributes) == 1 or (Len(datapoint.attributes) == 2 and datapoint.attributes[\"data_type\"] == \"traces\"))) or (datapoint.attributes[\"exporter\"] == \"otlp_http/metrics\" and (Len(datapoint.attributes) == 1 or (Len(datapoint.attributes) == 2 and datapoint.attributes[\"data_type\"] == \"metrics\"))) or (datapoint.attributes[\"exporter\"] == \"otlp_http/logs\" and (Len(datapoint.attributes) == 1 or (Len(datapoint.attributes) == 2 and datapoint.attributes[\"data_type\"] == \"logs\"))))) or (metric.name == \"otelcol_process_memory_rss\" and (Len(datapoint.attributes) == 0)) or (metric.name == \"otelcol_processor_tail_sampling_sampling_late_span_age\" and (Len(datapoint.attributes) == 0)) or (metric.name == \"otelcol_processor_tail_sampling_sampling_trace_dropped_too_early\" and (Len(datapoint.attributes) == 0)) or (metric.name == \"otelcol_receiver_refused_log_records\" and (Len(datapoint.attributes) == 2 and (datapoint.attributes[\"receiver\"] == \"otlp\" or datapoint.attributes[\"receiver\"] == \"prometheus/self\") and (datapoint.attributes[\"transport\"] == \"grpc\" or datapoint.attributes[\"transport\"] == \"http\"))) or (metric.name == \"otelcol_receiver_refused_metric_points\" and (Len(datapoint.attributes) == 2 and (datapoint.attributes[\"receiver\"] == \"otlp\" or datapoint.attributes[\"receiver\"] == \"prometheus/self\") and (datapoint.attributes[\"transport\"] == \"grpc\" or datapoint.attributes[\"transport\"] == \"http\"))) or (metric.name == \"otelcol_receiver_refused_spans\" and (Len(datapoint.attributes) == 2 and (datapoint.attributes[\"receiver\"] == \"otlp\" or datapoint.attributes[\"receiver\"] == \"prometheus/self\") and (datapoint.attributes[\"transport\"] == \"grpc\" or datapoint.attributes[\"transport\"] == \"http\"))))"
+      ]
+    },
+    "filter/logs": {
+      "error_mode": "propagate",
+      "log_conditions": [
+        "log.severity_number < SEVERITY_NUMBER_WARN"
+      ]
+    },
+    "tail_sampling": {
+      "decision_wait": "5m",
+      "num_traces": 5000,
+      "expected_new_traces_per_sec": 10,
+      "maximum_trace_size_bytes": 262144,
+      "drop_pending_traces_on_shutdown": true,
+      "decision_cache": {
+        "sampled_cache_size": 50000,
+        "non_sampled_cache_size": 100000
+      },
+      "policies": [
+        {
+          "name": "all-errors",
+          "type": "status_code",
+          "status_code": {
+            "status_codes": [
+              "ERROR"
+            ]
+          }
+        },
+        {
+          "name": "two-percent",
+          "type": "probabilistic",
+          "probabilistic": {
+            "sampling_percentage": 2
+          }
+        }
+      ]
+    },
+    "batch": {
+      "timeout": "1s",
+      "send_batch_size": 256,
+      "send_batch_max_size": 512
+    },
+    "resource/self": {
+      "attributes": [
+        {
+          "key": "service.name",
+          "value": "gowithsolar-collector",
+          "action": "upsert"
+        },
+        {
+          "key": "service.instance.id",
+          "value": "collector-1",
+          "action": "upsert"
+        },
+        {
+          "key": "deployment.environment.name",
+          "value": "${env:DEPLOYMENT_ENVIRONMENT}",
+          "action": "upsert"
+        },
+        {
+          "key": "location",
+          "value": "europe-west2",
+          "action": "upsert"
+        },
+        {
+          "key": "cluster",
+          "value": "nas",
+          "action": "upsert"
+        },
+        {
+          "key": "namespace",
+          "value": "gowithsolar-${env:DEPLOYMENT_ENVIRONMENT}",
+          "action": "upsert"
+        }
+      ]
+    },
+    "transform/self": {
+      "error_mode": "propagate",
+      "metric_statements": [
+        {
+          "context": "resource",
+          "statements": [
+            "keep_keys(attributes, [\"service.name\", \"service.instance.id\", \"deployment.environment.name\", \"location\", \"cluster\", \"namespace\"])"
+          ]
+        },
+        {
+          "context": "scope",
+          "statements": [
+            "set(name, \"collector-self\")",
+            "set(version, \"\")",
+            "keep_keys(attributes, [])"
+          ]
+        }
+      ]
+    },
+    "metric_start_time/self": {
+      "strategy": "start_time_metric"
+    },
+    "resource/gcp": {
+      "attributes": [
+        {
+          "key": "gcp.project_id",
+          "value": "${env:GCP_PROJECT_ID}",
+          "action": "upsert"
+        }
+      ]
+    }
+  },
+  "exporters": {
+    "otlp_http/traces": {
+      "endpoint": "https://telemetry.googleapis.com",
+      "encoding": "proto",
+      "headers": {
+        "x-goog-user-project": "${env:GCP_PROJECT_ID}"
+      },
+      "auth": {
+        "authenticator": "googleclientauth"
+      },
+      "timeout": "15s",
+      "sending_queue": {
+        "enabled": true,
+        "storage": "file_storage",
+        "sizer": "bytes",
+        "queue_size": 33554432,
+        "num_consumers": 2
+      },
+      "retry_on_failure": {
+        "enabled": true,
+        "initial_interval": "1s",
+        "max_interval": "30s",
+        "max_elapsed_time": "1h"
+      }
+    },
+    "otlp_http/metrics": {
+      "endpoint": "https://telemetry.googleapis.com",
+      "encoding": "proto",
+      "headers": {
+        "x-goog-user-project": "${env:GCP_PROJECT_ID}"
+      },
+      "auth": {
+        "authenticator": "googleclientauth"
+      },
+      "timeout": "15s",
+      "sending_queue": {
+        "enabled": true,
+        "storage": "file_storage",
+        "sizer": "bytes",
+        "queue_size": 33554432,
+        "num_consumers": 2
+      },
+      "retry_on_failure": {
+        "enabled": true,
+        "initial_interval": "1s",
+        "max_interval": "30s",
+        "max_elapsed_time": "1h"
+      }
+    },
+    "otlp_http/logs": {
+      "endpoint": "https://telemetry.googleapis.com",
+      "encoding": "proto",
+      "headers": {
+        "x-goog-user-project": "${env:GCP_PROJECT_ID}"
+      },
+      "auth": {
+        "authenticator": "googleclientauth"
+      },
+      "timeout": "15s",
+      "sending_queue": {
+        "enabled": true,
+        "storage": "file_storage",
+        "sizer": "bytes",
+        "queue_size": 33554432,
+        "num_consumers": 2
+      },
+      "retry_on_failure": {
+        "enabled": true,
+        "initial_interval": "1s",
+        "max_interval": "30s",
+        "max_elapsed_time": "1h"
+      }
+    }
+  },
+  "extensions": {
+    "googleclientauth": {},
+    "file_storage": {
+      "directory": "/var/lib/otelcol/queue",
+      "create_directory": true
+    },
+    "health_check": {
+      "endpoint": "0.0.0.0:13133"
+    }
+  },
+  "service": {
+    "extensions": [
+      "googleclientauth",
+      "file_storage",
+      "health_check"
+    ],
+    "pipelines": {
+      "traces": {
+        "receivers": [
+          "otlp"
+        ],
+        "processors": [
+          "memory_limiter",
+          "transform/traces",
+          "tail_sampling",
+          "resource/gcp",
+          "batch"
+        ],
+        "exporters": [
+          "otlp_http/traces"
+        ]
+      },
+      "metrics": {
+        "receivers": [
+          "otlp"
+        ],
+        "processors": [
+          "memory_limiter",
+          "filter/metrics",
+          "transform/metric_scope",
+          "resource/gcp",
+          "batch"
+        ],
+        "exporters": [
+          "otlp_http/metrics"
+        ]
+      },
+      "logs": {
+        "receivers": [
+          "otlp"
+        ],
+        "processors": [
+          "memory_limiter",
+          "filter/logs",
+          "transform/logs",
+          "resource/gcp",
+          "batch"
+        ],
+        "exporters": [
+          "otlp_http/logs"
+        ]
+      },
+      "metrics/self": {
+        "receivers": [
+          "prometheus/self"
+        ],
+        "processors": [
+          "memory_limiter",
+          "filter/self",
+          "resource/self",
+          "transform/self",
+          "metric_start_time/self",
+          "resource/gcp",
+          "batch"
+        ],
+        "exporters": [
+          "otlp_http/metrics"
+        ]
+      }
+    },
+    "telemetry": {
+      "logs": {
+        "level": "warn"
+      },
+      "metrics": {
+        "level": "normal",
+        "readers": [
+          {
+            "pull": {
+              "exporter": {
+                "prometheus": {
+                  "host": "0.0.0.0",
+                  "port": 8888
+                }
+              }
+            }
+          }
+        ]
+      }
+    }
+  }
+}

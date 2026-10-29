@@ -1,0 +1,75 @@
+{
+  "services": {
+    "otel-collector": {
+      "image": "otel/opentelemetry-collector-contrib:0.163.1@sha256:1175b03003053962012f5a231f5567f66a3e8fdb960c7835c0e48f7aa1555806",
+      "user": "1032:100",
+      "restart": "always",
+      "init": true,
+      "mem_limit": "768m",
+      "cpu_shares": 256,
+      "environment": {
+        "GOOGLE_APPLICATION_CREDENTIALS": "/var/secrets/google/application-default-credentials.json",
+        "GOMEMLIMIT": "576MiB",
+        "GOMAXPROCS": "2"
+      },
+      "command": [
+        "--config=/etc/otel-collector/config.json"
+      ],
+      "volumes": [
+        "./config.json:/etc/otel-collector/config.json:ro",
+        "/volume1/docker/jud/observability/releases/147d89365f344d0a9eca7803742964a5/credentials:/var/secrets/google:ro",
+        "/var/run/docker.sock:/var/run/docker.sock:ro",
+        "/proc:/hostfs/proc:ro",
+        "/sys:/hostfs/sys:ro",
+        "/volume1/docker/jud/observability/queue-shared:/var/lib/shared-queue",
+        "/volume1/docker/jud/observability/queue-solar:/var/lib/solar-queue"
+      ],
+      "ports": [
+        "100.123.72.113:32018:4318",
+        "100.123.72.113:32019:4319",
+        "100.123.72.113:32118:4320",
+        "100.123.72.113:32119:4321",
+        "127.0.0.1:32133:13133"
+      ],
+      "networks": {
+        "telemetry": {
+          "aliases": [
+            "jud-otel"
+          ]
+        },
+        "solar": {
+          "aliases": [
+            "jud-otel"
+          ]
+        }
+      },
+      "logging": {
+        "driver": "json-file",
+        "options": {
+          "max-size": "10m",
+          "max-file": "3"
+        }
+      },
+      "security_opt": [
+        "no-new-privileges:true"
+      ],
+      "cap_drop": [
+        "ALL"
+      ],
+      "stop_grace_period": "30s",
+      "group_add": [
+        "65536"
+      ]
+    }
+  },
+  "networks": {
+    "telemetry": {
+      "external": true,
+      "name": "jud-observability"
+    },
+    "solar": {
+      "external": true,
+      "name": "solar-roi"
+    }
+  }
+}

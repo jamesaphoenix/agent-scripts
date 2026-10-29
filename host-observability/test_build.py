@@ -15,6 +15,9 @@ class Routes(unittest.TestCase):
         self.assertEqual(200,c['processors']['batch/solar/metrics']['send_batch_max_size'])
         self.assertIn('filter/solar/metrics',c['service']['pipelines']['metrics/solar']['processors'])
         self.assertIn('tail_sampling/solar',c['service']['pipelines']['traces/solar']['processors'])
+        for route in ('octospark-prod','octospark-staging','trace-learn-prod','trace-learn-staging'):
+            project = c['exporters']['googlecloud/'+route]['project']
+            self.assertIn({'key':'gcp.project.id','value':project,'action':'upsert'}, c['processors']['resource/'+route]['attributes'])
         self.assertEqual('/var/lib/solar-queue',c['extensions']['file_storage/solar']['directory'])
 
 if __name__=='__main__': unittest.main()

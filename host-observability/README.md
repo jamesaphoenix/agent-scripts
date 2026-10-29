@@ -1,6 +1,6 @@
 # Shared host OpenTelemetry collectors
 
-Owner: `Just-Understanding-Data-Ltd/agent-scripts`, directory `host-observability`.
+Owner: `jamesaphoenix/agent-scripts`, directory `host-observability`.
 One Collector process per host, with fixed receiver-to-project pipelines. A caller's
 resource attributes never select an exporter. Do not deploy application-owned
 sidecars alongside these collectors after migrating that application.

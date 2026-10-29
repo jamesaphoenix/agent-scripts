@@ -1,0 +1,12 @@
+{
+  "principal": "serviceAccount:octospark-self-host@octospark-prod.iam.gserviceaccount.com",
+  "additionalProject": "gowith-solar-prod",
+  "roles": [
+    "roles/monitoring.metricWriter",
+    "roles/cloudtrace.agent",
+    "roles/logging.logWriter",
+    "roles/serviceusage.serviceUsageConsumer"
+  ],
+  "credentialSource": "existing private Synology ADC mount; no key creation",
+  "otherProjectAccess": "pre-existing; not altered by this consolidation"
+}

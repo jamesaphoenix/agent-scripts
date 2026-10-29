@@ -1,7 +1,14 @@
 import unittest
+import json
+from pathlib import Path
 from build import build
 
 class Routes(unittest.TestCase):
+    def test_shared_service_cannot_claim_the_legacy_solar_alias(self):
+        compose=json.loads((Path(__file__).parent/'compose.synology.json').read_text())
+        self.assertNotIn('otel-collector',compose['services'])
+        self.assertEqual(['jud-otel'],compose['services']['host-collector']['networks']['solar']['aliases'])
+
     def test_routes_are_isolated_and_existing_pipelines_preserved(self):
         c=build()
         self.assertEqual('0.0.0.0:4322',c['receivers']['otlp/solar']['protocols']['http']['endpoint'])

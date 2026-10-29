@@ -1,6 +1,6 @@
 {
   "services": {
-    "otel-collector": {
+    "host-collector": {
       "image": "otel/opentelemetry-collector-contrib:0.163.1@sha256:1175b03003053962012f5a231f5567f66a3e8fdb960c7835c0e48f7aa1555806",
       "user": "1032:100",
       "restart": "always",
@@ -59,7 +59,8 @@
       "stop_grace_period": "30s",
       "group_add": [
         "65536"
-      ]
+      ],
+      "container_name": "jud-host-otel"
     }
   },
   "networks": {

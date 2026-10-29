@@ -8,6 +8,12 @@ ROOT = Path(__file__).parent
 IMAGE = 'otel/opentelemetry-collector-contrib:0.163.1@sha256:1175b03003053962012f5a231f5567f66a3e8fdb960c7835c0e48f7aa1555806'
 
 
+def rewrite_identities(rule, replacements):
+    for old, new in replacements.items():
+        rule = rule.replace(json.dumps(old), json.dumps(new))
+    return rule
+
+
 def build():
     shared = json.loads((ROOT / 'profiles/synology-existing.json').read_text())
     solar = json.loads((ROOT / 'profiles/gowithsolar.json').read_text())
@@ -41,6 +47,12 @@ def build():
                 # Processor IDs must retain their registered type prefix.
                 names[section][key] = key.split('/')[0]+'/solar'+('/'+key.split('/',1)[1] if '/' in key else '')
             shared.setdefault(section,{})[names[section][key]] = copy.deepcopy(value)
+    # Rewrite finite diagnostic component identities alongside their namespaced IDs.
+    # Without this, the existing closed self-metric filter would drop queue/refusal signals.
+    guard = shared['processors'][names['processors']['filter/self']]
+    replacements = {old:new for section in ('receivers','exporters') for old,new in names[section].items()}
+    guard['metric_conditions'] = [
+        rewrite_identities(rule, replacements) for rule in guard['metric_conditions']]
     # Use a single host memory limiter; preserve each application's filters/sampling.
     shared['extensions']['file_storage/shared'] = {'directory':'/var/lib/shared-queue','create_directory':True}
     shared['service']['extensions'].append('file_storage/shared')

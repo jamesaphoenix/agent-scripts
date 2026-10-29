@@ -1,0 +1,529 @@
+{
+  "receivers": {
+    "docker_stats": {
+      "api_version": "1.41",
+      "endpoint": "unix:///var/run/docker.sock",
+      "container_labels_sanitization": true,
+      "collection_interval": "60s",
+      "metrics": {
+        "container.cpu.utilization": {
+          "enabled": true
+        },
+        "container.memory.percent": {
+          "enabled": true
+        }
+      }
+    },
+    "hostmetrics": {
+      "root_path": "/hostfs",
+      "collection_interval": "60s",
+      "scrapers": {
+        "cpu": {
+          "metrics": {
+            "system.cpu.utilization": {
+              "enabled": true
+            },
+            "system.cpu.time": {
+              "enabled": false
+            }
+          }
+        },
+        "memory": {
+          "metrics": {
+            "system.memory.utilization": {
+              "enabled": true
+            },
+            "system.memory.usage": {
+              "enabled": true
+            }
+          }
+        },
+        "load": {}
+      }
+    },
+    "otlp/octospark-staging": {
+      "protocols": {
+        "http": {
+          "endpoint": "0.0.0.0:4318"
+        }
+      }
+    },
+    "otlp/octospark-prod": {
+      "protocols": {
+        "http": {
+          "endpoint": "0.0.0.0:4319"
+        }
+      }
+    },
+    "otlp/trace-learn-staging": {
+      "protocols": {
+        "http": {
+          "endpoint": "0.0.0.0:4320"
+        }
+      }
+    },
+    "otlp/trace-learn-prod": {
+      "protocols": {
+        "http": {
+          "endpoint": "0.0.0.0:4321"
+        }
+      }
+    }
+  },
+  "extensions": {
+    "health_check": {
+      "endpoint": "0.0.0.0:13133",
+      "path": "/health/status"
+    }
+  },
+  "processors": {
+    "memory_limiter": {
+      "check_interval": "1s",
+      "limit_mib": 288,
+      "spike_limit_mib": 64
+    },
+    "batch": {
+      "timeout": "5s",
+      "send_batch_size": 256,
+      "send_batch_max_size": 512
+    },
+    "filter/health_spans": {
+      "error_mode": "ignore",
+      "traces": {
+        "span": [
+          "attributes[\"http.target\"] == \"/health\"",
+          "attributes[\"url.path\"] == \"/health\""
+        ]
+      }
+    },
+    "transform/metric_instance": {
+      "error_mode": "ignore",
+      "metric_statements": [
+        {
+          "context": "datapoint",
+          "statements": [
+            "set(resource.attributes[\"service.instance.id\"], attributes[\"worker_instance\"]) where attributes[\"worker_instance\"] != nil",
+            "set(attributes[\"container_name\"], resource.attributes[\"container.name\"]) where resource.attributes[\"container.name\"] != nil",
+            "set(resource.attributes[\"service.instance.id\"], \"synology-primary\") where scope.name == \"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/hostmetricsreceiver\" or scope.name == \"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/dockerstatsreceiver\""
+          ]
+        }
+      ]
+    },
+    "filter/cpu_noise": {
+      "error_mode": "ignore",
+      "metrics": {
+        "datapoint": [
+          "metric.name == \"system.cpu.utilization\" and attributes[\"state\"] != \"idle\""
+        ]
+      }
+    },
+    "metricstransform/cpu_rollup": {
+      "transforms": [
+        {
+          "include": "system.cpu.utilization",
+          "match_type": "strict",
+          "action": "update",
+          "operations": [
+            {
+              "action": "aggregate_labels",
+              "label_set": [
+                "state"
+              ],
+              "aggregation_type": "mean"
+            }
+          ]
+        }
+      ]
+    },
+    "resource/octospark-staging": {
+      "attributes": [
+        {
+          "key": "service.namespace",
+          "value": "octospark-staging",
+          "action": "upsert"
+        },
+        {
+          "key": "deployment.environment.name",
+          "value": "staging",
+          "action": "upsert"
+        },
+        {
+          "key": "cloud.region",
+          "value": "europe-west3",
+          "action": "upsert"
+        },
+        {
+          "key": "k8s.cluster.name",
+          "value": "synology-primary",
+          "action": "upsert"
+        },
+        {
+          "key": "k8s.namespace.name",
+          "value": "octospark-staging",
+          "action": "upsert"
+        }
+      ]
+    },
+    "filter/containers-octospark-staging": {
+      "error_mode": "ignore",
+      "metrics": {
+        "metric": [
+          "IsMatch(name, \"^container[.].*\") and name != \"container.cpu.utilization\" and name != \"container.memory.percent\""
+        ],
+        "datapoint": [
+          "attributes[\"container_name\"] != nil and not IsMatch(attributes[\"container_name\"], \"^/?octospark-staging-.*\")"
+        ]
+      }
+    },
+    "resource/octospark-prod": {
+      "attributes": [
+        {
+          "key": "service.namespace",
+          "value": "octospark-prod",
+          "action": "upsert"
+        },
+        {
+          "key": "deployment.environment.name",
+          "value": "production",
+          "action": "upsert"
+        },
+        {
+          "key": "cloud.region",
+          "value": "europe-west3",
+          "action": "upsert"
+        },
+        {
+          "key": "k8s.cluster.name",
+          "value": "synology-primary",
+          "action": "upsert"
+        },
+        {
+          "key": "k8s.namespace.name",
+          "value": "octospark-prod",
+          "action": "upsert"
+        }
+      ]
+    },
+    "filter/containers-octospark-prod": {
+      "error_mode": "ignore",
+      "metrics": {
+        "metric": [
+          "IsMatch(name, \"^container[.].*\") and name != \"container.cpu.utilization\" and name != \"container.memory.percent\""
+        ],
+        "datapoint": [
+          "attributes[\"container_name\"] != nil and not IsMatch(attributes[\"container_name\"], \"^/?octospark-prod-.*\")"
+        ]
+      }
+    },
+    "resource/trace-learn-staging": {
+      "attributes": [
+        {
+          "key": "service.namespace",
+          "value": "trace-learn-staging",
+          "action": "upsert"
+        },
+        {
+          "key": "deployment.environment.name",
+          "value": "staging",
+          "action": "upsert"
+        },
+        {
+          "key": "cloud.region",
+          "value": "europe-west3",
+          "action": "upsert"
+        },
+        {
+          "key": "k8s.cluster.name",
+          "value": "synology-primary",
+          "action": "upsert"
+        },
+        {
+          "key": "k8s.namespace.name",
+          "value": "trace-learn-staging",
+          "action": "upsert"
+        }
+      ]
+    },
+    "filter/containers-trace-learn-staging": {
+      "error_mode": "ignore",
+      "metrics": {
+        "metric": [
+          "IsMatch(name, \"^container[.].*\") and name != \"container.cpu.utilization\" and name != \"container.memory.percent\""
+        ],
+        "datapoint": [
+          "attributes[\"container_name\"] != nil and not IsMatch(attributes[\"container_name\"], \"^/?trace-learn-staging-.*\")"
+        ]
+      }
+    },
+    "resource/trace-learn-prod": {
+      "attributes": [
+        {
+          "key": "service.namespace",
+          "value": "trace-learn-prod",
+          "action": "upsert"
+        },
+        {
+          "key": "deployment.environment.name",
+          "value": "production",
+          "action": "upsert"
+        },
+        {
+          "key": "cloud.region",
+          "value": "europe-west3",
+          "action": "upsert"
+        },
+        {
+          "key": "k8s.cluster.name",
+          "value": "synology-primary",
+          "action": "upsert"
+        },
+        {
+          "key": "k8s.namespace.name",
+          "value": "trace-learn-prod",
+          "action": "upsert"
+        }
+      ]
+    },
+    "filter/containers-trace-learn-prod": {
+      "error_mode": "ignore",
+      "metrics": {
+        "metric": [
+          "IsMatch(name, \"^container[.].*\") and name != \"container.cpu.utilization\" and name != \"container.memory.percent\""
+        ],
+        "datapoint": [
+          "attributes[\"container_name\"] != nil and not IsMatch(attributes[\"container_name\"], \"^/?trace-learn-prod-.*\")"
+        ]
+      }
+    }
+  },
+  "exporters": {
+    "googlecloud/octospark-staging": {
+      "project": "octospark-staging",
+      "log": {
+        "default_log_name": "tx-agent-kit"
+      }
+    },
+    "googlemanagedprometheus/octospark-staging": {
+      "project": "octospark-staging"
+    },
+    "googlecloud/octospark-prod": {
+      "project": "octospark-prod",
+      "log": {
+        "default_log_name": "tx-agent-kit"
+      }
+    },
+    "googlemanagedprometheus/octospark-prod": {
+      "project": "octospark-prod"
+    },
+    "googlecloud/trace-learn-staging": {
+      "project": "tracelearn-staging",
+      "log": {
+        "default_log_name": "trace-learn"
+      }
+    },
+    "googlemanagedprometheus/trace-learn-staging": {
+      "project": "tracelearn-staging"
+    },
+    "googlecloud/trace-learn-prod": {
+      "project": "tracelearn-prod",
+      "log": {
+        "default_log_name": "trace-learn"
+      }
+    },
+    "googlemanagedprometheus/trace-learn-prod": {
+      "project": "tracelearn-prod"
+    }
+  },
+  "service": {
+    "extensions": [
+      "health_check"
+    ],
+    "pipelines": {
+      "traces/octospark-staging": {
+        "receivers": [
+          "otlp/octospark-staging"
+        ],
+        "processors": [
+          "memory_limiter",
+          "resource/octospark-staging",
+          "filter/health_spans",
+          "batch"
+        ],
+        "exporters": [
+          "googlecloud/octospark-staging"
+        ]
+      },
+      "logs/octospark-staging": {
+        "receivers": [
+          "otlp/octospark-staging"
+        ],
+        "processors": [
+          "memory_limiter",
+          "resource/octospark-staging",
+          "batch"
+        ],
+        "exporters": [
+          "googlecloud/octospark-staging"
+        ]
+      },
+      "metrics/octospark-staging": {
+        "receivers": [
+          "otlp/octospark-staging",
+          "docker_stats"
+        ],
+        "processors": [
+          "memory_limiter",
+          "resource/octospark-staging",
+          "transform/metric_instance",
+          "filter/containers-octospark-staging",
+          "filter/cpu_noise",
+          "metricstransform/cpu_rollup"
+        ],
+        "exporters": [
+          "googlemanagedprometheus/octospark-staging"
+        ]
+      },
+      "traces/octospark-prod": {
+        "receivers": [
+          "otlp/octospark-prod"
+        ],
+        "processors": [
+          "memory_limiter",
+          "resource/octospark-prod",
+          "filter/health_spans",
+          "batch"
+        ],
+        "exporters": [
+          "googlecloud/octospark-prod"
+        ]
+      },
+      "logs/octospark-prod": {
+        "receivers": [
+          "otlp/octospark-prod"
+        ],
+        "processors": [
+          "memory_limiter",
+          "resource/octospark-prod",
+          "batch"
+        ],
+        "exporters": [
+          "googlecloud/octospark-prod"
+        ]
+      },
+      "metrics/octospark-prod": {
+        "receivers": [
+          "otlp/octospark-prod",
+          "docker_stats",
+          "hostmetrics"
+        ],
+        "processors": [
+          "memory_limiter",
+          "resource/octospark-prod",
+          "transform/metric_instance",
+          "filter/containers-octospark-prod",
+          "filter/cpu_noise",
+          "metricstransform/cpu_rollup"
+        ],
+        "exporters": [
+          "googlemanagedprometheus/octospark-prod"
+        ]
+      },
+      "traces/trace-learn-staging": {
+        "receivers": [
+          "otlp/trace-learn-staging"
+        ],
+        "processors": [
+          "memory_limiter",
+          "resource/trace-learn-staging",
+          "filter/health_spans",
+          "batch"
+        ],
+        "exporters": [
+          "googlecloud/trace-learn-staging"
+        ]
+      },
+      "logs/trace-learn-staging": {
+        "receivers": [
+          "otlp/trace-learn-staging"
+        ],
+        "processors": [
+          "memory_limiter",
+          "resource/trace-learn-staging",
+          "batch"
+        ],
+        "exporters": [
+          "googlecloud/trace-learn-staging"
+        ]
+      },
+      "metrics/trace-learn-staging": {
+        "receivers": [
+          "otlp/trace-learn-staging",
+          "docker_stats"
+        ],
+        "processors": [
+          "memory_limiter",
+          "resource/trace-learn-staging",
+          "transform/metric_instance",
+          "filter/containers-trace-learn-staging",
+          "filter/cpu_noise",
+          "metricstransform/cpu_rollup"
+        ],
+        "exporters": [
+          "googlemanagedprometheus/trace-learn-staging"
+        ]
+      },
+      "traces/trace-learn-prod": {
+        "receivers": [
+          "otlp/trace-learn-prod"
+        ],
+        "processors": [
+          "memory_limiter",
+          "resource/trace-learn-prod",
+          "filter/health_spans",
+          "batch"
+        ],
+        "exporters": [
+          "googlecloud/trace-learn-prod"
+        ]
+      },
+      "logs/trace-learn-prod": {
+        "receivers": [
+          "otlp/trace-learn-prod"
+        ],
+        "processors": [
+          "memory_limiter",
+          "resource/trace-learn-prod",
+          "batch"
+        ],
+        "exporters": [
+          "googlecloud/trace-learn-prod"
+        ]
+      },
+      "metrics/trace-learn-prod": {
+        "receivers": [
+          "otlp/trace-learn-prod",
+          "docker_stats"
+        ],
+        "processors": [
+          "memory_limiter",
+          "resource/trace-learn-prod",
+          "transform/metric_instance",
+          "filter/containers-trace-learn-prod",
+          "filter/cpu_noise",
+          "metricstransform/cpu_rollup"
+        ],
+        "exporters": [
+          "googlemanagedprometheus/trace-learn-prod"
+        ]
+      }
+    },
+    "telemetry": {
+      "logs": {
+        "level": "info"
+      },
+      "metrics": {
+        "level": "basic"
+      }
+    }
+  }
+}

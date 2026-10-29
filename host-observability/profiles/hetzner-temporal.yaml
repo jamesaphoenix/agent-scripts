@@ -1,0 +1,88 @@
+receivers:
+  prometheus:
+    config:
+      scrape_configs:
+        - job_name: temporal-server
+          scrape_interval: ${env:TEMPORAL_SERVER_METRICS_SCRAPE_INTERVAL}
+          scrape_timeout: ${env:TEMPORAL_SERVER_METRICS_SCRAPE_TIMEOUT}
+          metrics_path: /metrics
+          static_configs:
+            - targets:
+                - temporal:9090
+          # ALLOWLIST, not a drop-list. Nothing in
+          # monitoring/production/gcp/alerts or the Grafana dashboards reads any
+          # Temporal Server internal metric: every consumer charts tx_agent_kit_*,
+          # ai_media_*, system_*/container_*, or the Temporal SDK client metrics
+          # the app collector ships. The previous histogram-bucket drop still left
+          # 64 counters + 49 gauges flowing (~300M samples/month into GMP,
+          # ~$18/month) with zero consumers, so ingestion is now inverted: keep
+          # only the error and backlog series worth having when triaging an
+          # incident from the GCP side, drop everything else at scrape time.
+          #
+          # Everything dropped here remains available live on the server itself
+          # (temporal:9090/metrics and the Temporal UI) - this only gates what is
+          # ingested (and billed) by Managed Prometheus. To chart a new server
+          # metric, add it to this keep regex first.
+          # The (_total)? makes the keep robust to whether the counter suffix is
+          # present at scrape time or only added by the GMP exporter
+          # (add_metric_suffixes) at write time.
+          metric_relabel_configs:
+            - source_labels: [__name__]
+              regex: 'service_error_with_type(_total)?|approximate_backlog_count|approximate_backlog_age_seconds'
+              action: keep
+
+extensions:
+  health_check:
+    endpoint: 0.0.0.0:13133
+    path: /health/status
+
+processors:
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 256
+    spike_limit_mib: 64
+  resourcedetection:
+    detectors: [env]
+    timeout: 5s
+    override: false
+  resource:
+    attributes:
+      - key: service.namespace
+        value: ${env:OTEL_SERVICE_NAMESPACE}
+        action: upsert
+      - key: deployment.environment.name
+        value: ${env:NODE_ENV}
+        action: upsert
+      - key: cloud.region
+        value: us-central1
+        action: upsert
+      - key: k8s.cluster.name
+        value: octospark-temporal-server
+        action: upsert
+      - key: k8s.namespace.name
+        value: octospark-temporal
+        action: upsert
+
+exporters:
+  googlemanagedprometheus:
+    # Deliberately NOT GOOGLE_CLOUD_PROJECT. That variable is also read by
+    # backup/backup.sh for the GCS backup bucket, which stays in octospark-prod.
+    # The Temporal Server is shared infrastructure (one server, prod + staging
+    # namespaces), so its telemetry belongs in its own project rather than being
+    # attributed entirely to prod. hetzner-temporal-server is added to the
+    # octospark-prod metrics scope, so dashboards and alerts still query it.
+    project: ${env:OTEL_METRICS_GCP_PROJECT}
+
+service:
+  extensions: [health_check]
+  pipelines:
+    metrics:
+      receivers: [prometheus]
+      # Do not add batch here. GMP can reject more than one point per series in
+      # a single request, and the Temporal Server scrape volume is tiny.
+      processors: [memory_limiter, resourcedetection, resource]
+      exporters: [googlemanagedprometheus]
+
+  telemetry:
+    logs:
+      level: info

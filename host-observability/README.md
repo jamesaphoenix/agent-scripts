@@ -18,7 +18,9 @@ limit is 200 data points. Existing Google Managed Prometheus pipelines remain
 unbatched. Other projects have separate bounded persistent exporter queues.
 A common 768 MiB container limit bounds the shared failure domain.
 
-The host uses its existing Octospark service account through ADC. Explicit project
+The host uses its existing Octospark service account through ADC.
+The additional GoWithSolar grants are recorded in `iam.json`; no existing project
+access or Terraform-managed collector identity was removed. Explicit project
 exporters and isolated receivers determine destination. That identity has only
 telemetry write and service-usage access added to GoWithSolar. Credentials stay in
 the existing private host mount; no credential values are source controlled.
@@ -35,7 +37,10 @@ python3 host-observability/build.py > /private/tmp/host-otel-config.json
 Validate using the exact pinned image before deployment, with a read-only hostfs
 mount required by hostmetrics. Render config and compose into a new release under
 `/volume1/docker/jud/observability/releases/`, preserve the previous release, and
-run `docker compose -p jud-observability -f compose.json up -d --no-deps` there.
+run `docker compose -p jud-observability -f compose.json up -d --no-deps host-collector` there.
+The service is named `host-collector` and its container `jud-host-otel`: do not
+name the service `otel-collector`, because Compose automatically publishes that
+DNS alias on every attached network and would collide with the legacy solar route.
 Deploy/restart no application as part of that command. Health is available only
 on `127.0.0.1:32133/health/status`.
 

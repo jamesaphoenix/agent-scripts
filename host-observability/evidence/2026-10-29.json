@@ -1,0 +1,61 @@
+{
+  "date": "2026-10-29",
+  "owner": "jamesaphoenix/agent-scripts/host-observability",
+  "synology": {
+    "collector": "jud-host-otel",
+    "runningCollectorCount": 1,
+    "image": "0.163.1 digest pinned",
+    "config": "/volume1/docker/jud/observability/releases/shared-20261029/config.json",
+    "health": "HTTP200 /health/status",
+    "retiredContainers": [
+      "solar-quote-otel",
+      "jud-observability-otel-collector-1"
+    ],
+    "rollback": "containers/configs/queues retained; restart disabled"
+  },
+  "hetzner": {
+    "runningCollectorCount": 1,
+    "collector": "octospark-temporal-otel-collector-temporal-1",
+    "health": "HTTP200 /health/status",
+    "change": "existing collector retained; central ownership recorded"
+  },
+  "canaries": {
+    "gowith-solar-prod": {
+      "traceId": "603fa55a857345c4b9314eba59f2b92f",
+      "metric": "qa_http_requests_total",
+      "log": "GoWithSolar operational incident",
+      "allThreeSignalsReadBackFromGcp": true
+    },
+    "octospark-prod": {
+      "traceId": "1fba21f9c1a44982950b5075963e6ded",
+      "metric": "jud_host_collector_canary_ratio",
+      "allThreeSignalsReadBackFromGcp": true
+    },
+    "tracelearn-prod": {
+      "traceId": "f7f9ec2f8810404b86f559c9dd6673bd",
+      "metric": "jud_host_collector_canary_ratio",
+      "allThreeSignalsReadBackFromGcp": true
+    }
+  },
+  "routingIsolation": {
+    "marker": "host-route-isolation-20261029-1524",
+    "receiver": "octospark-prod",
+    "attemptedResourceProject": "gowith-solar-prod",
+    "observedProject": "octospark-prod",
+    "absentFromAttemptedProject": true
+  },
+  "spring": {
+    "releasePr": 342,
+    "commit": "1b07e31dab4b1df1684cc811103fc182e7f2a355",
+    "workflow": 40898539518,
+    "productionWorkflow": "success",
+    "endpoint": "http://jud-otel:4322",
+    "externalHealth": "HTTP200",
+    "realMetricPointsAcceptedBySharedReceiver": 397
+  },
+  "diagnostics": {
+    "sharedQueueHealthSeriesVisibleInGcp": true,
+    "sampleQueueSize": 0
+  },
+  "knownPreexistingIssue": "Octospark Temporal SDK metrics with missing instance identities can collide and produce out-of-order writes. Observed on original collector before consolidation; unresolved by this migration."
+}

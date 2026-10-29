@@ -8,9 +8,15 @@ ROOT = Path(__file__).parent
 IMAGE = 'otel/opentelemetry-collector-contrib:0.163.1@sha256:1175b03003053962012f5a231f5567f66a3e8fdb960c7835c0e48f7aa1555806'
 
 
-def build(solar_ip='172.27.0.5', shared_ip='172.26.0.2'):
+def build():
     shared = json.loads((ROOT / 'profiles/synology-existing.json').read_text())
     solar = json.loads((ROOT / 'profiles/gowithsolar.json').read_text())
+    # Force the project before native Google exporters can inspect resource overrides.
+    for name, exporter in shared['exporters'].items():
+        if name.startswith('googlecloud/'):
+            route = name.split('/',1)[1]
+            shared['processors']['resource/'+route]['attributes'].append(
+                {'key':'gcp.project.id','value':exporter['project'],'action':'upsert'})
     # Bind solar ingress to its dedicated network-facing port, never resource-attribute routing.
     solar['receivers']['otlp']['protocols']['http']['endpoint'] = '0.0.0.0:4322'
     solar['receivers']['otlp']['protocols'].pop('grpc', None)

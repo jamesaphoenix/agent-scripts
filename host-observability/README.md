@@ -63,11 +63,11 @@ No duplicate Collector was started. Add application ingress and project-specific
 pipelines here only when workloads actually run on that host. Do not send all
 Synology traffic across the tailnet just to centralise collection.
 
-## Smart Cub Learning
+## Smart Cub Learning / Trace Learn
 
-No running Smart Cub backend or Collector was found on Synology, Hetzner, A Series
-or Mac Studio in the host inventory. Its repository contains deployment templates,
-but those alone do not prove a current live endpoint. Confirm the runtime location
-before migrating it. Its browser/mobile telemetry must remain excluded from GMP,
-as specified by that application's existing policy. Do not guess its GCP project
-or reroute another application's port for it.
+James confirmed on 29 October that Trace Learn is the backend intended by
+Smart Cub Learning in this consolidation. Its production and staging services
+already use the shared Synology routes (`jud-otel:4321` and `jud-otel:4320`).
+They retain their existing `tracelearn-prod` and `tracelearn-staging` GCP projects.
+Do not create another receiver/project/collector for the Smart Cub product name.
+Browser/mobile telemetry remains excluded from GMP under the application's policy.

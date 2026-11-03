@@ -17,6 +17,10 @@ install -m 755 "$source_root/agent-loops/cache-hygiene/disk-preflight.py" "$targ
 install -m 755 "$source_root/agent-loops/a-series-ci/cleanup.py" "$target/agent-loops/a-series-ci/cleanup.py"
 install -m 644 "$source_root/agent-loops/a-series-ci/jud-ci-cleanup.service" /etc/systemd/system/jud-ci-cleanup.service
 install -m 644 "$source_root/agent-loops/a-series-ci/jud-ci-cleanup.timer" /etc/systemd/system/jud-ci-cleanup.timer
+install -m 755 "$source_root/agent-loops/a-series-ci/cache-cleanup.sh" "$target/agent-loops/a-series-ci/cache-cleanup.sh"
+install -m 644 "$source_root/agent-loops/a-series-ci/jud-ci-cache-cleanup.service" /etc/systemd/system/jud-ci-cache-cleanup.service
+install -m 644 "$source_root/agent-loops/a-series-ci/jud-ci-cache-cleanup.timer" /etc/systemd/system/jud-ci-cache-cleanup.timer
 systemctl daemon-reload
 systemctl enable --now jud-ci-cleanup.timer
+systemctl enable --now jud-ci-cache-cleanup.timer
 echo 'A Series CI runtime installed. Restart idle runner services to load updated hooks.'

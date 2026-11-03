@@ -17,6 +17,17 @@ anonymous unattached volumes, dangling images, build cache older than seven
 days, and runner checkouts idle for seven days. It skips cache and checkout
 pruning while any job is active. It never prunes named volumes or tagged images.
 Run `python3 /opt/jud-ci/agent-loops/a-series-ci/cleanup.py` for a dry run.
+
+`jud-ci-cache-cleanup.timer` runs weekly (Sunday 03:30 host time). It is the only
+place the persistent CI caches under `/home/ci-runner/.cache/octospark-ci` and
+`/home/ci-runner/.cache/trace-learn-ci` (pnpm store, Turbo, local BuildKit
+caches) are removed: jobs never prune them. `cache-cleanup.sh` runs each
+repository's own `scripts/deploy/ci/host-cache-cleanup.sh` from the newest
+runner workspace checkout (entries unused for 14 days, `pnpm store prune`) and
+then prunes the `octospark-cache-builder` and `trace-learn-cache-builder`
+BuildKit containers through `buildctl` (14 days, 40 GB kept). Run
+`sudo -u ci-runner /opt/jud-ci/agent-loops/a-series-ci/cache-cleanup.sh --dry-run`
+to see what it would remove.
 Pause with `/home/ci-runner/.local/state/a-series-ci/disabled`.
 
 After updating this source on the MacBook, copy only the maintained `lib/`,

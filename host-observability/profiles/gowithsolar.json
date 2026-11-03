@@ -120,10 +120,17 @@
         {
           "context": "log",
           "statements": [
-            "keep_keys(attributes, [\"operation\", \"provider\", \"reason\"])",
+            "keep_keys(attributes, [\"operation\", \"provider\", \"reason\", \"log.logger\", \"job.signature\", \"job.name\", \"exception.type\", \"exception.chain\", \"exception.reason\", \"code.frame\"])",
             "set(attributes[\"operation\"], \"OTHER\") where not (attributes[\"operation\"] == \"HTTP\" or attributes[\"operation\"] == \"EXTRACT\" or attributes[\"operation\"] == \"EMBED\" or attributes[\"operation\"] == \"SEARCH\" or attributes[\"operation\"] == \"GENERATE\" or attributes[\"operation\"] == \"CHAT\" or attributes[\"operation\"] == \"RECONCILE\" or attributes[\"operation\"] == \"REFUND\" or attributes[\"operation\"] == \"CALCULATE\" or attributes[\"operation\"] == \"OTHER\")",
             "set(attributes[\"provider\"], \"OTHER\") where not (attributes[\"provider\"] == \"OPENROUTER\" or attributes[\"provider\"] == \"GOOGLE_SOLAR\" or attributes[\"provider\"] == \"PVGIS\" or attributes[\"provider\"] == \"LICENSED_SEARCH\" or attributes[\"provider\"] == \"STRIPE\" or attributes[\"provider\"] == \"OTHER\")",
             "set(attributes[\"reason\"], \"OTHER\") where not (attributes[\"reason\"] == \"MISSING\" or attributes[\"reason\"] == \"CONFLICT\" or attributes[\"reason\"] == \"STALE\" or attributes[\"reason\"] == \"UNAVAILABLE\" or attributes[\"reason\"] == \"INVALID\" or attributes[\"reason\"] == \"TIMEOUT\" or attributes[\"reason\"] == \"BUDGET\" or attributes[\"reason\"] == \"OTHER\")",
+            "delete_key(attributes, \"log.logger\") where attributes[\"log.logger\"] != nil and not IsMatch(attributes[\"log.logger\"], \"^[A-Za-z0-9_.$]{1,200}$\")",
+            "delete_key(attributes, \"job.signature\") where attributes[\"job.signature\"] != nil and not IsMatch(attributes[\"job.signature\"], \"^[A-Za-z0-9_.$(),\\\\[\\\\]]{1,300}$\")",
+            "delete_key(attributes, \"job.name\") where attributes[\"job.name\"] != nil and not IsMatch(attributes[\"job.name\"], \"^[A-Za-z0-9 _.:,()/-]{1,120}$\")",
+            "delete_key(attributes, \"exception.type\") where attributes[\"exception.type\"] != nil and not IsMatch(attributes[\"exception.type\"], \"^[A-Za-z0-9_.$]{1,200}$\")",
+            "delete_key(attributes, \"exception.chain\") where attributes[\"exception.chain\"] != nil and not IsMatch(attributes[\"exception.chain\"], \"^[A-Za-z0-9_$>]{1,300}$\")",
+            "delete_key(attributes, \"exception.reason\") where attributes[\"exception.reason\"] != nil and not IsMatch(attributes[\"exception.reason\"], \"^[A-Z0-9_>]{1,200}$\")",
+            "delete_key(attributes, \"code.frame\") where attributes[\"code.frame\"] != nil and not IsMatch(attributes[\"code.frame\"], \"^[A-Za-z0-9_.$<>]{1,250}$\")",
             "set(body, \"GoWithSolar operational incident\")",
             "set(severity_text, \"WARN\")",
             "set(severity_text, \"ERROR\") where severity_number >= SEVERITY_NUMBER_ERROR"

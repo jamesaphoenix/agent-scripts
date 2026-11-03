@@ -100,7 +100,7 @@
       "error_mode": "ignore",
       "traces": {
         "span": [
-          "name == \"db.repository\" and parent_span_id.string == \"\" and status.code != STATUS_CODE_ERROR"
+          "name == \"db.repository\" and IsRootSpan() and status.code != STATUS_CODE_ERROR"
         ]
       }
     },

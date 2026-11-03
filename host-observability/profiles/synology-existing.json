@@ -96,6 +96,14 @@
         ]
       }
     },
+    "filter/parentless_repository_spans": {
+      "error_mode": "ignore",
+      "traces": {
+        "span": [
+          "name == \"db.repository\" and parent_span_id.string == \"\" and status.code != STATUS_CODE_ERROR"
+        ]
+      }
+    },
     "transform/metric_instance": {
       "error_mode": "ignore",
       "metric_statements": [
@@ -294,6 +302,186 @@
           "attributes[\"container_name\"] != nil and not IsMatch(attributes[\"container_name\"], \"^/?trace-learn-prod-.*\")"
         ]
       }
+    },
+    "tail_sampling/octospark-staging": {
+      "decision_wait": "10s",
+      "num_traces": 10000,
+      "expected_new_traces_per_sec": 20,
+      "maximum_trace_size_bytes": 262144,
+      "drop_pending_traces_on_shutdown": true,
+      "decision_cache": {
+        "sampled_cache_size": 20000,
+        "non_sampled_cache_size": 50000
+      },
+      "policies": [
+        {
+          "name": "keep-errors",
+          "type": "status_code",
+          "status_code": {
+            "status_codes": [
+              "ERROR"
+            ]
+          }
+        },
+        {
+          "name": "keep-5xx",
+          "type": "numeric_attribute",
+          "numeric_attribute": {
+            "key": "http.response.status_code",
+            "min_value": 500,
+            "max_value": 599
+          }
+        },
+        {
+          "name": "keep-slow",
+          "type": "latency",
+          "latency": {
+            "threshold_ms": 5000
+          }
+        },
+        {
+          "name": "sample-the-rest",
+          "type": "probabilistic",
+          "probabilistic": {
+            "sampling_percentage": 10
+          }
+        }
+      ]
+    },
+    "tail_sampling/octospark-prod": {
+      "decision_wait": "10s",
+      "num_traces": 10000,
+      "expected_new_traces_per_sec": 20,
+      "maximum_trace_size_bytes": 262144,
+      "drop_pending_traces_on_shutdown": true,
+      "decision_cache": {
+        "sampled_cache_size": 20000,
+        "non_sampled_cache_size": 50000
+      },
+      "policies": [
+        {
+          "name": "keep-errors",
+          "type": "status_code",
+          "status_code": {
+            "status_codes": [
+              "ERROR"
+            ]
+          }
+        },
+        {
+          "name": "keep-5xx",
+          "type": "numeric_attribute",
+          "numeric_attribute": {
+            "key": "http.response.status_code",
+            "min_value": 500,
+            "max_value": 599
+          }
+        },
+        {
+          "name": "keep-slow",
+          "type": "latency",
+          "latency": {
+            "threshold_ms": 5000
+          }
+        },
+        {
+          "name": "sample-the-rest",
+          "type": "probabilistic",
+          "probabilistic": {
+            "sampling_percentage": 10
+          }
+        }
+      ]
+    },
+    "tail_sampling/trace-learn-staging": {
+      "decision_wait": "10s",
+      "num_traces": 10000,
+      "expected_new_traces_per_sec": 20,
+      "maximum_trace_size_bytes": 262144,
+      "drop_pending_traces_on_shutdown": true,
+      "decision_cache": {
+        "sampled_cache_size": 20000,
+        "non_sampled_cache_size": 50000
+      },
+      "policies": [
+        {
+          "name": "keep-errors",
+          "type": "status_code",
+          "status_code": {
+            "status_codes": [
+              "ERROR"
+            ]
+          }
+        },
+        {
+          "name": "keep-5xx",
+          "type": "numeric_attribute",
+          "numeric_attribute": {
+            "key": "http.response.status_code",
+            "min_value": 500,
+            "max_value": 599
+          }
+        },
+        {
+          "name": "keep-slow",
+          "type": "latency",
+          "latency": {
+            "threshold_ms": 5000
+          }
+        },
+        {
+          "name": "sample-the-rest",
+          "type": "probabilistic",
+          "probabilistic": {
+            "sampling_percentage": 10
+          }
+        }
+      ]
+    },
+    "tail_sampling/trace-learn-prod": {
+      "decision_wait": "10s",
+      "num_traces": 10000,
+      "expected_new_traces_per_sec": 20,
+      "maximum_trace_size_bytes": 262144,
+      "drop_pending_traces_on_shutdown": true,
+      "decision_cache": {
+        "sampled_cache_size": 20000,
+        "non_sampled_cache_size": 50000
+      },
+      "policies": [
+        {
+          "name": "keep-errors",
+          "type": "status_code",
+          "status_code": {
+            "status_codes": [
+              "ERROR"
+            ]
+          }
+        },
+        {
+          "name": "keep-5xx",
+          "type": "numeric_attribute",
+          "numeric_attribute": {
+            "key": "http.response.status_code",
+            "min_value": 500,
+            "max_value": 599
+          }
+        },
+        {
+          "name": "keep-slow",
+          "type": "latency",
+          "latency": {
+            "threshold_ms": 5000
+          }
+        },
+        {
+          "name": "sample-the-rest",
+          "type": "probabilistic",
+          "probabilistic": {
+            "sampling_percentage": 10
+          }
+        }
+      ]
     }
   },
   "exporters": {
@@ -347,6 +535,8 @@
           "memory_limiter",
           "resource/octospark-staging",
           "filter/health_spans",
+          "filter/parentless_repository_spans",
+          "tail_sampling/octospark-staging",
           "batch"
         ],
         "exporters": [
@@ -391,6 +581,8 @@
           "memory_limiter",
           "resource/octospark-prod",
           "filter/health_spans",
+          "filter/parentless_repository_spans",
+          "tail_sampling/octospark-prod",
           "batch"
         ],
         "exporters": [
@@ -436,6 +628,8 @@
           "memory_limiter",
           "resource/trace-learn-staging",
           "filter/health_spans",
+          "filter/parentless_repository_spans",
+          "tail_sampling/trace-learn-staging",
           "batch"
         ],
         "exporters": [
@@ -480,6 +674,8 @@
           "memory_limiter",
           "resource/trace-learn-prod",
           "filter/health_spans",
+          "filter/parentless_repository_spans",
+          "tail_sampling/trace-learn-prod",
           "batch"
         ],
         "exporters": [

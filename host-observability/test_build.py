@@ -31,4 +31,19 @@ class Routes(unittest.TestCase):
             self.assertIn({'key':'gcp.project.id','value':project,'action':'upsert'}, c['processors']['resource/'+route]['attributes'])
         self.assertEqual('/var/lib/solar-queue',c['extensions']['file_storage/solar']['directory'])
 
+    def test_shared_trace_pipelines_tail_sample_per_route(self):
+        c=build()
+        for route in ('octospark-prod','octospark-staging','trace-learn-prod','trace-learn-staging'):
+            procs=c['service']['pipelines']['traces/'+route]['processors']
+            sampler='tail_sampling/'+route
+            # Per-trace state must never be shared between projects.
+            self.assertEqual(1,sum(p.startswith('tail_sampling') for p in procs))
+            self.assertLess(procs.index('filter/health_spans'),procs.index('filter/parentless_repository_spans'))
+            self.assertLess(procs.index('filter/parentless_repository_spans'),procs.index(sampler))
+            self.assertLess(procs.index(sampler),procs.index('batch'))
+            policies={p['name']:p for p in c['processors'][sampler]['policies']}
+            self.assertEqual(['ERROR'],policies['keep-errors']['status_code']['status_codes'])
+            self.assertEqual(10,policies['sample-the-rest']['probabilistic']['sampling_percentage'])
+        self.assertNotIn('tail_sampling',c['processors'])
+
 if __name__=='__main__': unittest.main()

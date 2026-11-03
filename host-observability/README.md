@@ -18,6 +18,20 @@ limit is 200 data points. Existing Google Managed Prometheus pipelines remain
 unbatched. Other projects have separate bounded persistent exporter queues.
 A common 768 MiB container limit bounds the shared failure domain.
 
+Octospark and Trace Learn traces are sampled only here; their SDKs stay `always_on`.
+Each trace pipeline first drops parentless, non-error `db.repository` spans from
+background work, then runs its own `tail_sampling/<route>` instance (per-trace state
+is never shared between projects). It keeps every trace containing an ERROR span,
+every trace with an `http.response.status_code` of 500 to 599, and every trace slower
+than 5 s, and keeps 10% of the rest. Memory: `decision_wait` is 10 s and `num_traces`
+10000 per route, so at roughly 20 new traces per second each instance holds about
+200 traces in steady state. The cap and `maximum_trace_size_bytes` (256 KiB) bound
+bursts, and the shared memory limiter (640 MiB, under the 768 MiB container limit and
+576 MiB GOMEMLIMIT) still applies. GoWithSolar keeps its own sampler.
+This policy takes effect only after the collector is redeployed with the compose
+command below. The tail-sampling `dropped_too_early` counter has no per-processor
+label, so the GoWithSolar self-metric for it now counts all five samplers.
+
 The host uses its existing Octospark service account through ADC.
 The additional GoWithSolar grants are recorded in `iam.json`; no existing project
 access or Terraform-managed collector identity was removed. Explicit project

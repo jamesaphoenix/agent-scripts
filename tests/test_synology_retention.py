@@ -144,6 +144,25 @@ class RetentionTests(unittest.TestCase):
             self.assertTrue((folders / '5/runtime.env').exists())
             docker.assert_called_once_with('image', 'rm', 'owned-old')
 
+    def test_release_records_which_commit_each_service_image_was_built_from(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp).resolve()
+            folder = root / 'trace-learn-staging' / 'releases' / 'reused'
+            folder.mkdir(parents=True)
+            record = {'project': 'trace-learn-staging', 'sourceSha': 'b' * 40, 'images': {'API_IMAGE': REPO + '@sha256:' + '1' * 64},
+                      'deployedFromSourceSha': {'api': 'a' * 40}}
+            (folder / 'release.json').write_text(json.dumps(record))
+            with patch.object(retention, 'ROOT', root):
+                current = retention.read_release('trace-learn-staging', folder, require_source=True)
+                self.assertEqual(retention.expected_source(current, 'api'), 'a' * 40)
+                self.assertEqual(retention.expected_source(current, 'worker'), 'b' * 40)
+                record['deployedFromSourceSha'] = {'api': 'not a commit'}
+                (folder / 'release.json').write_text(json.dumps(record))
+                with self.assertRaisesRegex(ValueError, 'deployedFromSourceSha'):
+                    retention.read_release('trace-learn-staging', folder, require_source=True)
+        # Ledger entries written before this field carry no builtFrom key.
+        self.assertEqual(retention.expected_source(release('5'), 'api'), '5')
+
     def test_deployment_lock_prevents_snapshot_and_deletion(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp).resolve()

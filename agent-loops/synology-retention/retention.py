@@ -149,10 +149,22 @@ def read_release(project, path, require_source=False):
     if not record['images'] or any(not re.fullmatch(re.escape(repository(ref)) + r'@sha256:[0-9a-f]{64}', ref)
                                    or repository(ref) not in REPOS[app(project)] for ref in record['images'].values()):
         raise ValueError('Unexpected release image repository')
+    # A deploy may reuse a service image built from an earlier commit when the
+    # image inputs did not change. The record names that commit per service, and
+    # the running container reports it as BUILD_COMMIT_SHA.
+    built_from = record.get('deployedFromSourceSha') or {}
+    if not isinstance(built_from, dict) or any(not isinstance(k, str) or not isinstance(v, str) or not re.fullmatch(r'[0-9a-f]{7,40}', v)
+                                               for k, v in built_from.items()):
+        raise ValueError('Invalid deployedFromSourceSha')
     # Early migration attempts predate sourceSha. They are never observed as
     # healthy rollback receipts, but their image references must be protected
     # during bootstrap and the age grace period.
-    return {'path': str(path), 'sourceSha': source or ('unverified:' + path.name), 'images': record['images'], 'modified': modified}
+    return {'path': str(path), 'sourceSha': source or ('unverified:' + path.name), 'images': record['images'], 'modified': modified,
+            'builtFrom': built_from}
+
+
+def expected_source(release, service):
+    return release.get('builtFrom', {}).get(service, release['sourceSha'])
 
 
 def snapshot():
@@ -174,13 +186,15 @@ def snapshot():
                 raise RuntimeError('Service image differs from successful receipt')
             if service in ('api', 'mcp', 'worker'):
                 environment = dict(value.split('=', 1) for value in matches[0]['Config']['Env'])
-                if environment.get('BUILD_COMMIT_SHA') != current['sourceSha']:
+                if environment.get('BUILD_COMMIT_SHA') != expected_source(current, service):
                     raise RuntimeError('Service source differs from successful receipt')
         with urllib.request.urlopen('http://127.0.0.1:' + str(int(receipt['apiPort'])) + '/health', timeout=8) as response:
             health = json.load(response)
         # Octospark health has no commit field; its container source and digest
-        # were checked above. Trace Learn also exposes the source publicly.
-        if health.get('status') not in ('ok', 'healthy') or health.get('commit', current['sourceSha']) != current['sourceSha']:
+        # were checked above. Trace Learn also exposes the source publicly, as
+        # the commit its API image was built from.
+        api_source = expected_source(current, 'api')
+        if health.get('status') not in ('ok', 'healthy') or health.get('commit', api_source) != api_source:
             raise RuntimeError('API health or source identity mismatch: ' + project)
         releases = [read_release(project, p) for p in (ROOT / project / 'releases').iterdir()]
         projects[project] = {'current': current, 'releases': releases}

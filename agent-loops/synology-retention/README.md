@@ -18,6 +18,10 @@ removes old, unused application images and private release bundles safely.
   after 14 days when no container uses them, covering replaced Solar ROI images.
   Referenced Solar ROI, Redis, cloudflared, collectors, volumes, build caches
   and other application data are excluded.
+- A deploy may reuse a service image built from an earlier commit when its
+  inputs did not change. The release record names that commit per service in
+  `deployedFromSourceSha`; the job compares each container's `BUILD_COMMIT_SHA`
+  and the Trace Learn health `commit` against it, falling back to `sourceSha`.
 - Acquire all four existing deployment locks and a janitor lock before observing
   or deleting. If a deployment is active, skip the run. Unhealthy services,
   malformed metadata, unsafe paths or symlinks fail closed.

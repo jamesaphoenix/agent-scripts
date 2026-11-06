@@ -175,7 +175,9 @@ The renderer may deliberately remain on an older release while staging media
 changes. Native bundle identity includes compute sources as well as image pins:
 a changed executable with reused Docker images is still a distinct rollback.
 Cleanup retains the current plus two distinct native bundles per environment
-and the union of both referenced artifacts' renderer/media images. It always
+and the actual renderer image from the render artifact plus the actual media
+image from the media artifact. An unused selected renderer image is not a live
+native pin and does not need pulling solely for retention. It always
 protects the actual `current-render` artifact separately, since production may
 advance the shared renderer after staging's completed canary.
 

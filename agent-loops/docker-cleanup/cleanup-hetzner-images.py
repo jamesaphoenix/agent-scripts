@@ -146,6 +146,7 @@ def current_release(project, containers):
 
 NATIVE_ENVIRONMENTS = ('staging', 'prod')
 NATIVE_KEYS = ('RENDERER_IMAGE_AMD64', 'MEDIA_RUNTIME_IMAGE_AMD64')
+NATIVE_ROLE_KEY = {'media':'MEDIA_RUNTIME_IMAGE_AMD64', 'render':'RENDERER_IMAGE_AMD64'}
 
 
 def native_artifact(path):
@@ -161,12 +162,12 @@ def native_artifact(path):
 
 def native_identity(record):
     # Native executables can change while Docker image pins are reused.
-    return tuple((record[role]['sourceSha'], tuple(sorted(record[role]['images'].items())))
-                 for role in ('media', 'render'))
+    return tuple((record[role]['sourceSha'], record[role]['images'][key])
+                 for role,key in NATIVE_ROLE_KEY.items())
 
 
 def native_record_refs(record):
-    return {ref for role in ('media', 'render') for ref in record[role]['images'].values()}
+    return {record[role]['images'][key] for role,key in NATIVE_ROLE_KEY.items()}
 
 
 def validate_native_record(record, environment):
@@ -279,7 +280,7 @@ def native_pins(history):
             if values.get('RENDER_HOST_RENDERER_IMAGE') != record['images']['RENDERER_IMAGE_AMD64']:
                 raise ValueError('Shared renderer configuration does not match current artifact')
             proof_hashes[str(NATIVE/'env/render.env')]=checksum
-        pins.update(record['images'].values())
+        pins.add(record['images']['RENDERER_IMAGE_AMD64' if name == 'current-render' else 'MEDIA_RUNTIME_IMAGE_AMD64'])
         proof_hashes[str(path)] = str(target)+':'+record['artifactSha256']
     return pins, proof_hashes, retained
 

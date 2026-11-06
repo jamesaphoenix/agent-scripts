@@ -84,6 +84,14 @@ class NativeRetentionTests(unittest.TestCase):
         selected=cleanup.retain_native_history({'staging':rows,'prod':rows},{'staging':rows[-1],'prod':rows[-1]})
         self.assertEqual(len(selected['staging']),3)
 
+    def test_unused_selected_images_do_not_create_a_new_native_rollback_identity(self):
+        row=self.audited(1,'staging')
+        other=copy.deepcopy(row)
+        other['render']=copy.deepcopy(other['render'])
+        other['media']['images']['RENDERER_IMAGE_AMD64']='unused-new-renderer'
+        other['render']['images']['MEDIA_RUNTIME_IMAGE_AMD64']='unused-new-media'
+        self.assertEqual(cleanup.native_identity(row),cleanup.native_identity(other))
+
     def test_repeated_bundle_cannot_replace_two_real_rollbacks(self):
         row=self.audited(1,'staging')
         with self.assertRaisesRegex(ValueError,'two distinct native rollback'):
@@ -96,13 +104,25 @@ class NativeRetentionTests(unittest.TestCase):
     def test_separate_shared_renderer_artifact_is_retained(self):
         renderer=self.artifact(2,'prod');row=self.proof(3,'staging',renderer)
         refs=cleanup.native_record_refs(row)
-        self.assertEqual(len(refs),4)
+        self.assertEqual(len(refs),2)
         self.assertIn(cleanup.PREFIX['octospark']+'renderer@sha256:'+'2'*64,refs)
         self.assertIn(cleanup.PREFIX['octospark']+'media-runtime@sha256:'+'3'*64,refs)
+        self.assertNotIn(cleanup.PREFIX['octospark']+'renderer@sha256:'+'3'*64,refs)
+        self.assertNotIn(cleanup.PREFIX['octospark']+'media-runtime@sha256:'+'2'*64,refs)
         # A subsequent production renderer switch does not falsify staging's
         # immutable completed canary receipt.
         self.proof(4,'prod')
         self.assertEqual(cleanup.current_native_record('staging',EVIDENCE),row)
+
+    def test_snapshot_pins_only_the_actual_shared_renderer_not_an_unused_selected_image(self):
+        history={'staging':[self.audited(1,'staging'),self.audited(2,'staging')],
+                 'prod':[self.audited(n,'prod') for n in (5,1,2)]}
+        history['staging'].append(self.proof(3,'staging',self.artifact(2,'prod')))
+        self.proof(2,'prod')
+        refs,_,_=cleanup.native_pins(history)
+        self.assertIn(cleanup.PREFIX['octospark']+'renderer@sha256:'+'2'*64,refs)
+        self.assertIn(cleanup.PREFIX['octospark']+'media-runtime@sha256:'+'3'*64,refs)
+        self.assertNotIn(cleanup.PREFIX['octospark']+'renderer@sha256:'+'3'*64,refs)
 
     def test_wrong_media_symlink_or_changed_artifact_refuses_current_proof(self):
         self.proof(3,'staging')

@@ -141,7 +141,9 @@ from artifact modification time. The final successful deployment gate calls `rec
 every deployment automatically, including multiple releases between cron runs.
 A missed or failed hook deliberately leaves cleanup blocked until the history is
 reviewed. The collector validates current service images and native canary proof,
-uses the same locks, verifies every referenced image exists, archives the prior
+always holds the cleanup/ledger lock, and additionally holds the native deployment
+lock for Octospark receipts and native-history bootstrap. Smart Cub application-only
+receipts do not wait on unrelated native deployments. It verifies every referenced image exists, archives the prior
 ledger, and appends the receipt without removing historical records. It is
 idempotent for identical retries. Intermediate build or standby steps must not
 call it before the other required release legs have succeeded.

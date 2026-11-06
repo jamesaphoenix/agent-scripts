@@ -1,4 +1,5 @@
 import importlib.util
+import fcntl
 import json
 from pathlib import Path
 import tempfile
@@ -76,5 +77,41 @@ class ReceiptVerificationTests(unittest.TestCase):
             (root/'rollback-ledger.json').write_text(json.dumps(ledger))
             with self.assertRaisesRegex(ValueError,'explicitly retired'):
                 receipt.append_receipt(root,'trace-learn-staging',{})
+
+
+class ReceiptLockTests(unittest.TestCase):
+    def check_held_lock(self, project, lock_name, should_record):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp); native=root/'native'; native.mkdir()
+            path=native/'deploy.lock' if lock_name=='native' else root/'hetzner-images.lock'
+            app=receipt.cleanup.product(project)
+            repo='smart-cub-learning' if app=='trace-learn' else app
+            artifact=f'/opt/{app}/deploy/artifacts/images-abc.env'
+            evidence=f'https://github.com/Just-Understanding-Data-Ltd/{repo}/actions/runs/123'
+            args=['record', '--project', project, '--artifact', artifact, '--evidence', evidence, '--state-dir', str(root)]
+            with path.open('a') as held, patch('sys.argv',args), \
+                 patch.object(receipt.cleanup,'NATIVE',native), \
+                 patch.object(receipt.cleanup,'read_artifact',return_value={}), \
+                 patch.object(receipt.cleanup,'inspect_all',return_value=[]), \
+                 patch.object(receipt,'verify_current') as verify, \
+                 patch.object(receipt,'append_receipt') as append:
+                fcntl.flock(held,fcntl.LOCK_EX|fcntl.LOCK_NB)
+                if should_record:
+                    receipt.main()
+                    verify.assert_called_once()
+                    append.assert_called_once_with(root,project,{'evidence':evidence},None)
+                else:
+                    with self.assertRaises(BlockingIOError): receipt.main()
+                    verify.assert_not_called()
+                    append.assert_not_called()
+
+    def test_smartcub_receipt_can_record_during_unrelated_native_deployment(self):
+        self.check_held_lock('trace-learn-staging','native',True)
+
+    def test_octospark_receipt_still_refuses_during_native_deployment(self):
+        self.check_held_lock('octospark-prod','native',False)
+
+    def test_smartcub_receipt_still_refuses_during_cleanup(self):
+        self.check_held_lock('trace-learn-staging','cleanup',False)
 
 if __name__ == '__main__': unittest.main()

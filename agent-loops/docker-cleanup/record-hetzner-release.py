@@ -113,7 +113,12 @@ def main():
             parser.error('Project, evidence and application artifact or native-only mode required')
         validate_inputs(args.project,args.artifact,args.evidence,args.native_only)
     with ExitStack() as stack:
-        for path in [args.state_dir/'hetzner-images.lock',cleanup.NATIVE/'deploy.lock']:
+        locks=[args.state_dir/'hetzner-images.lock']
+        # Smart Cub receipts do not inspect native releases. Keep their ledger
+        # write serialised with cleanup without blocking on unrelated compute.
+        if args.bootstrap_native_history or cleanup.product(args.project)=='octospark':
+            locks.append(cleanup.NATIVE/'deploy.lock')
+        for path in locks:
             handle=stack.enter_context(path.open('a'))
             fcntl.flock(handle,fcntl.LOCK_EX|fcntl.LOCK_NB)
         if args.bootstrap_native_history:

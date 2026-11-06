@@ -88,3 +88,95 @@ protect rollback images, including keys such as `RENDERER_IMAGE_AMD64`. Images
 still require 24 hours since both creation and local tagging. Native cleanup is
 disabled when no proof files are configured; the separate Colima job continues
 to target its local CI renderer/runtime repositories.
+
+## Hetzner image-only policy
+
+Hetzner uses `cleanup-hetzner-images.py`, installed in
+`/opt/host-docker-cleanup`, rather than the general host janitor. The managed root
+cron runs at 03:30 through `install-hetzner-cron.py`. The installer first proves a
+valid dry-run, backs up the existing crontab, and replaces only the managed line.
+The general Studio cleaner and its native pin support remain unchanged.
+
+This policy only removes explicitly enumerated, immutable application image IDs
+from the Octospark API, worker, ML, renderer and media repositories and the Smart
+Cub API and worker repositories. Both image build time and local tagging time
+must be at least 48 hours old. Removal never uses `--force`. There is no global
+prune, dangling-image cleanup, cache cleanup, or deletion of containers, networks,
+volumes, releases, source trees, logs, backups or rollback metadata.
+
+Every running or stopped container protects its image, including restore jobs.
+The current native canary proofs and current native symlinks protect renderer and
+media images even when no render container is active. Shared image aliases are
+protected by image identity. Unknown repositories and missing age metadata are
+retained. A native deployment lock is held throughout each run; container and
+release protection is inventoried again before every removal. Compose standby
+scripts currently expose no shared host deployment lock. Concurrent image use is
+also guarded by Docker's non-forced removal, and any changed protection inventory
+aborts the remainder of the plan.
+
+The required `state/rollback-ledger.json` has `version: 1` and `projects` entries
+for `octospark-staging`, `octospark-prod`, `trace-learn-staging` and
+`trace-learn-prod`. Each entry is a chronological array of verified successful
+release receipts. A receipt contains `artifact`, `artifactSha256`, `sourceSha`,
+`images` and an `evidence` URL identifying the successful release run. Use the
+module's `read_artifact(path, product)` to derive the first four fields from an
+existing immutable `images-*.env` file, then add the verified evidence URL.
+Secrets or runtime env files must never enter this ledger.
+
+Keep current plus **two distinct image bundles per product and environment**.
+Repeated source commits deploying identical images do not fill rollback slots.
+Verify the successful standby leg and release gate, including an in-job background
+standby success when its separate retry job is skipped. Retain the corresponding
+artifact files unchanged. Missing protected digests must be re-pulled by immutable
+digest before cleanup can resume. The script archives each accepted ledger under
+`state/receipt-archive/`, and never deletes these receipts or artifacts.
+
+After a new image bundle is deployed, cleanup **refuses to run until the audited
+success history is refreshed**. Daily observations cannot establish history when
+multiple deployments occur between runs. Review every intervening successful
+release, update each affected environment's chronological records, verify current
+native pins agree with the newest receipt, and atomically replace the ledger while
+holding `state/hetzner-images.lock`. Do not infer release success or environment
+from artifact modification time. The final successful deployment gate calls `record-hetzner-release.py` to capture
+every deployment automatically, including multiple releases between cron runs.
+A missed or failed hook deliberately leaves cleanup blocked until the history is
+reviewed. The collector validates current service images and native canary proof,
+uses the same locks, verifies every referenced image exists, archives the prior
+ledger, and appends the receipt without removing historical records. It is
+idempotent for identical retries. Intermediate build or standby steps must not
+call it before the other required release legs have succeeded.
+
+```sh
+python3 /opt/host-docker-cleanup/record-hetzner-release.py \
+  --project trace-learn-staging \
+  --artifact /opt/trace-learn/deploy/artifacts/images-<source>-amd64.env \
+  --evidence https://github.com/Just-Understanding-Data-Ltd/smart-cub-learning/actions/runs/<run-id>
+```
+
+Only after a verified cutover may an operator add a project to the optional
+`retiredProjects` array in the ledger, under the cleanup lock. A retired project
+retains its historical current plus two rollback bundles and every stopped
+container image, but no longer requires running services or missing native
+proofs. Known project names are required, duplicates are rejected, and unexpected
+missing services in an active project still stop cleanup. Receipt ingestion for
+a retired project is rejected until an operator explicitly removes that state.
+No project is retired by the installer or automatic observations.
+
+```sh
+# Read-only image plan (the checked receipt archive is maintained).
+python3 /opt/host-docker-cleanup/cleanup-hetzner-images.py \
+  --plan-out /opt/host-docker-cleanup/state/reviewed-plan.json
+
+# Apply exactly that candidate list, rechecking protection before each image.
+python3 /opt/host-docker-cleanup/cleanup-hetzner-images.py \
+  --apply-plan /opt/host-docker-cleanup/state/reviewed-plan.json
+
+# Install only after the ledger and local rollback images have been verified.
+python3 /opt/host-docker-cleanup/install-hetzner-cron.py
+
+# Pause both old and new host cleaners; remove this file to resume.
+touch /opt/host-docker-cleanup/state/disabled
+```
+
+Tests: `python3 -m unittest discover -s tests -p 'test_hetzner_*.py'`
+and `python3 -m unittest discover -s tests -p test_host_docker_context.py`.

@@ -117,7 +117,7 @@ class NativeHistoryTests(unittest.TestCase):
             (root/'release-staging.json').write_text(json.dumps(proof))
             current={'octospark-staging':{'images':{'RENDERER_IMAGE_AMD64':REPO+'@sha256:'+'2'*64}}}
             with patch.object(cleanup,'NATIVE',root):
-                with self.assertRaisesRegex(ValueError,'audited success history'):
+                with self.assertRaisesRegex(ValueError,'audited.*history'):
                     cleanup.native_pins(current)
 
 

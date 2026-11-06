@@ -144,39 +144,144 @@ def current_release(project, containers):
     return record
 
 
-def native_pins(current, retired=()):
-    pins, proof_hashes = set(), {}
-    for environment in ('staging','prod'):
-        path = NATIVE / ('release-' + environment + '.json')
-        if 'octospark-' + environment in retired and not path.exists():
-            continue
-        raw = path.read_bytes(); proof = json.loads(raw)
-        if proof.get('environment') != environment or proof.get('canaryPassed') is not True:
-            raise ValueError('Native proof is incomplete')
-        if not re.fullmatch(r'[a-f0-9]{40}', proof.get('sourceSha','')):
-            raise ValueError('Invalid native source SHA')
-        for key, repo in [('rendererImage','renderer'),('mediaImage','media-runtime')]:
-            ref = proof.get(key,'')
-            if not re.fullmatch(re.escape(PREFIX['octospark']+repo) + r'@sha256:[a-f0-9]{64}', ref):
-                raise ValueError('Invalid native image pin')
-            artifact_key = 'RENDERER_IMAGE_AMD64' if key == 'rendererImage' else 'MEDIA_RUNTIME_IMAGE_AMD64'
-            if current['octospark-' + environment]['images'][artifact_key] != ref:
-                raise ValueError('Native bundle is absent from audited success history')
-            pins.add(ref)
-        proof_hashes[str(path)] = hashlib.sha256(raw).hexdigest()
-    # A switch before proof publication must fail closed, including shared render.
+NATIVE_ENVIRONMENTS = ('staging', 'prod')
+NATIVE_KEYS = ('RENDERER_IMAGE_AMD64', 'MEDIA_RUNTIME_IMAGE_AMD64')
+
+
+def native_artifact(path):
+    record = read_artifact(path, 'octospark')
+    fields = dict(line.split('=', 1) for line in Path(path).read_text().splitlines()
+                  if '=' in line and not line.startswith('#'))
+    source = fields.get('COMPUTE_SOURCE_SHA') or record['sourceSha']
+    if not re.fullmatch(r'[a-f0-9]{40}', source):
+        raise ValueError('Invalid native artifact source')
+    return dict(record, applicationSourceSha=record['sourceSha'], sourceSha=source,
+                images={key:record['images'][key] for key in NATIVE_KEYS})
+
+
+def native_identity(record):
+    # Native executables can change while Docker image pins are reused.
+    return tuple((record[role]['sourceSha'], tuple(sorted(record[role]['images'].items())))
+                 for role in ('media', 'render'))
+
+
+def native_record_refs(record):
+    return {ref for role in ('media', 'render') for ref in record[role]['images'].values()}
+
+
+def validate_native_record(record, environment):
+    if environment not in NATIVE_ENVIRONMENTS or record.get('environment') != environment:
+        raise ValueError('Invalid native environment')
+    if not re.fullmatch(r'https://github\.com/Just-Understanding-Data-Ltd/octospark/actions/runs/[1-9][0-9]*', record.get('evidence', '')):
+        raise ValueError('Native receipt requires owning release evidence')
+    if record.get('verification') not in ('audited-successful-release', 'live-native-canary'):
+        raise ValueError('Missing native success verification')
+    for role in ('media', 'render'):
+        if record.get(role) != native_artifact(record[role]['artifact']):
+            raise ValueError('Native receipt artifact changed or incomplete')
+    return record
+
+
+def audited_native_record(environment, artifact, evidence):
+    record = native_artifact(artifact)
+    return validate_native_record(dict(environment=environment, media=record, render=record,
+        evidence=evidence, verification='audited-successful-release'), environment)
+
+
+def native_release(path):
+    raw = Path(path)
+    if raw.is_symlink() or raw.parent != NATIVE/'releases' or raw.resolve() != raw:
+        raise ValueError('Native receipt release escaped the immutable release directory')
+    return native_artifact(raw/'images.env')
+
+
+def native_config(path):
+    if path.is_symlink(): raise ValueError('Symlinked native configuration')
+    values={}
+    for line in path.read_text().splitlines():
+        if '=' not in line or line.startswith('#'): continue
+        key,value=line.split('=',1)
+        if key in values: raise ValueError('Duplicate native configuration key')
+        values[key]=value
+    checksum=hashlib.sha256(''.join(key+'='+values[key]+'\n' for key in sorted(values)).encode()).hexdigest()
+    return values,checksum
+
+
+def current_native_record(environment, evidence):
+    if environment not in NATIVE_ENVIRONMENTS:
+        raise ValueError('Invalid native environment')
+    path = NATIVE/('release-'+environment+'.json')
+    if path.is_symlink(): raise ValueError('Symlinked native proof')
+    proof = json.loads(path.read_text())
+    if proof.get('environment') != environment or proof.get('canaryPassed') is not True:
+        raise ValueError('Native proof is incomplete')
+    media = native_release(proof['release'])
+    # Legacy receipts installed both roles from the same release. New receipts
+    # explicitly name the shared renderer retained during a staging-only change.
+    render = native_release(proof.get('renderRelease', proof['release']))
+    if (proof.get('sourceSha') != media['sourceSha']
+            or proof.get('renderSourceSha', proof.get('sourceSha')) != render['sourceSha']
+            or proof.get('mediaImage') != media['images']['MEDIA_RUNTIME_IMAGE_AMD64']
+            or proof.get('rendererImage') != render['images']['RENDERER_IMAGE_AMD64']):
+        raise ValueError('Native canary source or image does not match immutable artifacts')
+    link = NATIVE/('current-media-'+environment)
+    if not link.is_symlink() or link.resolve(strict=True) != Path(proof['release']):
+        raise ValueError('Native media symlink does not match completed proof')
+    values,checksum=native_config(NATIVE/'env'/('media-'+environment+'.env'))
+    if (proof.get('envHash') != checksum or values.get('BUILD_COMMIT_SHA') != media['sourceSha']
+            or values.get('MEDIA_RUNTIME_IMAGE_DIGEST') != proof['mediaImage']):
+        raise ValueError('Native worker configuration does not match completed canary')
+    return dict(environment=environment, media=media, render=render,
+                evidence=evidence, verification='live-native-canary',
+                proofSha256=hashlib.sha256(path.read_bytes()).hexdigest())
+
+
+def retain_native_history(history, current):
+    if set(history) != set(NATIVE_ENVIRONMENTS) or set(current) != set(NATIVE_ENVIRONMENTS):
+        raise ValueError('Require audited history for both native environments')
+    retained = {}
+    for environment in NATIVE_ENVIRONMENTS:
+        records = history[environment]
+        if not records or native_identity(records[-1]) != native_identity(current[environment]):
+            raise ValueError('Current bundle is absent from audited native success history: '+environment)
+        selected, seen = [], set()
+        for record in reversed(records):
+            identity = native_identity(record)
+            if identity not in seen:
+                selected.append(record); seen.add(identity)
+            if len(selected) == 3: break
+        if len(selected) < 3:
+            raise ValueError('Cannot establish two distinct native rollback bundles for '+environment)
+        retained[environment] = list(reversed(selected))
+    return retained
+
+
+def native_pins(history):
+    if set(history) != set(NATIVE_ENVIRONMENTS) or any(not history[e] for e in NATIVE_ENVIRONMENTS):
+        raise ValueError('Require audited history for both native environments')
+    for environment, records in history.items():
+        for record in records: validate_native_record(record, environment)
+    current = {e:current_native_record(e, history[e][-1]['evidence']) for e in NATIVE_ENVIRONMENTS}
+    retained = retain_native_history(history, current)
+    pins = {ref for records in retained.values() for record in records for ref in native_record_refs(record)}
+    proof_hashes = {str(NATIVE/('release-'+e+'.json')):
+                   hashlib.sha256((NATIVE/('release-'+e+'.json')).read_bytes()).hexdigest()
+                   for e in NATIVE_ENVIRONMENTS}
+    # Shared render may legitimately advance after one environment's canary.
+    # Always protect its actual immutable artifact independently of that history.
     for name in ('current-media-staging','current-media-prod','current-render'):
-        path = NATIVE / name
-        optional = (name == 'current-media-staging' and 'octospark-staging' in retired
-                    or name == 'current-media-prod' and 'octospark-prod' in retired
-                    or name == 'current-render' and {'octospark-staging','octospark-prod'} <= set(retired))
-        if optional and not path.exists(): continue
+        path = NATIVE/name
         if not path.is_symlink(): raise ValueError('Missing native current symlink')
         target = path.resolve(strict=True)
-        record = read_artifact(target / 'images.env', 'octospark')
+        record = native_release(target)
+        if name == 'current-render':
+            values,checksum=native_config(NATIVE/'env/render.env')
+            if values.get('RENDER_HOST_RENDERER_IMAGE') != record['images']['RENDERER_IMAGE_AMD64']:
+                raise ValueError('Shared renderer configuration does not match current artifact')
+            proof_hashes[str(NATIVE/'env/render.env')]=checksum
         pins.update(record['images'].values())
-        proof_hashes[str(path)] = str(target) + ':' + record['artifactSha256']
-    return pins, proof_hashes
+        proof_hashes[str(path)] = str(target)+':'+record['artifactSha256']
+    return pins, proof_hashes, retained
 
 
 def retired_projects(ledger):
@@ -204,7 +309,7 @@ def snapshot(state_dir):
     retired = retired_projects(ledger)
     current = current_states(history, containers, retired)
     history = retain_history(history, current)
-    refs, native = native_pins(current, retired)
+    refs, native, native_history = native_pins(ledger.get('nativeProjects', {}))
     for records in history.values():
         for record in records: refs.update(record['images'].values())
     images = inspect_all('image')
@@ -215,8 +320,8 @@ def snapshot(state_dir):
         # rehydrate immutable digests before enabling deletion.
         raise ValueError('Protected image digests missing locally: ' + ','.join(sorted(missing)))
     identity = {'containers':sorted((c['Id'],c['Image'],c['Name']) for c in containers),
-                'history':history, 'native':native, 'retiredProjects':retired}
-    return {'fingerprint':digest(identity), 'history':history, 'protected':refs,
+                'history':history, 'native':native, 'nativeProjects':native_history, 'retiredProjects':retired}
+    return {'fingerprint':digest(identity), 'history':history, 'nativeProjects':native_history, 'protected':refs,
             'containers':containers, 'candidates':candidates(images, containers, refs)}
 
 
@@ -273,9 +378,9 @@ def main():
         # Archive the verified ledger without changing its audited release order.
         history_path = args.state_dir/'receipt-archive'
         history_path.mkdir(exist_ok=True)
-        archive = history_path/(digest(data['history'])+'.json')
-        if not archive.exists(): atomic_json(archive, {'version':1,'projects':data['history']})
-        plan = {key:data[key] for key in ('fingerprint','candidates','history')}
+        archive = history_path/(digest({'projects':data['history'],'nativeProjects':data['nativeProjects']})+'.json')
+        if not archive.exists(): atomic_json(archive, {'version':1,'projects':data['history'],'nativeProjects':data['nativeProjects']})
+        plan = {key:data[key] for key in ('fingerprint','candidates','history','nativeProjects')}
         plan['createdAt'] = datetime.now(timezone.utc).isoformat()
         if args.plan_out: atomic_json(args.plan_out, plan)
         print(json.dumps(plan, indent=2), flush=True)

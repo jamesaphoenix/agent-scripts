@@ -156,11 +156,65 @@ python3 /opt/host-docker-cleanup/record-hetzner-release.py \
 Only after a verified cutover may an operator add a project to the optional
 `retiredProjects` array in the ledger, under the cleanup lock. A retired project
 retains its historical current plus two rollback bundles and every stopped
-container image, but no longer requires running services or missing native
-proofs. Known project names are required, duplicates are rejected, and unexpected
-missing services in an active project still stop cleanup. Receipt ingestion for
-a retired project is rejected until an operator explicitly removes that state.
+container image, but no longer requires running application services. Native
+compute remains independently active after a staging application moves to
+MinisForum. Known project names are required, duplicates are rejected, and
+unexpected missing services in an active project still stop cleanup. Application
+receipt ingestion for a retired project is rejected until an operator explicitly
+removes that state; native-only ingestion remains valid.
 No project is retired by the installer or automatic observations.
+
+
+### Native history after application cutover
+
+The same ledger must also contain `nativeProjects`, with chronological `staging`
+and `prod` arrays. Each receipt identifies independently verified `media` and
+`render` immutable artifacts, their checksums, compute source SHAs and native
+image pins, the owning successful release URL and verification provenance.
+The renderer may deliberately remain on an older release while staging media
+changes. Native bundle identity includes compute sources as well as image pins:
+a changed executable with reused Docker images is still a distinct rollback.
+Cleanup retains the current plus two distinct native bundles per environment
+and the union of both referenced artifacts' renderer/media images. It always
+protects the actual `current-render` artifact separately, since production may
+advance the shared renderer after staging's completed canary.
+
+Bootstrap this history explicitly from audited successful native deployments,
+using `audited_native_record(environment, artifact_path, evidence_url)` from the
+cleanup module to derive records from retained immutable artifacts. Confirm the
+native canary and final gate succeeded for every source and environment. Supply
+a JSON object containing both chronological environment arrays, then run:
+
+```sh
+python3 /opt/host-docker-cleanup/record-hetzner-release.py \
+  --bootstrap-native-history /protected/audited-native-history.json
+```
+
+Bootstrap refuses an existing native history, incomplete rollback coverage,
+changed artifacts, a mismatch with current completed native proofs or missing
+local images. It archives the old ledger and preserves application history and
+retirement state. This is never an automatic daily inference from release folders.
+
+The final successful Octospark gate continues the ordinary recorder for a
+Hetzner application release; it records native history in the same transaction.
+When staging applications run on MinisForum, the same final gate records only
+native compute, without pretending that the retired Hetzner app was deployed:
+
+```sh
+python3 /opt/host-docker-cleanup/record-hetzner-release.py \
+  --project octospark-staging --native-only \
+  --evidence https://github.com/Just-Understanding-Data-Ltd/octospark/actions/runs/<run-id>
+```
+
+Native-only mode accepts no artifact override. It reads the exact completed
+`release-<environment>.json`, its media artifact and explicit
+`renderRelease`/`renderSourceSha` (legacy receipts use the media release for both).
+It validates source and image pins, the current media symlink and environment
+hash, and local images. The cleaner separately validates actual shared-render
+configuration and symlinks. Both use the cleanup and native deployment locks.
+Unknown native history remains a hard stop, including several deployments
+between daily runs. No release directory, runtime env, receipt, container,
+volume or network is deleted by this policy.
 
 ```sh
 # Read-only image plan (the checked receipt archive is maintained).

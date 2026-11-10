@@ -270,17 +270,20 @@ def native_pins(history):
                    for e in NATIVE_ENVIRONMENTS}
     # Shared render may legitimately advance after one environment's canary.
     # Always protect its actual immutable artifact independently of that history.
-    for name in ('current-media-staging','current-media-prod','current-render'):
+    # current-render-staging exists only after the first staging release with separate renderers.
+    renderers = ('current-render',) + (('current-render-staging',) if (NATIVE/'current-render-staging').is_symlink() else ())
+    for name in ('current-media-staging','current-media-prod') + renderers:
         path = NATIVE/name
         if not path.is_symlink(): raise ValueError('Missing native current symlink')
         target = path.resolve(strict=True)
         record = native_release(target)
-        if name == 'current-render':
-            values,checksum=native_config(NATIVE/'env/render.env')
+        if name in renderers:
+            env_file = NATIVE/'env'/(name.removeprefix('current-')+'.env')
+            values,checksum=native_config(env_file)
             if values.get('RENDER_HOST_RENDERER_IMAGE') != record['images']['RENDERER_IMAGE_AMD64']:
-                raise ValueError('Shared renderer configuration does not match current artifact')
-            proof_hashes[str(NATIVE/'env/render.env')]=checksum
-        pins.add(record['images']['RENDERER_IMAGE_AMD64' if name == 'current-render' else 'MEDIA_RUNTIME_IMAGE_AMD64'])
+                raise ValueError('Native renderer configuration does not match current artifact: '+name)
+            proof_hashes[str(env_file)]=checksum
+        pins.add(record['images']['RENDERER_IMAGE_AMD64' if name in renderers else 'MEDIA_RUNTIME_IMAGE_AMD64'])
         proof_hashes[str(path)] = str(target)+':'+record['artifactSha256']
     return pins, proof_hashes, retained
 

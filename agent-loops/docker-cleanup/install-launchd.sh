@@ -18,6 +18,7 @@ STATE_DIR="${DOCKER_CLEANUP_STATE_DIR:-$ROOT_DIR/state/docker-cleanup}"
 # proofs fail the janitor closed, preserving idle native workers' images.
 NATIVE_STATE="$HOME/.local/state/octospark-compute"
 NATIVE_PIN_FILES="${DOCKER_CLEANUP_NATIVE_PIN_FILES:-$NATIVE_STATE/release-staging.json:$NATIVE_STATE/release-prod.json}"
+NATIVE_ENV_FILES="${DOCKER_CLEANUP_NATIVE_ENV_FILES:-$NATIVE_STATE/env/render.env:$NATIVE_STATE/env/render-staging.env}"
 PLIST_DIR="$HOME/Library/LaunchAgents"
 PLIST_PATH="$PLIST_DIR/${LABEL}.plist"
 
@@ -88,6 +89,8 @@ cat >"$PLIST_PATH" <<PLIST
     <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
     <key>DOCKER_CLEANUP_NATIVE_PIN_FILES</key>
     <string>${NATIVE_PIN_FILES}</string>
+    <key>DOCKER_CLEANUP_NATIVE_ENV_FILES</key>
+    <string>${NATIVE_ENV_FILES}</string>
     <key>DOCKER_CLEANUP_ARTIFACT_DIRS</key>
     <string>${DOCKER_CLEANUP_ARTIFACT_DIRS}</string>
     <key>DOCKER_CLEANUP_DISABLE_FILE</key>

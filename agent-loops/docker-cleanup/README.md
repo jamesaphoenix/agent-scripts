@@ -82,6 +82,12 @@ accepts colon-separated proof files; every file must contain valid digest-pinned
 before mutation. With these protections configured, old `tx-agent-kit/renderer`
 and `tx-agent-kit/media-runtime` images join the eligible repositories.
 
+`DOCKER_CLEANUP_NATIVE_ENV_FILES` (default `env/render.env` and `env/render-staging.env`
+under the same state directory) additionally pins `RENDER_HOST_RENDERER_IMAGE` from each
+file that exists, because during the renderer split the running `render` role may use an
+image no receipt names. Missing files are skipped; a present file without a valid digest
+aborts cleanup.
+
 The current image digests and their local image IDs are retained, including tag
 aliases. The latest 20 release artifacts in each configured runner directory also
 protect rollback images, including keys such as `RENDERER_IMAGE_AMD64`. Images

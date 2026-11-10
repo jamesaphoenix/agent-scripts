@@ -27,15 +27,21 @@ elif role == 'qwen':
 else:
     # Resolved host envs are private files provisioned for this release, never Git files.
     file = state / 'env' / (role + '.env')
+    if role == 'render-staging' and not (file.is_file() and (state / 'current-render-staging').exists()):
+        # Registered before the first split Octospark staging release has provisioned it.
+        # Exiting 0 is not restarted by launchd (SuccessfulExit false) or systemd (on-failure).
+        print('render-staging is not provisioned yet; exiting without error')
+        sys.exit(0)
     for line in file.read_text().splitlines():
         if line and not line.startswith('#') and '=' in line:
             k, v = line.split('=', 1)
             if k.startswith('ANTHROPIC') and v:
                 raise SystemExit('Anthropic credentials are not permitted')
             env[k] = v
-    current = (state / ('current-render' if role == 'render' else 'current-' + role)).resolve()
+    current = (state / ('current-' + role)).resolve()
     os.chdir(current / 'app' if role.startswith('media-') else current)
-    if role == 'render':
+    if role in ['render', 'render-staging']:
+        # One render host per environment; its env file names the instance, port and namespace.
         binary = str(current / 'render-host')
         os.execvpe(binary, [binary], env)
     elif role in ['media-staging', 'media-prod']:

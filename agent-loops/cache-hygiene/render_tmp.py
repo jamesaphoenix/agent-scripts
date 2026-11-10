@@ -16,7 +16,7 @@ CACHE_ROOTS=(HOME/'render-tmp',HOME/'agent-runtime')
 # Octospark render host scratch: on the Mac Studio RENDER_HOST_TEMP_ROOT is the 100 GB APFS RenderScratch
 # volume; elsewhere hostconfig defaults it to ~/.cache/octospark-render-host. Each attempt is a
 # `render-attempt-*` child removed by the host when the render ends; an absent root is reported, never created.
-SCRATCH_ROOTS=(Path('/Volumes/RenderScratch'),HOME/'.cache/octospark-render-host')
+SCRATCH_ROOTS=(Path('/Volumes/RenderScratch'),Path('/Volumes/RenderScratch/staging'),HOME/'.cache/octospark-render-host',HOME/'.cache/octospark-render-host-staging')
 # Only the host's own attempt directories are candidates, so a volume root's other entries are never touched.
 ATTEMPT_PREFIX='render-attempt-'
 HOUR=3600

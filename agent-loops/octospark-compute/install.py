@@ -10,8 +10,13 @@ import subprocess
 import sys
 import time
 
+ROLES = ['render', 'render-staging', 'media-staging', 'media-prod', 'qwen', 'fleet-watch']
+if sys.argv[1:2] == ['--supports']:
+    # Read-only capability check used by octospark deploy/compute/receive.py before it
+    # changes anything on the host: exit 0 only when install.py and run.py support the role.
+    raise SystemExit(0 if len(sys.argv) == 3 and sys.argv[2] in ROLES else 1)
 role = sys.argv[1]
-if role not in ['render', 'media-staging', 'media-prod', 'qwen', 'fleet-watch']:
+if role not in ROLES:
     raise SystemExit('Invalid role')
 state = Path(os.environ.get('OCTOSPARK_COMPUTE_STATE', str(Path.home() / '.local/state/octospark-compute') if platform.system() == 'Darwin' else '/var/lib/octospark-compute'))
 (state / 'logs').mkdir(parents=True, exist_ok=True)

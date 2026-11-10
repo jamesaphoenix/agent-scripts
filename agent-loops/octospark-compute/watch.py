@@ -36,6 +36,23 @@ def assert_primary_retired():
                 raise RuntimeError('Legacy Studio application is still running: ' + context + ':' + container['Name'])
 
 
+def native_health():
+    """Probe each native role. render-staging is probed only once an Octospark staging
+    release has created its current link, so a fresh host is not reported blind."""
+    native = {}
+    for name, port, path in [('render', 8095, '/readyz'), ('render-staging', 8098, '/readyz'), ('media-staging', 8096, '/healthz'), ('media-prod', 8097, '/healthz'), ('qwen', 8080, '/healthz')]:
+        if name == 'render-staging' and not (STATE / 'current-render-staging').exists():
+            continue
+        host = '100.77.197.1' if name == 'qwen' else '127.0.0.1'
+        with urllib.request.urlopen('http://' + host + ':' + str(port) + path, timeout=5) as response:
+            native[name] = json.load(response)
+    # A blind host is not a stable deployment even though its liveness endpoint responds.
+    for name in ['render', 'render-staging']:
+        if native.get(name, {}).get('admissionPaused'):
+            raise RuntimeError('Render admission paused: ' + name)
+    return native
+
+
 def check():
     assert_primary_retired()
     # No inputs, credentials, workflow starts or agent invocations in health checks.
@@ -71,15 +88,7 @@ print(json.dumps(dict(telemetry=telemetry,releases=[dict(project=p['project'],re
         with urllib.request.urlopen(request, timeout=5) as response:
             if response.status != 200:
                 raise RuntimeError('Public API readiness failed')
-    native = {}
-    for name, port, path in [('render', 8095, '/readyz'), ('render-staging', 8098, '/readyz'), ('media-staging', 8096, '/healthz'), ('media-prod', 8097, '/healthz'), ('qwen', 8080, '/healthz')]:
-        host = '100.77.197.1' if name == 'qwen' else '127.0.0.1'
-        with urllib.request.urlopen('http://' + host + ':' + str(port) + path, timeout=5) as response:
-            native[name] = json.load(response)
-    # A blind host is not a stable deployment even though its liveness endpoint responds.
-    for name in ['render', 'render-staging']:
-        if native[name].get('admissionPaused'):
-            raise RuntimeError('Render admission paused: ' + name)
+    native = native_health()
     identity = hashlib.sha256(json.dumps(nas, sort_keys=True).encode()).hexdigest()
     return identity, dict(nas=nas, native=native)
 

@@ -11,7 +11,7 @@ SCRIPT = Path(__file__).resolve().parents[1] / 'agent-loops/docker-cleanup/clean
 
 
 class HostDockerContextTests(unittest.TestCase):
-    def run_janitor(self, override=None, image=None, image_after=None, inventory_failure=None, digest=None, protected=False, repository=None, native_pins=None, pin_id=None, artifact=None, pin_inspect_failure=False):
+    def run_janitor(self, override=None, image=None, image_after=None, inventory_failure=None, digest=None, protected=False, repository=None, native_pins=None, pin_id=None, artifact=None, pin_inspect_failure=False, native_envs=None):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             docker = root / 'docker'
@@ -79,6 +79,14 @@ else:
                     if pin is not None:
                         path.write_text(json.dumps(pin) if isinstance(pin, dict) else pin)
                 env['DOCKER_CLEANUP_NATIVE_PIN_FILES'] = ':'.join(paths)
+            if native_envs is not None:
+                env_paths = []
+                for index, text in enumerate(native_envs):
+                    path = root / ('render-' + str(index) + '.env')
+                    env_paths.append(str(path))
+                    if text is not None:
+                        path.write_text(text)
+                env['DOCKER_CLEANUP_NATIVE_ENV_FILES'] = ':'.join(env_paths)
             if artifact:
                 artifact_dir = root / 'artifacts'
                 artifact_dir.mkdir()
@@ -227,6 +235,31 @@ else:
         self.assertNotEqual(result.returncode, 0)
         self.assertFalse(any(c['args'][:2] in (['image', 'rm'], ['image', 'prune'],
             ['network', 'prune'], ['buildx', 'prune']) for c in calls))
+
+    def test_render_env_image_is_pinned_when_no_receipt_names_it(self):
+        old = '2020-01-01T00:00:00Z'
+        digest = 'sha256:' + 'e' * 64
+        env_text = 'RENDER_HOST_RENDERER_IMAGE=registry/tx-agent-kit/renderer@' + digest + '\n'
+        kwargs = dict(repository='registry/tx-agent-kit/renderer', digest=digest,
+            image={'Created': old, 'Metadata': {'LastTagTime': old}},
+            native_pins=[self.native_fixture()], pin_id='sha256:current')
+        result, calls = self.run_janitor(**kwargs)
+        self.assertTrue(any(c['args'][:2] == ['image', 'rm'] for c in calls), 'control: unpinned image is removed')
+        # missing staging env file is skipped, render.env pins the image
+        result, calls = self.run_janitor(native_envs=[env_text, None], **kwargs)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse(any(c['args'][:2] == ['image', 'rm'] for c in calls))
+        result, calls = self.run_janitor(native_envs=[None, env_text], **kwargs)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse(any(c['args'][:2] == ['image', 'rm'] for c in calls))
+
+    def test_malformed_render_env_aborts_before_mutation(self):
+        for text in ('RENDER_HOST_RENDERER_IMAGE=latest\n', 'OTHER=1\n'):
+            with self.subTest(text=text):
+                result, calls = self.run_janitor(native_pins=[self.native_fixture()], native_envs=[text])
+                self.assertNotEqual(result.returncode, 0)
+                self.assertFalse(any(c['args'][:2] in (['image', 'rm'], ['image', 'prune'],
+                    ['network', 'prune'], ['buildx', 'prune']) for c in calls))
 
     def test_architecture_suffix_in_rollback_artifact_is_protected(self):
         old = '2020-01-01T00:00:00Z'

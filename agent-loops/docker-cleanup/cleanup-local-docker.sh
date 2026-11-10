@@ -41,6 +41,9 @@ DOCKER_CLEANUP_ARTIFACT_DIRS="${DOCKER_CLEANUP_ARTIFACT_DIRS:-}"
 # Native compute can be idle with no container referencing its current images.
 # Opt in only with an explicit complete set of current release proof files.
 DOCKER_CLEANUP_NATIVE_PIN_FILES="${DOCKER_CLEANUP_NATIVE_PIN_FILES:-}"
+# Optional host env files (render, render-staging) whose RENDER_HOST_RENDERER_IMAGE is also pinned
+# when the file exists. Absent files are skipped; malformed ones abort cleanup.
+DOCKER_CLEANUP_NATIVE_ENV_FILES="${DOCKER_CLEANUP_NATIVE_ENV_FILES:-}"
 # Image repositories eligible for reclamation, space-separated glob patterns.
 # Deliberately broad: every sibling product's per-SHA api/worker tags
 # accumulate on the same daemon, and protection comes from what is actually
@@ -233,7 +236,7 @@ protect_native_images() {
     return 0
   fi
   local pins image_ref
-  if ! pins="$(python3 "$SCRIPT_DIR/lib/native-image-pins.py" "$DOCKER_CLEANUP_NATIVE_PIN_FILES")"; then
+  if ! pins="$(python3 "$SCRIPT_DIR/lib/native-image-pins.py" "$DOCKER_CLEANUP_NATIVE_PIN_FILES" "$DOCKER_CLEANUP_NATIVE_ENV_FILES")"; then
     echo "Cannot inventory native release pins; refusing Docker cleanup."
     return 1
   fi

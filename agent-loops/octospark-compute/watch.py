@@ -72,13 +72,14 @@ print(json.dumps(dict(telemetry=telemetry,releases=[dict(project=p['project'],re
             if response.status != 200:
                 raise RuntimeError('Public API readiness failed')
     native = {}
-    for name, port, path in [('render', 8095, '/readyz'), ('media-staging', 8096, '/healthz'), ('media-prod', 8097, '/healthz'), ('qwen', 8080, '/healthz')]:
+    for name, port, path in [('render', 8095, '/readyz'), ('render-staging', 8098, '/readyz'), ('media-staging', 8096, '/healthz'), ('media-prod', 8097, '/healthz'), ('qwen', 8080, '/healthz')]:
         host = '100.77.197.1' if name == 'qwen' else '127.0.0.1'
         with urllib.request.urlopen('http://' + host + ':' + str(port) + path, timeout=5) as response:
             native[name] = json.load(response)
     # A blind host is not a stable deployment even though its liveness endpoint responds.
-    if native['render'].get('admissionPaused'):
-        raise RuntimeError('Render admission paused')
+    for name in ['render', 'render-staging']:
+        if native[name].get('admissionPaused'):
+            raise RuntimeError('Render admission paused: ' + name)
     identity = hashlib.sha256(json.dumps(nas, sort_keys=True).encode()).hexdigest()
     return identity, dict(nas=nas, native=native)
 

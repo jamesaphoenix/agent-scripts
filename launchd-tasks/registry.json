@@ -255,6 +255,25 @@
       "notes": "Native shared render controller or activity-only OpenRouter Pi worker. Qwen gateway measures whole-host pressure and response latency, yielding inference to rendering. Runtime secrets are private resolved deployment files."
     },
     {
+      "id": "octospark-compute-render-staging",
+      "name": "Native Octospark compute render-staging",
+      "enabled": true,
+      "machine": "mac-studio",
+      "launchdLabel": "com.jud.octospark-compute.render-staging",
+      "schedule": "KeepAlive daemon with thirty second failure backoff",
+      "requiresOpServiceAccount": false,
+      "install": {
+        "kind": "command",
+        "workdir": "/Users/jamesphoenix/agent-runtime/just-understanding-data/agent-scripts",
+        "command": [
+          "python3",
+          "agent-loops/octospark-compute/install.py",
+          "render-staging"
+        ]
+      },
+      "notes": "Staging-only native render host (namespace staging, 127.0.0.1:8098, RENDER_HOST_INSTANCE=staging). Installed and restarted only by Octospark staging releases; production releases install octospark-compute-render."
+    },
+    {
       "id": "octospark-compute-media-staging",
       "name": "Native Octospark compute media-staging",
       "enabled": true,

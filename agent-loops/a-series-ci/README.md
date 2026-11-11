@@ -1,8 +1,11 @@
 # A Series GitHub Actions host
 
 Four organisation runners, `a-series-runner-1` through `-4`, run as the
-dedicated `ci-runner` account. The account has standard Docker group access,
-which grants effective host-root access; it must never receive James's dotfiles,
+dedicated `ci-runner` account. The account has no Docker group
+membership (the group grants host root). It uses its own rootless Docker daemon at
+`unix:///run/user/1001/docker.sock`, with its data under
+`/home/ci-runner/.local/share/docker`, so CI never shares a daemon with staging or
+production. See `rootless/README.md`. It must never receive James's dotfiles,
 home directory, SSH agent, or a persistent 1Password service token.
 
 The runner service `.env` files set `TX_RUNNER_SLOT=0..3` and point to the
@@ -16,7 +19,15 @@ CI containers labelled with a dead creator PID and age at least three hours,
 anonymous unattached volumes, dangling images, build cache older than seven
 days, and runner checkouts idle for seven days. It skips cache and checkout
 pruning while any job is active. It never prunes named volumes or tagged images.
-Run `python3 /opt/jud-ci/agent-loops/a-series-ci/cleanup.py` for a dry run.
+Run `DOCKER_HOST=... python3 /opt/jud-ci/agent-loops/a-series-ci/cleanup.py` for a dry run.
+
+Every Docker call in `cleanup.py` and `cache-cleanup.sh` takes an explicit `DOCKER_HOST`
+(there is no default). Volume, image and builder prunes, and the BuildKit prune, run only
+when it is the CI daemon socket `unix:///run/user/1001/docker.sock` and are refused
+otherwise, so they can never reach the daemon that also runs staging and production.
+The units and runner template set it to the rootless socket, so install them after
+`rootless/` is applied (before that they cannot connect and fail safely). Pointed at any
+other daemon the scripts only remove label-scoped ephemeral containers and checkouts. Tests: `python3 -m unittest discover -s tests -p 'test_a_series_cleanup.py'`.
 
 `jud-ci-cache-cleanup.timer` runs weekly (Sunday 03:30 host time). It is the only
 place the persistent CI caches under `/home/ci-runner/.cache/octospark-ci` and
@@ -43,8 +54,10 @@ Ubuntu's Node 22 package on this host lacks TypeScript type stripping, which
 the auth worker tests need. The installer verifies Node's published SHA-256
 checksum and links Node/Corepack under `/usr/local/bin`. Install the CLIs
 from their signed vendor APT repositories. Confirm `qemu-aarch64` is
-registered in `/proc/sys/fs/binfmt_misc/`, and confirm the Docker socket is
-`/var/run/docker.sock`.
+registered in `/proc/sys/fs/binfmt_misc/`. The shared daemon keeps `/var/run/docker.sock`
+for the staging and production stacks (see `daemon/`); CI uses the rootless socket.
+Run `sudo agent-loops/a-series-ci/rootless/setup-ci-rootless-docker.sh --check`, then
+the script itself, before provisioning runners.
 
 From a checked-out Octospark workspace with dependencies installed, run
 `sudo env PATH=/usr/local/bin:/usr/bin:/bin pnpm --filter @tx-agent-kit/web exec playwright install-deps chromium`
@@ -73,3 +86,36 @@ Run `sudo agent-loops/a-series-ci/install-runtime.sh` after pulling changes
 on A Series, then restart each idle `jud-actions-runner-N.service`. Check
 `systemctl status jud-ci-cleanup.timer` and the GitHub runner group before
 using the host for releases.
+
+## Hardening for a shared host
+
+The host runs CI, staging, observability and (soon) production. These directories are
+proposals for making that safe; each has its own README with apply and rollback steps,
+and none has been applied yet. Suggested order is in the pull request description.
+
+| Path | What it does |
+|---|---|
+| `retention/` | Hourly release and image retention (dry run by default) and a reclaim report |
+| `rootless/` | Rootless Docker for `ci-runner`; removes the docker group; CI daemon separate from production |
+| `slices/` | systemd slices with memory and CPU budgets per workload class (budget to confirm) |
+| `daemon/` | Proposed `/etc/docker/daemon.json` (live-restore, bounded logs, address pool) |
+| `ports.json`, `check-ports.py` | Port registry and a checker for overlaps, compose files and listeners |
+
+### Port registry
+
+`ports.json` names every range: CI slot ports (4100 to 4302, 3510, 4510 and 17233, each
+plus offsets 0/2000/4000/6000), CI services (15432, 15433, 16379, 16380), staging APIs
+(32080, 32090, 32180), production APIs (32081, 32091, 32181), the collector (32018, 32019,
+32118, 32119, 32133) and staging databases (32432, 32433). Each range says which compose
+projects may publish it and whether it must bind loopback, the Tailscale IP or anywhere.
+
+```sh
+python3 check-ports.py                                              # registry: no overlaps
+python3 check-ports.py --compose docker-compose.prod.yml --project trace-learn-prod
+ssh host ss -ltnH | python3 check-ports.py --listening              # live listeners vs policy
+```
+
+Add the compose check to each product's deploy gate: a published port must be registered
+for its project and bound as its range requires (always give a host IP). Tests:
+`python3 -m unittest discover -s tests -p 'test_a_series_ports.py'`. Today the live check
+flags the four CI service ports as bound on `0.0.0.0`; `rootless/` fixes that.

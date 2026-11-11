@@ -1,0 +1,11 @@
+# PROPOSAL, not applied. Budget lives in README.md; confirm before installing.
+[Unit]
+Description=JUD production stacks (trace-learn-prod, octospark-prod)
+Documentation=file:///opt/jud-ci/agent-loops/a-series-ci/slices/README.md
+
+[Slice]
+MemoryHigh=18G
+MemoryMax=20G
+MemorySwapMax=0
+CPUWeight=500
+IOWeight=500

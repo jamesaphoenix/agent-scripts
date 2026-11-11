@@ -1,0 +1,68 @@
+{
+  "services": {
+    "host-collector": {
+      "container_name": "jud-host-otel",
+      "image": "otel/opentelemetry-collector-contrib:0.163.1@sha256:1175b03003053962012f5a231f5567f66a3e8fdb960c7835c0e48f7aa1555806",
+      "user": "10001:10001",
+      "group_add": [
+        "115"
+      ],
+      "restart": "always",
+      "init": true,
+      "mem_limit": "768m",
+      "memswap_limit": "768m",
+      "cpus": 1,
+      "cgroup_parent": "jud-observability.slice",
+      "environment": {
+        "GOOGLE_APPLICATION_CREDENTIALS": "/var/secrets/google/application-default-credentials.json",
+        "GOMEMLIMIT": "576MiB",
+        "GOMAXPROCS": "1"
+      },
+      "command": [
+        "--config=/etc/otel-collector/config.json"
+      ],
+      "volumes": [
+        "./config.json:/etc/otel-collector/config.json:ro",
+        "/srv/jud/observability/credentials:/var/secrets/google:ro",
+        "/var/run/docker.sock:/var/run/docker.sock:ro",
+        "/proc:/hostfs/proc:ro",
+        "/sys:/hostfs/sys:ro",
+        "/srv/jud/observability/queue-shared:/var/lib/shared-queue"
+      ],
+      "ports": [
+        "100.124.34.45:32018:4318",
+        "100.124.34.45:32019:4319",
+        "100.124.34.45:32118:4320",
+        "100.124.34.45:32119:4321",
+        "127.0.0.1:32133:13133"
+      ],
+      "networks": {
+        "telemetry": {
+          "aliases": [
+            "jud-otel"
+          ]
+        }
+      },
+      "logging": {
+        "driver": "json-file",
+        "options": {
+          "max-size": "10m",
+          "max-file": "3"
+        }
+      },
+      "security_opt": [
+        "no-new-privileges:true"
+      ],
+      "cap_drop": [
+        "ALL"
+      ],
+      "stop_grace_period": "30s"
+    }
+  },
+  "networks": {
+    "telemetry": {
+      "external": true,
+      "name": "jud-observability"
+    }
+  }
+}

@@ -19,7 +19,15 @@ fi
 printf '%s  %s\n' "$runner_sha256" "$archive" | sha256sum -c -
 
 id ci-runner >/dev/null 2>&1 || useradd --create-home --shell /bin/bash ci-runner
-usermod -aG docker ci-runner
+# ci-runner must NOT be in the docker group (that is root on the host). It uses its own
+# rootless daemon, set up by rootless/setup-ci-rootless-docker.sh before provisioning.
+if id -nG ci-runner | tr ' ' '\n' | grep -qx docker; then
+  echo 'Warning: ci-runner is still in the docker group; finish rootless/setup-ci-rootless-docker.sh (group phase).' >&2
+fi
+[[ -S /run/user/1001/docker.sock ]] || {
+  echo 'The rootless CI Docker daemon is not running. Run rootless/setup-ci-rootless-docker.sh first.' >&2
+  exit 1
+}
 chmod 750 /home/ci-runner
 source_root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 for slot in 1 2 3 4; do

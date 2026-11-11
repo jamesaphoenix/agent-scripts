@@ -1,0 +1,10 @@
+# PROPOSAL, not applied. Budget lives in README.md; confirm before installing.
+[Unit]
+Description=JUD shared collector (jud-host-otel)
+Documentation=file:///opt/jud-ci/agent-loops/a-series-ci/slices/README.md
+
+[Slice]
+MemoryHigh=896M
+MemoryMax=1G
+CPUWeight=200
+IOWeight=100

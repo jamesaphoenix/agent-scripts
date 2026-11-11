@@ -71,6 +71,62 @@ collector policy changes belong here; application repositories own instrumentati
 and the published telemetry contract, not host process deployment. Regenerate the
 GoWithSolar profile deliberately when its approved metric inventory changes.
 
+## MinisForum (A Series)
+
+`python3 build.py --profile minisforum` composes ONE collector for all four product
+routes, and `python3 build.py --profile minisforum --compose` (checked in as
+`compose.minisforum.json`) is its compose file. It reuses the Synology routes
+unchanged: the same per-route `tail_sampling/<route>`, the same exporters and GCP
+projects (`octospark-staging`, `octospark-prod`, `tracelearn-staging`, `tracelearn-prod`),
+and no GoWithSolar route, so there is no second collector.
+
+| Item | MinisForum value |
+|---|---|
+| Receivers | Octospark staging `4318`, prod `4319`; Trace Learn staging `4320`, prod `4321` (on the `jud-observability` network as `jud-otel`) |
+| Native ingress | `100.124.34.45:32018`, `:32019`, `:32118`, `:32119` (Tailscale IP only) |
+| Health | `127.0.0.1:32133` to container `13133` (`/health/status`) |
+| Image | the Synology digest-pinned `0.163.1@sha256:1175b030...` |
+| Limits | `mem_limit` and `memswap_limit` 768m, `cpus` 1, `GOMEMLIMIT=576MiB`, `GOMAXPROCS=1`, memory limiter 640 MiB |
+| Slice | `cgroup_parent: jud-observability.slice` (see `agent-loops/a-series-ci/slices/`) |
+| docker_stats | Docker API `1.44` (Docker 29 refuses older clients; Synology stays on `1.41`), with `filter/containers-<route>` keeping only containers named `<route>-*` per route |
+| Host identity | `k8s.cluster.name` and `service.instance.id` are `minisforum`, not `synology-primary` |
+
+The native OTLP guard (`native_allowed_hosts`, firewall chain `JUD-STAGING-OTLP` in the
+deployed `current.json`) is outside this compose file and must be extended to the two new
+production ports. Runs as `10001:10001` with `group_add: ["115"]` (the host's `docker`
+group) instead of root; mounts only `/proc` and `/sys` instead of `/`.
+`hostmetrics` and the container metrics are attributed to `octospark-prod`'s pipeline as on
+Synology, because the process is shared.
+
+### What changes against what is deployed
+
+`python3 diff-deployed.py jamesaphoenix@jamesaphoenix-ai-series` (read-only over SSH:
+`cat /srv/jud/observability/current.json`, then `docker inspect jud-host-otel` with a fixed
+template, because the release `compose.json` and `config.json` are root-only) prints the
+diff. On 11 November 2026 it showed: routes grow from two staging routes to four; native
+ingress `127.0.0.1:32018` and `127.0.0.1:32118` go away and `:32019`, `:32119` plus
+`:32118` on the Tailscale IP appear (host-local clients must use the Tailscale IP or
+`jud-otel`); `GOMAXPROCS` 2 to 1; `cpu_shares` 256 removed (the slice weight replaces
+it); new `cgroup_parent` and `group_add`; user `0:0` to `10001:10001`; `/` mount replaced
+by `/proc` and `/sys`; queue directory `queue-staging` to `queue-shared` and credentials from
+the per-release directory to `/srv/jud/observability/credentials`. Image, memory limit,
+CPU limit, restart policy, `no-new-privileges`, `cap_drop: ALL`, logging and `GOMEMLIMIT`
+are identical.
+
+### Apply and rollback
+
+1. `python3 -m unittest discover -s host-observability -p 'test_*.py'`.
+2. On the host create `/srv/jud/observability/queue-shared` and
+   `/srv/jud/observability/credentials` owned by `10001:10001` (copy the existing release's
+   credentials; never into git). Install the `jud-observability.slice`.
+3. Render `config.json` (`build.py --profile minisforum`) and `compose.json` into a new
+   `releases/<id>/`, validate with the pinned image, keep the previous release and
+   `current.json`, then `docker compose -p jud-observability -f compose.json up -d --no-deps host-collector`.
+4. Check `curl -s 127.0.0.1:32133/health/status`, `docker stats jud-host-otel`,
+   `systemd-cgls -u jud-observability.slice`, then telemetry for each route in its GCP project.
+5. Rollback: re-run step 3 from the previous release directory; its queue directory is
+   untouched. Retain the old queue until the new one has drained.
+
 ## Hetzner
 
 There is already one Collector process, alongside the shared Temporal service.

@@ -1,0 +1,25 @@
+[Unit]
+Description=Release and image retention for the shared A Series Docker daemon (dry run unless a drop-in adds --apply)
+After=docker.service
+Requires=docker.service
+ConditionPathExists=!/srv/jud/maintenance/retention-disabled
+
+[Service]
+Type=oneshot
+# Needs the production Docker socket and /srv/jud, so it runs as root. It is
+# sandboxed to those two things. The default command is a dry run; see README.md
+# for the drop-in that adds --apply once the dry-run output has been reviewed.
+User=root
+Environment=DOCKER_HOST=unix:///var/run/docker.sock
+ExecStart=/usr/bin/python3 /opt/jud-ci/agent-loops/a-series-ci/retention/jud-image-retention.py --config /etc/jud/image-retention.json
+TimeoutStartSec=20min
+Nice=10
+IOSchedulingClass=idle
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/srv/jud
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true

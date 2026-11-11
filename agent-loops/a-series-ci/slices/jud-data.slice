@@ -1,0 +1,11 @@
+# PROPOSAL, not applied. Budget lives in README.md; confirm before installing.
+[Unit]
+Description=JUD databases (staging data, future production data)
+Documentation=file:///opt/jud-ci/agent-loops/a-series-ci/slices/README.md
+
+[Slice]
+MemoryHigh=3584M
+MemoryMax=4G
+MemorySwapMax=0
+CPUWeight=400
+IOWeight=400

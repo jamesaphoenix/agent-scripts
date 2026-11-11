@@ -8,6 +8,8 @@ Requires=user@1001.service
 Type=simple
 User=ci-runner
 Group=ci-runner
+# Memory and CPU accounting for CI (slices/README.md); the slice is a proposal until installed.
+Slice=jud-ci.slice
 # CI talks to ci-runner's own rootless daemon, not the shared production daemon.
 Environment=DOCKER_HOST=unix:///run/user/1001/docker.sock
 Environment=XDG_RUNTIME_DIR=/run/user/1001

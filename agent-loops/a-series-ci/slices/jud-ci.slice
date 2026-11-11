@@ -1,0 +1,10 @@
+# PROPOSAL, not applied. Budget lives in README.md; confirm before installing.
+[Unit]
+Description=JUD CI: GitHub Actions runners and the rootless CI daemon
+Documentation=file:///opt/jud-ci/agent-loops/a-series-ci/slices/README.md
+
+[Slice]
+MemoryHigh=16G
+MemoryMax=18G
+CPUWeight=50
+IOWeight=50

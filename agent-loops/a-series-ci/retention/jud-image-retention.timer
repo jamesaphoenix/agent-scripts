@@ -1,0 +1,11 @@
+[Unit]
+Description=Hourly release and image retention (A Series)
+
+[Timer]
+OnCalendar=hourly
+Persistent=true
+RandomizedDelaySec=5min
+Unit=jud-image-retention.service
+
+[Install]
+WantedBy=timers.target

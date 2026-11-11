@@ -14,8 +14,20 @@ def rewrite_identities(rule, replacements):
     return rule
 
 
-def build():
+PROFILES = ('synology', 'minisforum')
+TAILSCALE_IP = '100.124.34.45'      # MinisForum; native ingress is published only here (and health on loopback)
+DOCKER_API = '1.44'                 # Docker Engine 29 refuses older client API versions
+MINISFORUM_SLICE = 'jud-observability.slice'
+
+
+def build(profile='synology'):
+    """Compose the collector config. `synology` keeps the existing four routes plus the
+    private GoWithSolar route; `minisforum` is one collector for the four product routes only."""
+    if profile not in PROFILES:
+        raise ValueError('unknown profile ' + profile)
     shared = json.loads((ROOT / 'profiles/synology-existing.json').read_text())
+    if profile == 'minisforum':
+        return minisforum(shared)
     solar = json.loads((ROOT / 'profiles/gowithsolar.json').read_text())
     # Force the project before native Google exporters can inspect resource overrides.
     for name, exporter in shared['exporters'].items():
@@ -74,5 +86,88 @@ def build():
     shared['service']['telemetry'] = solar['service']['telemetry']
     return shared
 
+def minisforum(shared):
+    """One collector for Octospark and Trace Learn, staging and production, on MinisForum.
+
+    Routes, GCP projects, tail sampling and per-route exporters are exactly the Synology
+    profile's; only the host identity, the Docker API version and the container-name
+    filters are specific to this host. No GoWithSolar route and no second collector."""
+    # Force the project before native Google exporters can inspect resource overrides.
+    for name, exporter in shared['exporters'].items():
+        if name.startswith('googlecloud/'):
+            route = name.split('/', 1)[1]
+            shared['processors']['resource/' + route]['attributes'].append(
+                {'key': 'gcp.project.id', 'value': exporter['project'], 'action': 'upsert'})
+    # Docker 29 has a minimum client API of 1.44.
+    shared['receivers']['docker_stats']['api_version'] = DOCKER_API
+    # One queue directory, one memory limiter for the whole host process.
+    shared['extensions']['file_storage/shared'] = {'directory': '/var/lib/shared-queue', 'create_directory': True}
+    shared['service']['extensions'].append('file_storage/shared')
+    for exporter in shared['exporters'].values():
+        exporter['sending_queue'] = {'enabled': True, 'storage': 'file_storage/shared', 'queue_size': 512, 'num_consumers': 2}
+    shared['processors']['memory_limiter']['limit_mib'] = 640
+    shared['processors']['memory_limiter']['spike_limit_mib'] = 96
+    # Per-project container-name filter on docker_stats: each route keeps only its own compose project's
+    # containers (the project's *-data stack matches the same prefix) and drops every other container.
+    for route in ROUTES:
+        rule = shared['processors']['filter/containers-' + route]['metrics']['datapoint']
+        rule[0] = 'attributes["container_name"] != nil and not IsMatch(attributes["container_name"], "^/?%s-.*")' % route
+    # The host identity is MinisForum, not the Synology NAS.
+    raw = json.dumps(shared).replace('synology-primary', 'minisforum')
+    return json.loads(raw)
+
+
+ROUTES = ('octospark-staging', 'octospark-prod', 'trace-learn-staging', 'trace-learn-prod')
+INGRESS = {'octospark-staging': (32018, 4318), 'octospark-prod': (32019, 4319),
+           'trace-learn-staging': (32118, 4320), 'trace-learn-prod': (32119, 4321)}
+
+
+def compose(profile='minisforum'):
+    """Compose file for the collector. Synology's is the checked-in compose.synology.json."""
+    if profile == 'synology':
+        return json.loads((ROOT / 'compose.synology.json').read_text())
+    return {
+        'services': {'host-collector': {
+            'container_name': 'jud-host-otel',
+            'image': IMAGE,
+            'user': '10001:10001',
+            'group_add': ['115'],                 # gid of `docker` on MinisForum: read the docker.sock mount
+            'restart': 'always',
+            'init': True,
+            'mem_limit': '768m',
+            'memswap_limit': '768m',
+            'cpus': 1,
+            'cgroup_parent': MINISFORUM_SLICE,
+            'environment': {
+                'GOOGLE_APPLICATION_CREDENTIALS': '/var/secrets/google/application-default-credentials.json',
+                'GOMEMLIMIT': '576MiB',
+                'GOMAXPROCS': '1',
+            },
+            'command': ['--config=/etc/otel-collector/config.json'],
+            'volumes': [
+                './config.json:/etc/otel-collector/config.json:ro',
+                '/srv/jud/observability/credentials:/var/secrets/google:ro',
+                '/var/run/docker.sock:/var/run/docker.sock:ro',
+                '/proc:/hostfs/proc:ro',
+                '/sys:/hostfs/sys:ro',
+                '/srv/jud/observability/queue-shared:/var/lib/shared-queue',
+            ],
+            'ports': ['%s:%d:%d' % (TAILSCALE_IP, host, container) for host, container in INGRESS.values()]
+                     + ['127.0.0.1:32133:13133'],
+            'networks': {'telemetry': {'aliases': ['jud-otel']}},
+            'logging': {'driver': 'json-file', 'options': {'max-size': '10m', 'max-file': '3'}},
+            'security_opt': ['no-new-privileges:true'],
+            'cap_drop': ['ALL'],
+            'stop_grace_period': '30s',
+        }},
+        'networks': {'telemetry': {'external': True, 'name': 'jud-observability'}},
+    }
+
+
 if __name__ == '__main__':
-    print(json.dumps(build(),indent=2))
+    import argparse
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--profile', choices=PROFILES, default='synology')
+    parser.add_argument('--compose', action='store_true', help='print the compose file instead of the collector config')
+    args = parser.parse_args()
+    print(json.dumps(compose(args.profile) if args.compose else build(args.profile), indent=2))

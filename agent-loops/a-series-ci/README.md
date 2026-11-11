@@ -16,7 +16,15 @@ CI containers labelled with a dead creator PID and age at least three hours,
 anonymous unattached volumes, dangling images, build cache older than seven
 days, and runner checkouts idle for seven days. It skips cache and checkout
 pruning while any job is active. It never prunes named volumes or tagged images.
-Run `python3 /opt/jud-ci/agent-loops/a-series-ci/cleanup.py` for a dry run.
+Run `DOCKER_HOST=... python3 /opt/jud-ci/agent-loops/a-series-ci/cleanup.py` for a dry run.
+
+Every Docker call in `cleanup.py` and `cache-cleanup.sh` takes an explicit `DOCKER_HOST`
+(there is no default). Volume, image and builder prunes, and the BuildKit prune, run only
+when it is the CI daemon socket `unix:///run/user/1001/docker.sock` and are refused
+otherwise, so they can never reach the daemon that also runs staging and production.
+While the shared daemon is still the only one (before `rootless/`), the units point at
+`/var/run/docker.sock` and only the label-scoped ephemeral-container cleanup and checkout
+pruning run. Tests: `python3 -m unittest discover -s tests -p 'test_a_series_cleanup.py'`.
 
 `jud-ci-cache-cleanup.timer` runs weekly (Sunday 03:30 host time). It is the only
 place the persistent CI caches under `/home/ci-runner/.cache/octospark-ci` and

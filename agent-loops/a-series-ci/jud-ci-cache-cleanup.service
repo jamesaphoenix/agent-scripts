@@ -8,5 +8,6 @@ Type=oneshot
 User=ci-runner
 Group=ci-runner
 SupplementaryGroups=docker
+Environment=DOCKER_HOST=unix:///var/run/docker.sock
 ExecStart=/opt/jud-ci/agent-loops/a-series-ci/cache-cleanup.sh
 TimeoutStartSec=60min

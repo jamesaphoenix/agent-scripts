@@ -8,5 +8,9 @@ Type=oneshot
 User=ci-runner
 Group=ci-runner
 SupplementaryGroups=docker
+# Explicit daemon. Until the rootless CI daemon exists this is the shared daemon,
+# where cleanup.py only removes label-scoped ephemeral containers and refuses prunes.
+# rootless/setup-ci-rootless-docker.sh switches this to unix:///run/user/1001/docker.sock.
+Environment=DOCKER_HOST=unix:///var/run/docker.sock
 ExecStart=/usr/bin/python3 /opt/jud-ci/agent-loops/a-series-ci/cleanup.py --apply
 TimeoutStartSec=45min

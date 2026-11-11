@@ -21,6 +21,12 @@ elif [[ $# -gt 0 ]]; then
   exit 2
 fi
 
+# Every Docker call needs an explicit daemon, and the BuildKit prune is only allowed
+# on the CI daemon socket so it can never touch the production daemon's builders.
+: "${DOCKER_HOST:?DOCKER_HOST must be set explicitly (the CI daemon socket)}"
+CI_DOCKER_SOCKET="unix:///run/user/1001/docker.sock"
+export DOCKER_HOST
+
 RUNNER_HOME="${RUNNER_HOME:-/home/ci-runner}"
 MAX_AGE_DAYS="${CI_CACHE_MAX_AGE_DAYS:-14}"
 # buildctl counts --keep-storage in megabytes.
@@ -45,7 +51,7 @@ for repo in octospark smart-cub-learning; do
       smart-cub-learning) repo_env=(); args+=(--retention-days "$MAX_AGE_DAYS") ;;
     esac
     echo "running $script ${args[*]}"
-    if ! env -i HOME="$RUNNER_HOME" PATH=/usr/local/bin:/usr/bin:/bin "${repo_env[@]}" bash "$script" "${args[@]}"; then
+    if ! env -i HOME="$RUNNER_HOME" DOCKER_HOST="$DOCKER_HOST" PATH=/usr/local/bin:/usr/bin:/bin "${repo_env[@]}" bash "$script" "${args[@]}"; then
       echo "$repo cache cleanup failed" >&2
       status=1
     fi
@@ -54,6 +60,10 @@ for repo in octospark smart-cub-learning; do
   container="buildx_buildkit_${BUILDERS[$repo]}0"
   if ! docker container inspect "$container" >/dev/null 2>&1; then
     echo "builder container $container not present; skipping builder prune"
+    continue
+  fi
+  if [[ "$DOCKER_HOST" != "$CI_DOCKER_SOCKET" ]]; then
+    echo "DOCKER_HOST $DOCKER_HOST is not the CI daemon socket; skipping BuildKit prune of $container"
     continue
   fi
   prune=(docker exec "$container" buildctl prune --keep-duration "$((MAX_AGE_DAYS * 24))h" --keep-storage "$KEEP_STORAGE_MB")

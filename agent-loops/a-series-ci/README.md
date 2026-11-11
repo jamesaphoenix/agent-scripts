@@ -86,3 +86,36 @@ Run `sudo agent-loops/a-series-ci/install-runtime.sh` after pulling changes
 on A Series, then restart each idle `jud-actions-runner-N.service`. Check
 `systemctl status jud-ci-cleanup.timer` and the GitHub runner group before
 using the host for releases.
+
+## Hardening for a shared host
+
+The host runs CI, staging, observability and (soon) production. These directories are
+proposals for making that safe; each has its own README with apply and rollback steps,
+and none has been applied yet. Suggested order is in the pull request description.
+
+| Path | What it does |
+|---|---|
+| `retention/` | Hourly release and image retention (dry run by default) and a reclaim report |
+| `rootless/` | Rootless Docker for `ci-runner`; removes the docker group; CI daemon separate from production |
+| `slices/` | systemd slices with memory and CPU budgets per workload class (budget to confirm) |
+| `daemon/` | Proposed `/etc/docker/daemon.json` (live-restore, bounded logs, address pool) |
+| `ports.json`, `check-ports.py` | Port registry and a checker for overlaps, compose files and listeners |
+
+### Port registry
+
+`ports.json` names every range: CI slot ports (4100 to 4302, 3510, 4510 and 17233, each
+plus offsets 0/2000/4000/6000), CI services (15432, 15433, 16379, 16380), staging APIs
+(32080, 32090, 32180), production APIs (32081, 32091, 32181), the collector (32018, 32019,
+32118, 32119, 32133) and staging databases (32432, 32433). Each range says which compose
+projects may publish it and whether it must bind loopback, the Tailscale IP or anywhere.
+
+```sh
+python3 check-ports.py                                              # registry: no overlaps
+python3 check-ports.py --compose docker-compose.prod.yml --project trace-learn-prod
+ssh host ss -ltnH | python3 check-ports.py --listening              # live listeners vs policy
+```
+
+Add the compose check to each product's deploy gate: a published port must be registered
+for its project and bound as its range requires (always give a host IP). Tests:
+`python3 -m unittest discover -s tests -p 'test_a_series_ports.py'`. Today the live check
+flags the four CI service ports as bound on `0.0.0.0`; `rootless/` fixes that.

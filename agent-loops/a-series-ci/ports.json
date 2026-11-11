@@ -1,0 +1,68 @@
+{
+  "version": 1,
+  "host": "minisforum",
+  "tailscale_ip": "100.124.34.45",
+  "comment": "Host port registry. 'bind' is one of loopback (127.0.0.1), tailscale (the tailscale_ip) or any. 'projects' are fnmatch patterns on the compose project name. A 'ports' entry pins a single port to one project.",
+  "ranges": [
+    {
+      "name": "ci-slots",
+      "purpose": "Per-slot CI test servers: slot ports 4100-4302, 3510, 4510 and 17233, each shifted by the offsets.",
+      "base": [[4100, 4302], [3510, 3510], [4510, 4510], [17233, 17233]],
+      "offsets": [0, 2000, 4000, 6000],
+      "projects": ["*-ci", "ci"],
+      "bind": "loopback"
+    },
+    {
+      "name": "ci-services",
+      "purpose": "CI postgres and redis service containers.",
+      "ports": {
+        "15432": {"project": "octospark-ci", "name": "postgres"},
+        "15433": {"project": "trace-learn-ci", "name": "postgres"},
+        "16379": {"project": "octospark-ci", "name": "redis"},
+        "16380": {"project": "trace-learn-ci", "name": "redis"}
+      },
+      "bind": "loopback"
+    },
+    {
+      "name": "staging-apis",
+      "purpose": "Staging HTTP APIs, reached through cloudflared on the same host.",
+      "ports": {
+        "32080": {"project": "octospark-staging", "name": "api"},
+        "32090": {"project": "octospark-staging", "name": "mcp"},
+        "32180": {"project": "trace-learn-staging", "name": "api"}
+      },
+      "bind": "loopback"
+    },
+    {
+      "name": "prod-apis",
+      "purpose": "Production HTTP APIs, reached through cloudflared on the same host.",
+      "ports": {
+        "32081": {"project": "octospark-prod", "name": "api"},
+        "32091": {"project": "octospark-prod", "name": "mcp"},
+        "32181": {"project": "trace-learn-prod", "name": "api"}
+      },
+      "bind": "loopback"
+    },
+    {
+      "name": "collector",
+      "purpose": "Shared OpenTelemetry collector: native OTLP ingress per product and environment, and health.",
+      "ports": {
+        "32018": {"project": "jud-observability", "name": "otlp octospark-staging"},
+        "32019": {"project": "jud-observability", "name": "otlp octospark-prod"},
+        "32118": {"project": "jud-observability", "name": "otlp trace-learn-staging"},
+        "32119": {"project": "jud-observability", "name": "otlp trace-learn-prod"},
+        "32133": {"project": "jud-observability", "name": "health", "bind": "loopback"}
+      },
+      "bind": "tailscale"
+    },
+    {
+      "name": "staging-databases",
+      "purpose": "Staging Postgres, reachable over Tailscale for maintainers.",
+      "ports": {
+        "32432": {"project": "octospark-staging-data", "name": "postgres"},
+        "32433": {"project": "trace-learn-staging-data", "name": "postgres"}
+      },
+      "bind": "tailscale"
+    }
+  ]
+}

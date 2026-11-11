@@ -17,8 +17,10 @@ add the drop-in below.
   matched by name, digest, short ID and, in live mode, exact ID from
   `docker inspect --format '{{.Name}} {{.Image}}'`), or by a kept release.
 - Only images whose every reference is in the configured allow-list are candidates
-  (Synology's five repositories plus the Octospark `renderer` and `media-runtime`
-  repositories present on this host). Untagged images with no references become
+  (exactly Synology's five repositories). The Octospark `renderer` and `media-runtime`
+  repositories (about 300 GB here) are **not** included: they are pinned by the native
+  compute artifacts (`current-render`, media), which this tool does not read. Add them to
+  the config only after those pins are made a protected source. Untagged images with no references become
   candidates after 14 days. Images younger than 48 hours are kept.
 - Never `--force`. Removal is by reference (`docker image rm repo:tag`), at most 10
   images per run (`--max-images 0` removes the cap for a deliberate reclaim).

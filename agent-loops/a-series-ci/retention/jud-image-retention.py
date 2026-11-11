@@ -39,11 +39,13 @@ DEFAULT_CONFIG = {
     'docker_host': 'unix:///var/run/docker.sock',
     'projects': ['octospark-staging', 'trace-learn-staging', 'octospark-prod', 'trace-learn-prod'],
     # product -> registry repositories whose images retention may remove.
-    # The first five are the Synology list; renderer and media-runtime are the
-    # additional Octospark Artifact Registry repositories seen on this host.
+    # Exactly the Synology list. The Octospark `renderer` and `media-runtime`
+    # repositories also exist on this host but are pinned by the native compute
+    # artifacts (current-render / media), which this tool does not read, so they are
+    # opt-in through the config file only once that pin source is protected.
     'allow_repositories': {
         'octospark': ['europe-west3-docker.pkg.dev/octospark-prod/tx-agent-kit/' + r
-                      for r in ('api', 'worker', 'ml', 'renderer', 'media-runtime')],
+                      for r in ('api', 'worker', 'ml')],
         'trace-learn': ['europe-west3-docker.pkg.dev/tracelearn-prod/trace-learn/' + r
                         for r in ('api', 'worker')],
     },

@@ -1,14 +1,16 @@
 [Unit]
 Description=JUD GitHub Actions A Series runner @SLOT@
-After=network-online.target docker.service tailscaled.service
+After=network-online.target user@1001.service tailscaled.service
 Wants=network-online.target
-Requires=docker.service
+Requires=user@1001.service
 
 [Service]
 Type=simple
 User=ci-runner
 Group=ci-runner
-SupplementaryGroups=docker
+# CI talks to ci-runner's own rootless daemon, not the shared production daemon.
+Environment=DOCKER_HOST=unix:///run/user/1001/docker.sock
+Environment=XDG_RUNTIME_DIR=/run/user/1001
 WorkingDirectory=/home/ci-runner/actions-runner-@SLOT@
 ExecStart=/home/ci-runner/actions-runner-@SLOT@/run.sh
 Restart=always

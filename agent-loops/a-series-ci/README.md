@@ -1,8 +1,11 @@
 # A Series GitHub Actions host
 
 Four organisation runners, `a-series-runner-1` through `-4`, run as the
-dedicated `ci-runner` account. The account has standard Docker group access,
-which grants effective host-root access; it must never receive James's dotfiles,
+dedicated `ci-runner` account. The account has no Docker group
+membership (the group grants host root). It uses its own rootless Docker daemon at
+`unix:///run/user/1001/docker.sock`, with its data under
+`/home/ci-runner/.local/share/docker`, so CI never shares a daemon with staging or
+production. See `rootless/README.md`. It must never receive James's dotfiles,
 home directory, SSH agent, or a persistent 1Password service token.
 
 The runner service `.env` files set `TX_RUNNER_SLOT=0..3` and point to the
@@ -22,9 +25,9 @@ Every Docker call in `cleanup.py` and `cache-cleanup.sh` takes an explicit `DOCK
 (there is no default). Volume, image and builder prunes, and the BuildKit prune, run only
 when it is the CI daemon socket `unix:///run/user/1001/docker.sock` and are refused
 otherwise, so they can never reach the daemon that also runs staging and production.
-While the shared daemon is still the only one (before `rootless/`), the units point at
-`/var/run/docker.sock` and only the label-scoped ephemeral-container cleanup and checkout
-pruning run. Tests: `python3 -m unittest discover -s tests -p 'test_a_series_cleanup.py'`.
+The units and runner template set it to the rootless socket, so install them after
+`rootless/` is applied (before that they cannot connect and fail safely). Pointed at any
+other daemon the scripts only remove label-scoped ephemeral containers and checkouts. Tests: `python3 -m unittest discover -s tests -p 'test_a_series_cleanup.py'`.
 
 `jud-ci-cache-cleanup.timer` runs weekly (Sunday 03:30 host time). It is the only
 place the persistent CI caches under `/home/ci-runner/.cache/octospark-ci` and
@@ -51,8 +54,10 @@ Ubuntu's Node 22 package on this host lacks TypeScript type stripping, which
 the auth worker tests need. The installer verifies Node's published SHA-256
 checksum and links Node/Corepack under `/usr/local/bin`. Install the CLIs
 from their signed vendor APT repositories. Confirm `qemu-aarch64` is
-registered in `/proc/sys/fs/binfmt_misc/`, and confirm the Docker socket is
-`/var/run/docker.sock`.
+registered in `/proc/sys/fs/binfmt_misc/`. The shared daemon keeps `/var/run/docker.sock`
+for the staging and production stacks (see `daemon/`); CI uses the rootless socket.
+Run `sudo agent-loops/a-series-ci/rootless/setup-ci-rootless-docker.sh --check`, then
+the script itself, before provisioning runners.
 
 From a checked-out Octospark workspace with dependencies installed, run
 `sudo env PATH=/usr/local/bin:/usr/bin:/bin pnpm --filter @tx-agent-kit/web exec playwright install-deps chromium`

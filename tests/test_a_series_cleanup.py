@@ -88,7 +88,14 @@ class Main(unittest.TestCase):
 
     def test_units_set_an_explicit_docker_host(self):
         for name in ('jud-ci-cleanup.service', 'jud-ci-cache-cleanup.service'):
-            self.assertIn('Environment=DOCKER_HOST=', (BASE / name).read_text())
+            text = (BASE / name).read_text()
+            self.assertIn('Environment=DOCKER_HOST=' + CI, text)
+            self.assertNotIn('SupplementaryGroups=docker', text)
+        template = (BASE / 'runner.service.template').read_text()
+        self.assertIn('Environment=DOCKER_HOST=' + CI, template)
+        self.assertNotIn('docker.service', template)
+        self.assertNotIn('SupplementaryGroups=docker', template)
+        self.assertNotIn('usermod -aG docker', (BASE / 'provision-runners.sh').read_text())
 
 
 if __name__ == '__main__':

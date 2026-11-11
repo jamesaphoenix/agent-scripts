@@ -156,7 +156,9 @@ phase_install() {
     fi
   fi
   if ! rootless_unit; then
-    as_ci_do dockerd-rootless-setuptool.sh install
+    # --force: the setup tool otherwise aborts because the rootful socket is reachable (ci-runner is
+    # still in the docker group until the group phase). It only skips that check.
+    as_ci_do dockerd-rootless-setuptool.sh install --force
   fi
   rootless_active || as_ci_do systemctl --user enable --now docker.service
   if [[ "$MODE" != dry ]]; then

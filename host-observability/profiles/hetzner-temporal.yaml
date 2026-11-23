@@ -35,7 +35,7 @@ receivers:
   # filled, Postgres stopped and nothing alerted because GCP had no host data).
   # Requires the read-only host root mount at /hostfs on the collector service.
   # Deliberately minimal: one gauge per signal, ~15 series in total.
-  hostmetrics:
+  host_metrics:
     root_path: /hostfs
     collection_interval: 60s
     scrapers:
@@ -83,7 +83,7 @@ processors:
     check_interval: 1s
     limit_mib: 256
     spike_limit_mib: 64
-  resourcedetection:
+  resource_detection:
     detectors: [env]
     timeout: 5s
     override: false
@@ -132,11 +132,11 @@ service:
       receivers: [prometheus]
       # Do not add batch here. GMP can reject more than one point per series in
       # a single request, and the Temporal Server scrape volume is tiny.
-      processors: [memory_limiter, resourcedetection, resource]
+      processors: [memory_limiter, resource_detection, resource]
       exporters: [googlemanagedprometheus]
     metrics/host:
-      receivers: [hostmetrics]
-      processors: [memory_limiter, resourcedetection, resource, resource/host]
+      receivers: [host_metrics]
+      processors: [memory_limiter, resource_detection, resource, resource/host]
       exporters: [googlemanagedprometheus]
 
   telemetry:

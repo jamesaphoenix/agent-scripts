@@ -78,6 +78,10 @@ There is already one Collector process, alongside the shared Temporal service.
 allowlisted Temporal error/backlog metrics and exports to its dedicated infrastructure
 project. Preserve `OTEL_METRICS_GCP_PROJECT` separately from the backup bucket project.
 The live mount is `/opt/octospark-temporal/otel/otel-collector.gcp.yaml`.
+It also runs `hostmetrics` (root disk, memory, swap, 5-minute load; about
+15 series) through a read-only `/:/hostfs` mount, as job
+`octospark-temporal/temporal-host`, feeding the Octospark Temporal-host alert
+policies (added after the 2026-11-23 disk-full outage).
 No duplicate Collector was started. Add application ingress and project-specific
 pipelines here only when workloads actually run on that host. Do not send all
 Synology traffic across the tailnet just to centralise collection.
